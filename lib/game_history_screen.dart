@@ -1,7 +1,7 @@
-import 'dart:convert';
+import 'package:card_game_score_counter/score_board_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'score_board_screen.dart';
+import 'dart:convert';
 
 class GameHistoryScreen extends StatefulWidget {
   final Function(Map<String, dynamic>) continueGame;
@@ -12,16 +12,17 @@ class GameHistoryScreen extends StatefulWidget {
   });
 
   @override
-  // ignore: library_private_types_in_public_api
   _GameHistoryScreenState createState() => _GameHistoryScreenState();
 }
 
 class _GameHistoryScreenState extends State<GameHistoryScreen> {
   List<Map<String, dynamic>> gameHistory = [];
+  bool isDescending = true; // Default sorting order
 
   @override
   void initState() {
     super.initState();
+    _loadSortingPreference();
     _loadGameHistory();
   }
 
@@ -31,13 +32,36 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     setState(() {
       gameHistory = gameHistoryData.asMap().entries.map((entry) {
         final Map<String, dynamic> gameMap = jsonDecode(entry.value);
-        gameMap['date'] = gameMap.containsKey('date') ? DateTime.parse(gameMap['date']) : DateTime.now();
+        gameMap['date'] = gameMap.containsKey('date') ? DateTime.parse(gameMap['date']) : null;
         if (!gameMap.containsKey('title')) {
           gameMap['title'] = 'Игра ${gameHistoryData.length - entry.key}';
         }
         return gameMap;
       }).toList();
-      gameHistory.sort((a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime)); // Сортировка по дате
+      _sortGameHistory();
+    });
+  }
+
+  Future<void> _saveSortingPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isDescending', isDescending);
+  }
+
+  Future<void> _loadSortingPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      isDescending = prefs.getBool('isDescending') ?? true;
+    });
+  }
+
+  void _sortGameHistory() {
+    gameHistory.sort((a, b) {
+      final dateA = a['date'] as DateTime?;
+      final dateB = b['date'] as DateTime?;
+      if (dateA == null && dateB == null) return 0;
+      if (dateA == null) return 1;
+      if (dateB == null) return -1;
+      return isDescending ? dateB.compareTo(dateA) : dateA.compareTo(dateB);
     });
   }
 
@@ -48,6 +72,7 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     await prefs.setStringList('gameHistory', gameHistoryData);
     setState(() {
       gameHistory.removeAt(index);
+      _sortGameHistory(); // Ensure the order is maintained after deletion
     });
   }
 
@@ -107,6 +132,18 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('История игр'),
+        actions: [
+          IconButton(
+            icon: Icon(isDescending ? Icons.arrow_downward : Icons.arrow_upward),
+            onPressed: () {
+              setState(() {
+                isDescending = !isDescending;
+                _sortGameHistory();
+                _saveSortingPreference();
+              });
+            },
+          ),
+        ],
       ),
       body: ListView.builder(
         itemCount: gameHistory.length,
@@ -115,7 +152,7 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
           final date = game['date'] as DateTime?;
           final formattedDate = _formatDate(date);
           final title = game['title'] ?? 'Игра ${gameHistory.length - index}';
-          
+
           // Условное изменение цвета текста заголовка
           final titleColor = isDarkTheme ? const Color(0xFFC2B8ED) : Colors.purple;
 
@@ -130,9 +167,9 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
                   TextSpan(
                     text: '$title ',
                     style: TextStyle(
-                      color: titleColor, 
-                      fontSize: 18, 
-                      fontWeight: FontWeight.bold
+                      color: titleColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ), // Увеличение размера и изменение жирности
                   ),
                   TextSpan(
