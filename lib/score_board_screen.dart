@@ -28,6 +28,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   int rounds = 0;
   List<int> dividerIndices = [];
   int dealerIndex = 0;
+  double _textSize = 16.0;
 
   @override
   void initState() {
@@ -44,12 +45,20 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       remainingPlayers = List.from(widget.players);
     }
     _fixDealerIndex();
+    _loadTextSize();
   }
 
   void _fixDealerIndex() {
     if (dealerIndex >= remainingPlayers.length) {
       dealerIndex = remainingPlayers.length - 1;
     }
+  }
+
+  Future<void> _loadTextSize() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _textSize = prefs.getDouble('textSize') ?? 16.0;
+    });
   }
 
   Future<void> _updateGameHistory() async {
@@ -265,10 +274,8 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                                 Text(
                                   score == '—' ? '—' : '$score',
                                   style: TextStyle(
-                                    fontSize: 20.0,
-                                    color: isEliminated && roundIndex > scores[index].lastIndexWhere((s) => s is int && s >= 100)
-                                        ? Colors.transparent
-                                        : textColor,
+                                    fontSize: _textSize,
+                                    color: isEliminated && score == '—' ? Colors.transparent : textColor,
                                   ),
                                 ),
                                 if (dividerIndices.contains(roundIndex + 1))
