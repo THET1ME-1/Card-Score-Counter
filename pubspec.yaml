@@ -1,5 +1,5 @@
-name: card_game_score_counter
-description: "A new Flutter module project."
+name: ScoreMaster
+description: "Приложение для учёта очков в игре в карты."
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -15,7 +15,7 @@ description: "A new Flutter module project."
 # This version is used _only_ for the Runner app, which is used if you just do
 # a `flutter run` or a `flutter make-host-app-editable`. It has no impact
 # on any other native host app that you embed your Flutter project into.
-version: 1.0.0+1
+version: 1.0.5
 
 environment:
   sdk: '>=3.4.3 <4.0.0'
