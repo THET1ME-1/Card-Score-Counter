@@ -66,21 +66,11 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       'date': DateTime.now().toIso8601String(),
     };
 
-    if (widget.initialData != null) {
-      final int index = gameHistory.indexWhere((game) {
-        final Map<String, dynamic> gameMap = jsonDecode(game);
-        return List<String>.from(gameMap['players']).join(',') == widget.players.join(',');
-      });
-
-      if (index != -1) {
-        gameHistory[index] = jsonEncode(gameData);
-      } else {
-        gameHistory.add(jsonEncode(gameData));
-      }
-    } else {
-      gameHistory.add(jsonEncode(gameData));
+    if (gameHistory.isNotEmpty) {
+      gameHistory.removeLast();
     }
 
+    gameHistory.add(jsonEncode(gameData));
     await prefs.setStringList('gameHistory', gameHistory);
   }
 
@@ -111,7 +101,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
 
       for (int i = 0; i < widget.players.length; i++) {
         if (eliminatedPlayers.contains(widget.players[i])) {
-          scores[i].add('—'); // Добавляем длинное тире для проигравшего игрока
+          scores[i].add('—');
           continue;
         }
 
@@ -222,6 +212,16 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
     });
   }
 
+  ButtonStyle buttonStyle(BuildContext context) {
+    return ElevatedButton.styleFrom(
+      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 24.0),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      minimumSize: const Size(100, 50),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
@@ -238,72 +238,81 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
           },
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: <Widget>[
-            Row(
-              children: [
-                ...widget.players.asMap().entries.map((entry) {
-                  int index = entry.key;
-                  String player = entry.value;
-                  bool isEliminated = eliminatedPlayers.contains(player);
-                  bool isCurrentPlayer = remainingPlayers.isNotEmpty && dealerIndex < remainingPlayers.length && remainingPlayers[dealerIndex] == player;
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween, // Разделяет пространство между верхней частью и нижними кнопками
+        children: <Widget>[
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: <Widget>[
+                  Row(
+                    children: [
+                      ...widget.players.asMap().entries.map((entry) {
+                        int index = entry.key;
+                        String player = entry.value;
+                        bool isEliminated = eliminatedPlayers.contains(player);
+                        bool isCurrentPlayer = remainingPlayers.isNotEmpty && dealerIndex < remainingPlayers.length && remainingPlayers[dealerIndex] == player;
 
-                  return Expanded(
-                    child: Column(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            color: isCurrentPlayer ? currentPlayerColor : Colors.transparent,
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
-                          child: Text(
-                            player,
-                            maxLines: 1,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18.0,
-                              color: isEliminated
-                                  ? Colors.red
-                                  : (isCurrentPlayer ? (isDarkTheme ? Colors.black : Colors.white) : textColor),
-                            ),
-                          ),
-                        ),
-                        Column(
-                          children: scores[index].asMap().entries.map((entry) {
-                            int roundIndex = entry.key;
-                            var score = entry.value;
-                            return Column(
-                              children: [
-                                Text(
-                                  score == '—' ? '—' : '$score',
+                        return Expanded(
+                          child: Column(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  color: isCurrentPlayer ? currentPlayerColor : Colors.transparent,
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+                                child: Text(
+                                  player,
+                                  maxLines: 1,
                                   style: TextStyle(
-                                    fontSize: 20.0,
-                                    color: isEliminated && score == '—' ? Colors.transparent : textColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18.0,
+                                    color: isEliminated
+                                        ? Colors.red
+                                        : (isCurrentPlayer ? (isDarkTheme ? Colors.black : Colors.white) : textColor),
                                   ),
                                 ),
-                                if (dividerIndices.contains(roundIndex + 1))
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 8.0),
-                                    child: Divider(thickness: 2),
-                                  ),
-                              ],
-                            );
-                          }).toList(),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ],
+                              ),
+                              Column(
+                                children: scores[index].asMap().entries.map((entry) {
+                                  int roundIndex = entry.key;
+                                  var score = entry.value;
+                                  return Column(
+                                    children: [
+                                      Text(
+                                        score == '—' ? '—' : '$score',
+                                        style: TextStyle(
+                                          fontSize: 20.0,
+                                          color: isEliminated && score == '—' ? Colors.transparent : textColor,
+                                        ),
+                                      ),
+                                      if (dividerIndices.contains(roundIndex + 1))
+                                        const Padding(
+                                          padding: EdgeInsets.symmetric(vertical: 8.0),
+                                          child: Divider(thickness: 2),
+                                        ),
+                                    ],
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                IconButton(
+                ElevatedButton(
                   onPressed: remainingPlayers.length > 1
                       ? () {
                           Navigator.push(
@@ -317,20 +326,23 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                           );
                         }
                       : null,
-                  icon: const Icon(Icons.add, size: 30),
+                  style: buttonStyle(context),
+                  child: const Icon(Icons.add, size: 30),
                 ),
-                IconButton(
+                ElevatedButton(
                   onPressed: undoLastRound,
-                  icon: const Icon(Icons.undo, size: 30),
+                  style: buttonStyle(context),
+                  child: const Icon(Icons.undo, size: 30),
                 ),
-                IconButton(
+                ElevatedButton(
                   onPressed: editLastRoundScores,
-                  icon: const Icon(Icons.edit, size: 30),
+                  style: buttonStyle(context),
+                  child: const Icon(Icons.edit, size: 30),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
