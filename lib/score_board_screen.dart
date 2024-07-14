@@ -27,6 +27,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   int rounds = 0;
   List<int> dividerIndices = [];
   int dealerIndex = 0;
+  String? gameId;
 
   @override
   void initState() {
@@ -38,9 +39,11 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       rounds = widget.initialData!['rounds'] ?? 0;
       dividerIndices = List<int>.from(widget.initialData!['dividerIndices'] ?? []);
       dealerIndex = widget.initialData!['dealerIndex'] ?? 0;
+      gameId = widget.initialData!['gameId'];
     } else {
       scores = List.generate(widget.players.length, (_) => []);
       remainingPlayers = List.from(widget.players);
+      gameId = DateTime.now().millisecondsSinceEpoch.toString(); // Уникальный идентификатор игры
     }
     _fixDealerIndex();
   }
@@ -55,6 +58,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
     final prefs = await SharedPreferences.getInstance();
     final gameHistory = prefs.getStringList('gameHistory') ?? [];
     final gameData = {
+      'gameId': gameId,
       'players': widget.players,
       'scores': scores,
       'rounds': rounds,
@@ -65,11 +69,17 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       'date': DateTime.now().toIso8601String(), // Добавляем текущую дату
     };
 
-    if (gameHistory.isNotEmpty) {
-      gameHistory.removeLast(); // Удаляем последнюю запись, если она существует
+    final index = gameHistory.indexWhere((game) {
+      final Map<String, dynamic> existingGame = jsonDecode(game);
+      return existingGame['gameId'] == gameId;
+    });
+
+    if (index != -1) {
+      gameHistory[index] = jsonEncode(gameData);
+    } else {
+      gameHistory.add(jsonEncode(gameData));
     }
 
-    gameHistory.add(jsonEncode(gameData));
     await prefs.setStringList('gameHistory', gameHistory);
   }
 
@@ -134,7 +144,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
         widget.endCurrentGame();
       } else if (remainingPlayers.isNotEmpty) {
         rounds++;
-        if (rounds % remainingPlayers.length == 0) {
+        if (rounds % widget.players.length == 0) {
           dividerIndices.add(scores[0].length);
         }
         dealerIndex = (dealerIndex + 1) % remainingPlayers.length;

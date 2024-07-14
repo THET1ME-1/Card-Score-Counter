@@ -30,15 +30,14 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     final prefs = await SharedPreferences.getInstance();
     final gameHistoryData = prefs.getStringList('gameHistory') ?? [];
     setState(() {
-      gameHistory = gameHistoryData.asMap().entries.map((entry) {
-        final Map<String, dynamic> gameMap = jsonDecode(entry.value);
+      gameHistory = gameHistoryData.map((game) {
+        final gameMap = jsonDecode(game) as Map<String, dynamic>;
         gameMap['date'] = gameMap.containsKey('date') && gameMap['date'] != null 
             ? DateTime.parse(gameMap['date']) 
             : DateTime.now(); // Assign current date if 'date' is null
         if (!gameMap.containsKey('title')) {
-          gameMap['title'] = 'Игра ${gameHistoryData.length - entry.key}';
+          gameMap['title'] = 'Игра ${gameHistoryData.length - gameHistoryData.indexOf(game)}';
         }
-        gameMap['gameIndex'] = entry.key; // Save the index of the game in the list
         return gameMap;
       }).toList();
       _sortGameHistory();
