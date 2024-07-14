@@ -153,7 +153,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
             remainingPlayers.remove(widget.players[i]);
           }
         }
-        dealerIndex = rounds % remainingPlayers.length;
+        dealerIndex = remainingPlayers.isNotEmpty ? rounds % remainingPlayers.length : 0;
         _updateGameHistory();
       }
     });
@@ -202,7 +202,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDarkTheme ? Colors.white : Colors.black;
-    const dealerColor = Color(0xFFC2B8ED);
+    final currentPlayerColor = isDarkTheme ? const Color(0xFFC2B8ED) : Colors.purple;
 
     return Scaffold(
       appBar: AppBar(
@@ -224,12 +224,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                   int index = entry.key;
                   String player = entry.value;
                   bool isEliminated = eliminatedPlayers.contains(player);
-                  bool isDealer = false;
-                  bool isCurrentPlayer = remainingPlayers.isNotEmpty && remainingPlayers[dealerIndex] == player;
-
-                  if (!isEliminated) {
-                    isDealer = remainingPlayers.isNotEmpty && remainingPlayers[dealerIndex] == player;
-                  }
+                  bool isCurrentPlayer = remainingPlayers.isNotEmpty && remainingPlayers.length > dealerIndex && remainingPlayers[dealerIndex] == player;
 
                   return Expanded(
                     child: Column(
@@ -237,9 +232,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                         Container(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
-                            color: isDealer && !isEliminated
-                                ? dealerColor
-                                : (isCurrentPlayer && !isDarkTheme ? Colors.purple : Colors.transparent),
+                            color: isCurrentPlayer ? currentPlayerColor : Colors.transparent,
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
                           child: Text(
@@ -250,9 +243,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                               fontSize: 18.0,
                               color: isEliminated
                                   ? Colors.red
-                                  : (isCurrentPlayer && !isDarkTheme
-                                      ? Colors.white
-                                      : (isCurrentPlayer && isDarkTheme ? Colors.black : textColor)),
+                                  : (isCurrentPlayer ? (isDarkTheme ? Colors.black : Colors.white) : textColor),
                             ),
                           ),
                         ),
