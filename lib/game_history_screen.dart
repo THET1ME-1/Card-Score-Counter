@@ -38,6 +38,7 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
         if (!gameMap.containsKey('title')) {
           gameMap['title'] = 'Игра ${gameHistoryData.length - entry.key}';
         }
+        gameMap['gameIndex'] = entry.key; // Save the index of the game in the list
         return gameMap;
       }).toList();
       _sortGameHistory();

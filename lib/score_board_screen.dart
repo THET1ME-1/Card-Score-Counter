@@ -17,7 +17,6 @@ class ScoreBoardScreen extends StatefulWidget {
   });
 
   @override
-  // ignore: library_private_types_in_public_api
   _ScoreBoardScreenState createState() => _ScoreBoardScreenState();
 }
 
@@ -28,7 +27,6 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   int rounds = 0;
   List<int> dividerIndices = [];
   int dealerIndex = 0;
-  double _textSize = 16.0;
 
   @override
   void initState() {
@@ -45,20 +43,12 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       remainingPlayers = List.from(widget.players);
     }
     _fixDealerIndex();
-    _loadTextSize();
   }
 
   void _fixDealerIndex() {
     if (dealerIndex >= remainingPlayers.length) {
       dealerIndex = remainingPlayers.length - 1;
     }
-  }
-
-  Future<void> _loadTextSize() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _textSize = prefs.getDouble('textSize') ?? 16.0;
-    });
   }
 
   Future<void> _updateGameHistory() async {
@@ -72,8 +62,13 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       'eliminatedPlayers': eliminatedPlayers,
       'dividerIndices': dividerIndices,
       'dealerIndex': dealerIndex,
+      'date': DateTime.now().toIso8601String(), // Добавляем текущую дату
     };
-    gameHistory.removeLast();
+
+    if (gameHistory.isNotEmpty) {
+      gameHistory.removeLast(); // Удаляем последнюю запись, если она существует
+    }
+
     gameHistory.add(jsonEncode(gameData));
     await prefs.setStringList('gameHistory', gameHistory);
   }
@@ -269,14 +264,13 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                           children: scores[index].asMap().entries.map((entry) {
                             int roundIndex = entry.key;
                             var score = entry.value;
-                            bool isPostEliminationRound = scores[index].skip(roundIndex).any((s) => s == '—' && s != score);
                             return Column(
                               children: [
                                 Text(
-                                  score == '—' && isPostEliminationRound ? '' : '$score',
+                                  score == '—' ? '—' : '$score',
                                   style: TextStyle(
-                                    fontSize: _textSize,
-                                    color: isEliminated && isPostEliminationRound ? Colors.transparent : textColor,
+                                    fontSize: 20.0,
+                                    color: isEliminated && score == '—' ? Colors.transparent : textColor,
                                   ),
                                 ),
                                 if (dividerIndices.contains(roundIndex + 1))
