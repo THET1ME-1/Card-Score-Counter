@@ -266,7 +266,9 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                                   score == '—' ? '—' : '$score',
                                   style: TextStyle(
                                     fontSize: 20.0,
-                                    color: isEliminated && score == '—' ? Colors.transparent : textColor,
+                                    color: isEliminated && roundIndex > scores[index].lastIndexWhere((s) => s is int && s >= 100)
+                                        ? Colors.transparent
+                                        : textColor,
                                   ),
                                 ),
                                 if (dividerIndices.contains(roundIndex + 1))

@@ -1,6 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'score_board_screen.dart';
 
 class GameHistoryScreen extends StatefulWidget {
@@ -31,12 +31,13 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     setState(() {
       gameHistory = gameHistoryData.asMap().entries.map((entry) {
         final Map<String, dynamic> gameMap = jsonDecode(entry.value);
-        gameMap['date'] = gameMap.containsKey('date') ? DateTime.parse(gameMap['date']) : null;
+        gameMap['date'] = gameMap.containsKey('date') ? DateTime.parse(gameMap['date']) : DateTime.now();
         if (!gameMap.containsKey('title')) {
           gameMap['title'] = 'Игра ${gameHistoryData.length - entry.key}';
         }
         return gameMap;
       }).toList();
+      gameHistory.sort((a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime)); // Сортировка по дате
     });
   }
 
