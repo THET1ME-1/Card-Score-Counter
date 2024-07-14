@@ -43,6 +43,13 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       scores = List.generate(widget.players.length, (_) => []);
       remainingPlayers = List.from(widget.players);
     }
+    _fixDealerIndex();
+  }
+
+  void _fixDealerIndex() {
+    if (dealerIndex >= remainingPlayers.length) {
+      dealerIndex = remainingPlayers.length - 1;
+    }
   }
 
   Future<void> _updateGameHistory() async {
@@ -153,7 +160,8 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
             remainingPlayers.remove(widget.players[i]);
           }
         }
-        dealerIndex = remainingPlayers.isNotEmpty ? rounds % remainingPlayers.length : 0;
+        dealerIndex = rounds % remainingPlayers.length;
+        _fixDealerIndex();
         _updateGameHistory();
       }
     });
@@ -188,6 +196,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                     }
                     remainingIndex++;
                   }
+                  _fixDealerIndex();
                   _updateGameHistory();
                 });
               },
@@ -224,7 +233,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                   int index = entry.key;
                   String player = entry.value;
                   bool isEliminated = eliminatedPlayers.contains(player);
-                  bool isCurrentPlayer = remainingPlayers.isNotEmpty && remainingPlayers.length > dealerIndex && remainingPlayers[dealerIndex] == player;
+                  bool isCurrentPlayer = remainingPlayers.isNotEmpty && dealerIndex < remainingPlayers.length && remainingPlayers[dealerIndex] == player;
 
                   return Expanded(
                     child: Column(
