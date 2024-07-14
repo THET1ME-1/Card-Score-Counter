@@ -28,6 +28,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   int rounds = 0;
   List<int> dividerIndices = [];
   int dealerIndex = 0;
+  double _textSize = 16.0;
 
   @override
   void initState() {
@@ -44,12 +45,20 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       remainingPlayers = List.from(widget.players);
     }
     _fixDealerIndex();
+    _loadTextSize();
   }
 
   void _fixDealerIndex() {
     if (dealerIndex >= remainingPlayers.length) {
       dealerIndex = remainingPlayers.length - 1;
     }
+  }
+
+  Future<void> _loadTextSize() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _textSize = prefs.getDouble('textSize') ?? 16.0;
+    });
   }
 
   Future<void> _updateGameHistory() async {
@@ -63,16 +72,9 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       'eliminatedPlayers': eliminatedPlayers,
       'dividerIndices': dividerIndices,
       'dealerIndex': dealerIndex,
-      'date': DateTime.now().toIso8601String(), // Сохраняем текущую дату и время
     };
-    if (widget.initialData == null) {
-      gameHistory.add(jsonEncode(gameData));
-    } else {
-      final index = gameHistory.indexWhere((element) => jsonDecode(element)['date'] == widget.initialData!['date']);
-      if (index != -1) {
-        gameHistory[index] = jsonEncode(gameData);
-      }
-    }
+    gameHistory.removeLast();
+    gameHistory.add(jsonEncode(gameData));
     await prefs.setStringList('gameHistory', gameHistory);
   }
 
@@ -240,9 +242,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                   int index = entry.key;
                   String player = entry.value;
                   bool isEliminated = eliminatedPlayers.contains(player);
-                  bool isCurrentPlayer = remainingPlayers.isNotEmpty &&
-                      dealerIndex < remainingPlayers.length &&
-                      remainingPlayers[dealerIndex] == player;
+                  bool isCurrentPlayer = remainingPlayers.isNotEmpty && dealerIndex < remainingPlayers.length && remainingPlayers[dealerIndex] == player;
 
                   return Expanded(
                     child: Column(
@@ -261,9 +261,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                               fontSize: 18.0,
                               color: isEliminated
                                   ? Colors.red
-                                  : (isCurrentPlayer
-                                      ? (isDarkTheme ? Colors.black : Colors.white)
-                                      : textColor),
+                                  : (isCurrentPlayer ? (isDarkTheme ? Colors.black : Colors.white) : textColor),
                             ),
                           ),
                         ),
@@ -271,15 +269,14 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                           children: scores[index].asMap().entries.map((entry) {
                             int roundIndex = entry.key;
                             var score = entry.value;
+                            bool isPostEliminationRound = scores[index].skip(roundIndex).any((s) => s == '—' && s != score);
                             return Column(
                               children: [
                                 Text(
-                                  score == '—' ? '—' : '$score',
+                                  score == '—' && isPostEliminationRound ? '' : '$score',
                                   style: TextStyle(
-                                    fontSize: 20.0,
-                                    color: isEliminated && roundIndex >= scores[index].indexWhere((s) => s == '—')
-                                        ? Colors.transparent
-                                        : textColor,
+                                    fontSize: _textSize,
+                                    color: isEliminated && isPostEliminationRound ? Colors.transparent : textColor,
                                   ),
                                 ),
                                 if (dividerIndices.contains(roundIndex + 1))

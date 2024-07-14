@@ -12,7 +12,6 @@ class GameHistoryScreen extends StatefulWidget {
   });
 
   @override
-  // ignore: library_private_types_in_public_api
   _GameHistoryScreenState createState() => _GameHistoryScreenState();
 }
 
@@ -33,7 +32,9 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     setState(() {
       gameHistory = gameHistoryData.asMap().entries.map((entry) {
         final Map<String, dynamic> gameMap = jsonDecode(entry.value);
-        gameMap['date'] = gameMap.containsKey('date') ? DateTime.parse(gameMap['date']) : null;
+        gameMap['date'] = gameMap.containsKey('date') && gameMap['date'] != null 
+            ? DateTime.parse(gameMap['date']) 
+            : DateTime.now(); // Assign current date if 'date' is null
         if (!gameMap.containsKey('title')) {
           gameMap['title'] = 'Игра ${gameHistoryData.length - entry.key}';
         }
@@ -154,10 +155,7 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
           final formattedDate = _formatDate(date);
           final title = game['title'] ?? 'Игра ${gameHistory.length - index}';
 
-          // Условное изменение цвета текста заголовка
           final titleColor = isDarkTheme ? const Color(0xFFC2B8ED) : Colors.purple;
-
-          // Цвет текста даты на основе темы
           final dateColor = isDarkTheme ? Colors.white : Colors.black;
 
           return ListTile(
@@ -171,11 +169,11 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
                       color: titleColor,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                    ), // Увеличение размера и изменение жирности
+                    ),
                   ),
                   TextSpan(
                     text: '- $formattedDate',
-                    style: TextStyle(color: dateColor, fontSize: 16), // Увеличение размера
+                    style: TextStyle(color: dateColor, fontSize: 16),
                   ),
                 ],
               ),
