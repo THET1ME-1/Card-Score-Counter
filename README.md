@@ -1,6 +1,6 @@
 # card_game_score_counter
 
-A new Flutter module project.
+ Приложения для подсчета очков в игре в карты.
 
 ## Getting Started
 
