@@ -1,7 +1,7 @@
-import 'package:card_game_score_counter/score_board_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'score_board_screen.dart';
 
 class GameHistoryScreen extends StatefulWidget {
   final Function(Map<String, dynamic>) continueGame;
@@ -12,6 +12,7 @@ class GameHistoryScreen extends StatefulWidget {
   });
 
   @override
+  // ignore: library_private_types_in_public_api
   _GameHistoryScreenState createState() => _GameHistoryScreenState();
 }
 
