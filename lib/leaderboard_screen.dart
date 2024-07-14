@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'player_profile.dart';
 import 'dart:convert';
+import 'package:syncfusion_flutter_charts/charts.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
   _LeaderboardScreenState createState() => _LeaderboardScreenState();
 }
 
@@ -41,18 +41,41 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       appBar: AppBar(
         title: const Text('Таблица лидеров'),
       ),
-      body: ListView.builder(
-        itemCount: profiles.length,
-        itemBuilder: (context, index) {
-          final profile = profiles[index];
-          return ListTile(
-            leading: CircleAvatar(
-              backgroundColor: profile.color,
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              itemCount: profiles.length,
+              itemBuilder: (context, index) {
+                final profile = profiles[index];
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: profile.color,
+                  ),
+                  title: Text(profile.name),
+                  trailing: Text('Победы: ${profile.wins}'),
+                );
+              },
             ),
-            title: Text(profile.name),
-            trailing: Text('Победы: ${profile.wins}'),
-          );
-        },
+          ),
+          SizedBox(
+            height: 300.0,
+            child: SfCircularChart(
+              title: ChartTitle(text: 'Количество побед игроков'),
+              legend: Legend(isVisible: true),
+              series: <CircularSeries>[
+                PieSeries<PlayerProfile, String>(
+                  dataSource: profiles,
+                  xValueMapper: (PlayerProfile profile, _) => profile.name,
+                  yValueMapper: (PlayerProfile profile, _) => profile.wins,
+                  pointColorMapper: (PlayerProfile profile, _) =>
+                      profile.color,
+                  dataLabelSettings: DataLabelSettings(isVisible: true),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
