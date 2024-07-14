@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'package:uuid/uuid.dart';
 import 'add_scores_screen.dart';
 import 'player_profile.dart';
 
@@ -18,25 +17,21 @@ class ScoreBoardScreen extends StatefulWidget {
   });
 
   @override
-  // ignore: library_private_types_in_public_api
   _ScoreBoardScreenState createState() => _ScoreBoardScreenState();
 }
 
 class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
-  final uuid = const Uuid();
   List<List<dynamic>> scores = [];
   List<String> remainingPlayers = [];
   List<String> eliminatedPlayers = [];
   int rounds = 0;
   List<int> dividerIndices = [];
   int dealerIndex = 0;
-  late String gameId;
 
   @override
   void initState() {
     super.initState();
     if (widget.initialData != null) {
-      gameId = widget.initialData!['id'];
       scores = List<List<dynamic>>.from(widget.initialData!['scores'] ?? []);
       remainingPlayers = List<String>.from(widget.initialData!['remainingPlayers'] ?? []);
       eliminatedPlayers = List<String>.from(widget.initialData!['eliminatedPlayers'] ?? []);
@@ -44,7 +39,6 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       dividerIndices = List<int>.from(widget.initialData!['dividerIndices'] ?? []);
       dealerIndex = widget.initialData!['dealerIndex'] ?? 0;
     } else {
-      gameId = uuid.v4();
       scores = List.generate(widget.players.length, (_) => []);
       remainingPlayers = List.from(widget.players);
     }
@@ -61,7 +55,6 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
     final prefs = await SharedPreferences.getInstance();
     final gameHistory = prefs.getStringList('gameHistory') ?? [];
     final gameData = {
-      'id': gameId,
       'players': widget.players,
       'scores': scores,
       'rounds': rounds,
@@ -72,13 +65,17 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       'date': DateTime.now().toIso8601String(),
     };
 
-    final gameIndex = gameHistory.indexWhere((game) {
-      final gameMap = jsonDecode(game) as Map<String, dynamic>;
-      return gameMap['id'] == gameId;
-    });
+    if (widget.initialData != null) {
+      final int index = gameHistory.indexWhere((game) {
+        final Map<String, dynamic> gameMap = jsonDecode(game);
+        return List<String>.from(gameMap['players']).join(',') == widget.players.join(',');
+      });
 
-    if (gameIndex != -1) {
-      gameHistory[gameIndex] = jsonEncode(gameData);
+      if (index != -1) {
+        gameHistory[index] = jsonEncode(gameData);
+      } else {
+        gameHistory.add(jsonEncode(gameData));
+      }
     } else {
       gameHistory.add(jsonEncode(gameData));
     }
