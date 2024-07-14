@@ -8,6 +8,7 @@ class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _LeaderboardScreenState createState() => _LeaderboardScreenState();
 }
 
@@ -61,8 +62,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           SizedBox(
             height: 300.0,
             child: SfCircularChart(
-              title: ChartTitle(text: 'Количество побед игроков'),
-              legend: Legend(isVisible: true),
+              title: const ChartTitle(text: 'Количество побед игроков'),
+              legend: const Legend(isVisible: true),
               series: <CircularSeries>[
                 PieSeries<PlayerProfile, String>(
                   dataSource: profiles,
@@ -70,7 +71,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   yValueMapper: (PlayerProfile profile, _) => profile.wins,
                   pointColorMapper: (PlayerProfile profile, _) =>
                       profile.color,
-                  dataLabelSettings: DataLabelSettings(isVisible: true),
+                  dataLabelSettings: const DataLabelSettings(isVisible: true),
                 ),
               ],
             ),
