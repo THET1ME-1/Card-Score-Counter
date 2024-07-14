@@ -29,20 +29,14 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     final prefs = await SharedPreferences.getInstance();
     final gameHistoryData = prefs.getStringList('gameHistory') ?? [];
     setState(() {
-      gameHistory = gameHistoryData.map((game) {
-        final Map<String, dynamic> gameMap = jsonDecode(game);
+      gameHistory = gameHistoryData.asMap().entries.map((entry) {
+        final Map<String, dynamic> gameMap = jsonDecode(entry.value);
         gameMap['date'] = gameMap.containsKey('date') ? DateTime.parse(gameMap['date']) : null;
+        if (!gameMap.containsKey('title')) {
+          gameMap['title'] = 'Игра ${gameHistoryData.length - entry.key}';
+        }
         return gameMap;
       }).toList();
-
-      gameHistory.sort((a, b) {
-        DateTime? dateA = a['date'] as DateTime?;
-        DateTime? dateB = b['date'] as DateTime?;
-        if (dateA == null && dateB == null) return 0;
-        if (dateA == null) return 1;
-        if (dateB == null) return -1;
-        return dateB.compareTo(dateA);
-      });
     });
   }
 
@@ -120,7 +114,7 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
           final date = game['date'] as DateTime?;
           final formattedDate = _formatDate(date);
           final title = game['title'] ?? 'Игра ${gameHistory.length - index}';
-
+          
           // Условное изменение цвета текста заголовка
           final titleColor = isDarkTheme ? const Color(0xFFC2B8ED) : Colors.purple;
 
@@ -135,9 +129,9 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
                   TextSpan(
                     text: '$title ',
                     style: TextStyle(
-                      color: titleColor,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                      color: titleColor, 
+                      fontSize: 18, 
+                      fontWeight: FontWeight.bold
                     ), // Увеличение размера и изменение жирности
                   ),
                   TextSpan(
