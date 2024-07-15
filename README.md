@@ -1,11 +1,8 @@
-# card_game_score_counter
+# ScoreMaster
 
- Приложения для подсчета очков в игре в карты.
+Приложения для подсчета очков в игре в карты.
 
-## Getting Started
+# Установка
 
-For help getting started with Flutter development, view the online
-[documentation](https://flutter.dev/).
-
-For instructions integrating Flutter modules to your existing applications,
-see the [add-to-app documentation](https://flutter.dev/docs/development/add-to-app).
+1. Скопируйте репозиторий.
+2. Выполните команду `flutter pub get`.
