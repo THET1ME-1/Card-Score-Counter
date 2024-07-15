@@ -17,7 +17,6 @@ class ScoreBoardScreen extends StatefulWidget {
   });
 
   @override
-  // ignore: library_private_types_in_public_api
   _ScoreBoardScreenState createState() => _ScoreBoardScreenState();
 }
 
@@ -212,21 +211,18 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
     });
   }
 
-  ButtonStyle buttonStyle(BuildContext context) {
-    return ElevatedButton.styleFrom(
-      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 24.0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8.0),
-      ),
-      minimumSize: const Size(100, 50),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDarkTheme ? Colors.white : Colors.black;
     final currentPlayerColor = isDarkTheme ? const Color(0xFFC2B8ED) : Colors.purple;
+
+    final buttonStyle = ElevatedButton.styleFrom(
+      padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 24.0),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -239,7 +235,6 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
         ),
       ),
       body: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween, // Разделяет пространство между верхней частью и нижними кнопками
         children: <Widget>[
           Expanded(
             child: SingleChildScrollView(
@@ -303,6 +298,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                       }),
                     ],
                   ),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -310,34 +306,49 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                ElevatedButton(
-                  onPressed: remainingPlayers.length > 1
-                      ? () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => AddScoresScreen(
-                                players: remainingPlayers,
-                                onAddScores: addScores,
-                              ),
-                            ),
-                          );
-                        }
-                      : null,
-                  style: buttonStyle(context),
-                  child: const Icon(Icons.add, size: 30),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: ElevatedButton(
+                      onPressed: remainingPlayers.length > 1
+                          ? () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => AddScoresScreen(
+                                    players: remainingPlayers,
+                                    onAddScores: addScores,
+                                  ),
+                                ),
+                              );
+                            }
+                          : null,
+                      style: buttonStyle,
+                      child: const Icon(Icons.add),
+                    ),
+                  ),
                 ),
-                ElevatedButton(
-                  onPressed: undoLastRound,
-                  style: buttonStyle(context),
-                  child: const Icon(Icons.undo, size: 30),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: ElevatedButton(
+                      onPressed: undoLastRound,
+                      style: buttonStyle,
+                      child: const Icon(Icons.undo),
+                    ),
+                  ),
                 ),
-                ElevatedButton(
-                  onPressed: editLastRoundScores,
-                  style: buttonStyle(context),
-                  child: const Icon(Icons.edit, size: 30),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                    child: ElevatedButton(
+                      onPressed: editLastRoundScores,
+                      style: buttonStyle,
+                      child: const Icon(Icons.edit),
+                    ),
+                  ),
                 ),
               ],
             ),
