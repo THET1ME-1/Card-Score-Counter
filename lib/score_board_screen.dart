@@ -27,10 +27,12 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   int rounds = 0;
   List<int> dividerIndices = [];
   int dealerIndex = 0;
+  double _textSize = 16.0;
 
   @override
   void initState() {
     super.initState();
+    _loadTextSize();
     if (widget.initialData != null) {
       scores = List<List<dynamic>>.from(widget.initialData!['scores'] ?? []);
       remainingPlayers = List<String>.from(widget.initialData!['remainingPlayers'] ?? []);
@@ -43,6 +45,13 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       remainingPlayers = List.from(widget.players);
     }
     _fixDealerIndex();
+  }
+
+  Future<void> _loadTextSize() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _textSize = prefs.getDouble('textSize') ?? 16.0;
+    });
   }
 
   void _fixDealerIndex() {
@@ -279,7 +288,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                                       Text(
                                         score == '—' ? '—' : '$score',
                                         style: TextStyle(
-                                          fontSize: 20.0,
+                                          fontSize: _textSize,
                                           color: isEliminated && score == '—' ? Colors.transparent : textColor,
                                         ),
                                       ),

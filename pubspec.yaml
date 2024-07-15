@@ -1,6 +1,6 @@
-name: ScoreMaster
+name: score_master
 description: "Приложения для подсчета очков в игре в карты."
-version: 1.0.5
+version: 1.1.0
 
 environment:
   sdk: '>=3.4.3 <4.0.0'
