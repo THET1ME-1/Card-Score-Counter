@@ -17,6 +17,7 @@ class ScoreBoardScreen extends StatefulWidget {
   });
 
   @override
+  // ignore: library_private_types_in_public_api
   _ScoreBoardScreenState createState() => _ScoreBoardScreenState();
 }
 
@@ -305,7 +306,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                             ],
                           ),
                         );
-                      }).toList(),
+                      }),
                     ],
                   ),
                   const SizedBox(height: 20),
