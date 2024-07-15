@@ -9,5 +9,5 @@
 
 # Сборка приложения
 
-1. Выполните команду `flutter build apk --split-per-abi`.
+1. Выполните команду `flutter build apk` или `flutter build apk --split-per-abi`.
 2. Выполните команду `flutter install`.
