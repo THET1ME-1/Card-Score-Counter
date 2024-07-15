@@ -283,13 +283,14 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                                 children: scores[index].asMap().entries.map((entry) {
                                   int roundIndex = entry.key;
                                   var score = entry.value;
+                                  bool showTransparent = isEliminated && roundIndex >= scores[index].indexWhere((s) => s is int && s >= 100);
                                   return Column(
                                     children: [
                                       Text(
                                         score == '—' ? '—' : '$score',
                                         style: TextStyle(
                                           fontSize: _textSize,
-                                          color: isEliminated && score == '—' ? Colors.transparent : textColor,
+                                          color: score == '—' && showTransparent ? Colors.transparent : textColor,
                                         ),
                                       ),
                                       if (dividerIndices.contains(roundIndex + 1))
@@ -304,7 +305,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                             ],
                           ),
                         );
-                      }),
+                      }).toList(),
                     ],
                   ),
                   const SizedBox(height: 20),

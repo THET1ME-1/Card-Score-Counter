@@ -21,8 +21,7 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
   @override
   void initState() {
     super.initState();
-    _controllers.addAll(
-        List.generate(widget.players.length, (index) => TextEditingController()));
+    _controllers.addAll(List.generate(widget.players.length, (index) => TextEditingController()));
   }
 
   @override

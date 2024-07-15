@@ -12,6 +12,7 @@ class GameHistoryScreen extends StatefulWidget {
   });
 
   @override
+  // ignore: library_private_types_in_public_api
   _GameHistoryScreenState createState() => _GameHistoryScreenState();
 }
 
@@ -30,13 +31,13 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     final prefs = await SharedPreferences.getInstance();
     final gameHistoryData = prefs.getStringList('gameHistory') ?? [];
     setState(() {
-      gameHistory = gameHistoryData.asMap().entries.map((entry) {
-        final Map<String, dynamic> gameMap = jsonDecode(entry.value);
+      gameHistory = gameHistoryData.map((entry) {
+        final Map<String, dynamic> gameMap = jsonDecode(entry);
         gameMap['date'] = gameMap.containsKey('date') && gameMap['date'] != null 
             ? DateTime.parse(gameMap['date']) 
             : DateTime.now(); // Assign current date if 'date' is null
         if (!gameMap.containsKey('title')) {
-          gameMap['title'] = 'Игра ${gameHistoryData.length - entry.key}';
+          gameMap['title'] = 'Игра ${gameHistoryData.length - gameHistoryData.indexOf(entry)}';
         }
         return gameMap;
       }).toList();
