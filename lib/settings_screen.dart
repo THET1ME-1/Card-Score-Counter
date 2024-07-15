@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'player_profile.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -22,12 +23,15 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   late bool _isDarkTheme;
   double _textSize = 16.0;
+  String _appVersion = 'Загрузка...';
+  String _buildNumber = 'Загрузка...';
 
   @override
   void initState() {
     super.initState();
     _isDarkTheme = widget.isDarkTheme;
     loadPreferences();
+    _loadAppVersion();
   }
 
   Future<void> loadPreferences() async {
@@ -35,6 +39,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _isDarkTheme = prefs.getBool('isDarkTheme') ?? widget.isDarkTheme;
       _textSize = prefs.getDouble('textSize') ?? 16.0;
+    });
+  }
+
+  Future<void> _loadAppVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    setState(() {
+      _appVersion = packageInfo.version;
+      _buildNumber = packageInfo.buildNumber;
     });
   }
 
@@ -184,6 +196,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: const Icon(Icons.delete),
                 label: const Text('Очистить историю игр'),
                 style: buttonStyle,
+              ),
+            ),
+            const Spacer(),
+            Center(
+              child: Text(
+                'Версия приложения: $_appVersion+$_buildNumber',
+                style: const TextStyle(color: Colors.grey),
               ),
             ),
           ],
