@@ -1,7 +1,10 @@
 import 'dart:convert';
-
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'player_profile.dart';
 
@@ -16,7 +19,6 @@ class SettingsScreen extends StatefulWidget {
   });
 
   @override
-  // ignore: library_private_types_in_public_api
   _SettingsScreenState createState() => _SettingsScreenState();
 }
 
@@ -69,6 +71,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _textSize = value;
       savePreferences();
     });
+  }
+
+  Future<void> exportData() async {
+    final status = await Permission.storage.request();
+    if (status.isGranted) {
+      final prefs = await SharedPreferences.getInstance();
+      final data = {
+        'gameHistory': prefs.getStringList('gameHistory') ?? [],
+        'profiles': prefs.getStringList('profiles') ?? [],
+        'isDarkTheme': prefs.getBool('isDarkTheme') ?? false,
+        'textSize': prefs.getDouble('textSize') ?? 16.0,
+      };
+
+      Directory? directory;
+      if (Platform.isAndroid) {
+        directory = await getExternalStorageDirectory();
+      } else if (Platform.isIOS) {
+        directory = await getApplicationDocumentsDirectory();
+      }
+
+      final file = File('${directory!.path}/backup.json');
+      await file.writeAsString(jsonEncode(data));
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Данные успешно экспортированы')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ошибка: нет разрешения на доступ к хранилищу')),
+      );
+    }
+  }
+
+  Future<void> importData() async {
+    final status = await Permission.storage.request();
+    if (status.isGranted) {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+
+      if (result != null) {
+        final file = File(result.files.single.path!);
+        final contents = await file.readAsString();
+        final data = jsonDecode(contents);
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setStringList('gameHistory', List<String>.from(data['gameHistory']));
+        await prefs.setStringList('profiles', List<String>.from(data['profiles']));
+        await prefs.setBool('isDarkTheme', data['isDarkTheme']);
+        await prefs.setDouble('textSize', data['textSize']);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Данные успешно импортированы')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ошибка импорта данных')),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ошибка: нет разрешения на доступ к хранилищу')),
+      );
+    }
   }
 
   Future<void> _clearGameHistory() async {
@@ -198,10 +265,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: buttonStyle,
               ),
             ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: exportData,
+                icon: const Icon(Icons.save),
+                label: const Text('Экспорт данных'),
+                style: buttonStyle,
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: importData,
+                icon: const Icon(Icons.upload),
+                label: const Text('Импорт данных'),
+                style: buttonStyle,
+              ),
+            ),
             const Spacer(),
             Center(
               child: Text(
-                'Версия приложения: $_appVersion+$_buildNumber',
+                'Версия приложения: $_appVersion',
                 style: const TextStyle(color: Colors.grey),
               ),
             ),

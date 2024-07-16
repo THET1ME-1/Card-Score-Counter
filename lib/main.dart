@@ -6,8 +6,10 @@ import 'leaderboard_screen.dart';
 import 'settings_screen.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const CardGameScoreTracker());
 }
+
 
 class CardGameScoreTracker extends StatefulWidget {
   const CardGameScoreTracker({super.key});
