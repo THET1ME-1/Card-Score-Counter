@@ -26,7 +26,15 @@ class _CardGameScoreTrackerState extends State<CardGameScoreTracker> {
   @override
   void initState() {
     super.initState();
+    _loadThemePreference();
     _loadSavedGames();
+  }
+
+  Future<void> _loadThemePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkTheme = prefs.getBool('isDarkTheme') ?? false;
+    });
   }
 
   Future<void> _loadSavedGames() async {
@@ -112,6 +120,7 @@ class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
   late List<Widget> _widgetOptions;
+
   @override
   void initState() {
     super.initState();
