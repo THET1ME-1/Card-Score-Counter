@@ -18,7 +18,7 @@ class CardGameScoreTracker extends StatefulWidget {
 }
 
 class _CardGameScoreTrackerState extends State<CardGameScoreTracker> {
-  bool _isDarkTheme = false;
+  bool _isDarkTheme = true;
   List<String>? _currentPlayers;
   Map<String, dynamic>? _currentGameData;
   bool _hasSavedGames = false;
@@ -33,7 +33,7 @@ class _CardGameScoreTrackerState extends State<CardGameScoreTracker> {
   Future<void> _loadThemePreference() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _isDarkTheme = prefs.getBool('isDarkTheme') ?? false;
+      _isDarkTheme = prefs.getBool('isDarkTheme') ?? true;
     });
   }
 
