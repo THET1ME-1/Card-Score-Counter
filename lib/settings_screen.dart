@@ -19,6 +19,7 @@ class SettingsScreen extends StatefulWidget {
   });
 
   @override
+  // ignore: library_private_types_in_public_api
   _SettingsScreenState createState() => _SettingsScreenState();
 }
 
@@ -26,7 +27,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late bool _isDarkTheme;
   double _textSize = 16.0;
   String _appVersion = 'Загрузка...';
-  String _buildNumber = 'Загрузка...';
 
   @override
   void initState() {
@@ -48,7 +48,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final packageInfo = await PackageInfo.fromPlatform();
     setState(() {
       _appVersion = packageInfo.version;
-      _buildNumber = packageInfo.buildNumber;
     });
   }
 
@@ -94,10 +93,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final file = File('${directory!.path}/backup.json');
       await file.writeAsString(jsonEncode(data));
 
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Данные успешно экспортированы')),
       );
     } else {
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ошибка: нет разрешения на доступ к хранилищу')),
       );
@@ -123,15 +124,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
         await prefs.setBool('isDarkTheme', data['isDarkTheme']);
         await prefs.setDouble('textSize', data['textSize']);
 
+        // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Данные успешно импортированы')),
         );
       } else {
+        // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Ошибка импорта данных')),
         );
       }
     } else {
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ошибка: нет разрешения на доступ к хранилищу')),
       );
