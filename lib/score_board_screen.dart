@@ -244,6 +244,46 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       ),
     );
 
+    List<Widget> buildRemainingPoints() {
+      List<Widget> widgets = [];
+      for (int i = 0; i < widget.players.length; i++) {
+        int lastValidScore = 0;
+        for (int j = scores[i].length - 1; j >= 0; j--) {
+          if (scores[i][j] is int) {
+            lastValidScore = scores[i][j];
+            break;
+          }
+        }
+        if (lastValidScore < 100) {
+          widgets.add(
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: Text(
+                '${100 - lastValidScore}',
+                style: TextStyle(
+                  fontSize: 12.0, // Smaller font size
+                  color: textColor,
+                ),
+              ),
+            ),
+          );
+        } else {
+          widgets.add(
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4.0),
+              child: Text(
+                '—',
+                style: TextStyle(
+                  fontSize: 12.0, // Smaller font size
+                ),
+              ),
+            ),
+          );
+        }
+      }
+      return widgets;
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Табло'),
@@ -254,126 +294,139 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
           },
         ),
       ),
-      body: Column(
-        children: <Widget>[
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: <Widget>[
-                  Row(
-                    children: [
-                      ...widget.players.asMap().entries.map((entry) {
-                        int index = entry.key;
-                        String player = entry.value;
-                        bool isEliminated = eliminatedPlayers.contains(player);
-                        bool isCurrentPlayer = index == currentPlayerIndex;
+      body: Stack(
+        children: [
+          Column(
+            children: <Widget>[
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: <Widget>[
+                      Row(
+                        children: [
+                          ...widget.players.asMap().entries.map((entry) {
+                            int index = entry.key;
+                            String player = entry.value;
+                            bool isEliminated = eliminatedPlayers.contains(player);
+                            bool isCurrentPlayer = index == currentPlayerIndex;
 
-                        return Expanded(
-                          child: Column(
-                            children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  color: isCurrentPlayer ? currentPlayerColor : Colors.transparent,
-                                ),
-                                padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
-                                child: Text(
-                                  player,
-                                  maxLines: 1,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18.0,
-                                    color: isEliminated
-                                        ? Colors.red
-                                        : isCurrentPlayer
-                                            ? currentPlayerTextColor
-                                            : textColor,
-                                  ),
-                                ),
-                              ),
-                              Column(
-                                children: scores[index].asMap().entries.map((entry) {
-                                  int roundIndex = entry.key;
-                                  var score = entry.value;
-                                  bool showTransparent = isEliminated && roundIndex >= scores[index].indexWhere((s) => s is int && s >= 100);
-                                  return Column(
-                                    children: [
-                                      Text(
-                                        score == '—' ? '—' : '$score',
-                                        style: TextStyle(
-                                          fontSize: _textSize,
-                                          color: score == '—' && showTransparent ? Colors.transparent : textColor,
-                                        ),
+                            return Expanded(
+                              child: Column(
+                                children: [
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      color: isCurrentPlayer ? currentPlayerColor : Colors.transparent,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+                                    child: Text(
+                                      player,
+                                      maxLines: 1,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18.0,
+                                        color: isEliminated
+                                            ? Colors.red
+                                            : isCurrentPlayer
+                                                ? currentPlayerTextColor
+                                                : textColor,
                                       ),
-                                      if (dividerIndices.contains(roundIndex + 1))
-                                        const Padding(
-                                          padding: EdgeInsets.symmetric(vertical: 8.0),
-                                          child: Divider(thickness: 2),
-                                        ),
-                                    ],
-                                  );
-                                }).toList(),
+                                    ),
+                                  ),
+                                  Column(
+                                    children: scores[index].asMap().entries.map((entry) {
+                                      int roundIndex = entry.key;
+                                      var score = entry.value;
+                                      bool showTransparent = isEliminated && roundIndex >= scores[index].indexWhere((s) => s is int && s >= 100);
+                                      return Column(
+                                        children: [
+                                          Text(
+                                            score == '—' ? '—' : '$score',
+                                            style: TextStyle(
+                                              fontSize: _textSize,
+                                              color: score == '—' && showTransparent ? Colors.transparent : textColor,
+                                            ),
+                                          ),
+                                          if (dividerIndices.contains(roundIndex + 1))
+                                            const Padding(
+                                              padding: EdgeInsets.symmetric(vertical: 8.0),
+                                              child: Divider(thickness: 2),
+                                            ),
+                                        ],
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        );
-                      }),
+                            );
+                          }),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
                     ],
                   ),
-                  const SizedBox(height: 20),
-                ],
+                ),
               ),
-            ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: ElevatedButton(
+                          onPressed: remainingPlayers.length > 1
+                              ? () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => AddScoresScreen(
+                                        players: remainingPlayers,
+                                        onAddScores: addScores,
+                                      ),
+                                    ),
+                                  );
+                                }
+                              : null,
+                          style: buttonStyle,
+                          child: const Icon(Icons.add),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: ElevatedButton(
+                          onPressed: undoLastRound,
+                          style: buttonStyle,
+                          child: const Icon(Icons.undo),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: ElevatedButton(
+                          onPressed: editLastRoundScores,
+                          style: buttonStyle,
+                          child: const Icon(Icons.edit),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
+          Positioned(
+            bottom: 100.0, // Adjust this value to position it above the buttons
+            left: 0,
+            right: 0,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                    child: ElevatedButton(
-                      onPressed: remainingPlayers.length > 1
-                          ? () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => AddScoresScreen(
-                                    players: remainingPlayers,
-                                    onAddScores: addScores,
-                                  ),
-                                ),
-                              );
-                            }
-                          : null,
-                      style: buttonStyle,
-                      child: const Icon(Icons.add),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                    child: ElevatedButton(
-                      onPressed: undoLastRound,
-                      style: buttonStyle,
-                      child: const Icon(Icons.undo),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                    child: ElevatedButton(
-                      onPressed: editLastRoundScores,
-                      style: buttonStyle,
-                      child: const Icon(Icons.edit),
-                    ),
-                  ),
-                ),
-              ],
+              children: buildRemainingPoints(),
             ),
           ),
         ],

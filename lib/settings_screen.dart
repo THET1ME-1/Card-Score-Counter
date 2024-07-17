@@ -18,6 +18,7 @@ class SettingsScreen extends StatefulWidget {
   });
 
   @override
+  // ignore: library_private_types_in_public_api
   _SettingsScreenState createState() => _SettingsScreenState();
 }
 
@@ -165,11 +166,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (result != null) {
         final savedFile = File(result);
         await savedFile.writeAsBytes(await file.readAsBytes());
+        // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Данные успешно экспортированы')),
         );
       }
     } catch (e) {
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ошибка экспорта данных: $e')),
       );
@@ -187,7 +190,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final contents = await file.readAsString();
 
         if (contents.isEmpty) {
-          throw FormatException('Файл пустой');
+          throw const FormatException('Файл пустой');
         }
 
         final data = jsonDecode(contents);
@@ -205,11 +208,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           widget.onThemeChanged(data['settings']['isDarkTheme'] ?? widget.isDarkTheme);
         }
 
+        // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Данные успешно импортированы')),
         );
       }
     } catch (e) {
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ошибка импорта данных: $e')),
       );
