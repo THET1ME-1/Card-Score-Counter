@@ -27,8 +27,8 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   List<String> eliminatedPlayers = [];
   int rounds = 0;
   List<int> dividerIndices = [];
-  int dealerIndex = 0;
   double _textSize = 16.0;
+  int currentPlayerIndex = 0;
 
   @override
   void initState() {
@@ -40,12 +40,11 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       eliminatedPlayers = List<String>.from(widget.initialData!['eliminatedPlayers'] ?? []);
       rounds = widget.initialData!['rounds'] ?? 0;
       dividerIndices = List<int>.from(widget.initialData!['dividerIndices'] ?? []);
-      dealerIndex = widget.initialData!['dealerIndex'] ?? 0;
+      currentPlayerIndex = widget.initialData!['currentPlayerIndex'] ?? 0;
     } else {
       scores = List.generate(widget.players.length, (_) => []);
       remainingPlayers = List.from(widget.players);
     }
-    _fixDealerIndex();
   }
 
   Future<void> _loadTextSize() async {
@@ -53,12 +52,6 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
     setState(() {
       _textSize = prefs.getDouble('textSize') ?? 16.0;
     });
-  }
-
-  void _fixDealerIndex() {
-    if (dealerIndex >= remainingPlayers.length) {
-      dealerIndex = remainingPlayers.length - 1;
-    }
   }
 
   Future<void> _updateGameHistory() async {
@@ -71,7 +64,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       'remainingPlayers': remainingPlayers,
       'eliminatedPlayers': eliminatedPlayers,
       'dividerIndices': dividerIndices,
-      'dealerIndex': dealerIndex,
+      'currentPlayerIndex': currentPlayerIndex,
       'date': DateTime.now().toIso8601String(),
     };
 
@@ -147,11 +140,20 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
         if (rounds % remainingPlayers.length == 0) {
           dividerIndices.add(scores[0].length);
         }
-        dealerIndex = (dealerIndex + 1) % remainingPlayers.length;
       }
 
       _updateGameHistory();
+      _advanceToNextPlayer();
     });
+  }
+
+  void _advanceToNextPlayer() {
+    setState(() {
+      do {
+        currentPlayerIndex = (currentPlayerIndex + 1) % widget.players.length;
+      } while (eliminatedPlayers.contains(widget.players[currentPlayerIndex]));
+    });
+    _updateGameHistory();
   }
 
   void undoLastRound() {
@@ -174,11 +176,19 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
             remainingPlayers.remove(widget.players[i]);
           }
         }
-        dealerIndex = rounds % remainingPlayers.length;
-        _fixDealerIndex();
         _updateGameHistory();
+        _advanceToPreviousPlayer();
       }
     });
+  }
+
+  void _advanceToPreviousPlayer() {
+    setState(() {
+      do {
+        currentPlayerIndex = (currentPlayerIndex - 1 + widget.players.length) % widget.players.length;
+      } while (eliminatedPlayers.contains(widget.players[currentPlayerIndex]));
+    });
+    _updateGameHistory();
   }
 
   void editLastRoundScores() {
@@ -210,7 +220,6 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                     }
                     remainingIndex++;
                   }
-                  _fixDealerIndex();
                   _updateGameHistory();
                 });
               },
@@ -226,6 +235,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDarkTheme ? Colors.white : Colors.black;
     final currentPlayerColor = isDarkTheme ? const Color(0xFFC2B8ED) : Colors.purple;
+    final currentPlayerTextColor = isDarkTheme ? Colors.black : Colors.white;
 
     final buttonStyle = ElevatedButton.styleFrom(
       padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 24.0),
@@ -257,7 +267,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                         int index = entry.key;
                         String player = entry.value;
                         bool isEliminated = eliminatedPlayers.contains(player);
-                        bool isCurrentPlayer = remainingPlayers.isNotEmpty && dealerIndex < remainingPlayers.length && remainingPlayers[dealerIndex] == player;
+                        bool isCurrentPlayer = index == currentPlayerIndex;
 
                         return Expanded(
                           child: Column(
@@ -276,7 +286,9 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                                     fontSize: 18.0,
                                     color: isEliminated
                                         ? Colors.red
-                                        : (isCurrentPlayer ? (isDarkTheme ? Colors.black : Colors.white) : textColor),
+                                        : isCurrentPlayer
+                                            ? currentPlayerTextColor
+                                            : textColor,
                                   ),
                                 ),
                               ),
@@ -306,7 +318,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                             ],
                           ),
                         );
-                      }),
+                      }).toList(),
                     ],
                   ),
                   const SizedBox(height: 20),
