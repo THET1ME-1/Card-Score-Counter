@@ -318,7 +318,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                             ],
                           ),
                         );
-                      }).toList(),
+                      }),
                     ],
                   ),
                   const SizedBox(height: 20),

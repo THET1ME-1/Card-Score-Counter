@@ -25,8 +25,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late bool _isDarkTheme;
   double _textSize = 16.0;
   String _appVersion = 'Загрузка...';
-  String _buildNumber = 'Загрузка...';
-
   @override
   void initState() {
     super.initState();
@@ -47,7 +45,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final packageInfo = await PackageInfo.fromPlatform();
     setState(() {
       _appVersion = packageInfo.version;
-      _buildNumber = packageInfo.buildNumber;
     });
   }
 
