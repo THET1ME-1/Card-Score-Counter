@@ -1,9 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'player_profile.dart';
 
@@ -142,85 +139,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> exportData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final data = {
-        'gameHistory': prefs.getStringList('gameHistory') ?? [],
-        'profiles': prefs.getStringList('profiles') ?? [],
-        'settings': {
-          'isDarkTheme': prefs.getBool('isDarkTheme') ?? widget.isDarkTheme,
-          'textSize': prefs.getDouble('textSize') ?? 16.0,
-        },
-      };
-
-      final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/backup.json');
-      await file.writeAsString(jsonEncode(data));
-
-      final result = await FilePicker.platform.saveFile(
-        dialogTitle: 'Выберите место для сохранения',
-        fileName: 'backup.json',
-      );
-
-      if (result != null) {
-        final savedFile = File(result);
-        await savedFile.writeAsBytes(await file.readAsBytes());
-        // ignore: use_build_context_synchronously
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Данные успешно экспортированы')),
-        );
-      }
-    } catch (e) {
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка экспорта данных: $e')),
-      );
-    }
-  }
-
-  Future<void> importData() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.any,
-      );
-
-      if (result != null && result.files.single.path != null) {
-        final file = File(result.files.single.path!);
-        final contents = await file.readAsString();
-
-        if (contents.isEmpty) {
-          throw const FormatException('Файл пустой');
-        }
-
-        final data = jsonDecode(contents);
-
-        final prefs = await SharedPreferences.getInstance();
-        if (data['gameHistory'] is List) {
-          await prefs.setStringList('gameHistory', List<String>.from(data['gameHistory']));
-        }
-        if (data['profiles'] is List) {
-          await prefs.setStringList('profiles', List<String>.from(data['profiles']));
-        }
-        if (data['settings'] is Map) {
-          await prefs.setBool('isDarkTheme', data['settings']['isDarkTheme'] ?? widget.isDarkTheme);
-          await prefs.setDouble('textSize', data['settings']['textSize'] ?? 16.0);
-          widget.onThemeChanged(data['settings']['isDarkTheme'] ?? widget.isDarkTheme);
-        }
-
-        // ignore: use_build_context_synchronously
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Данные успешно импортированы')),
-        );
-      }
-    } catch (e) {
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка импорта данных: $e')),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final buttonStyle = ElevatedButton.styleFrom(
@@ -273,26 +191,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onPressed: _showClearHistoryDialog,
                 icon: const Icon(Icons.delete),
                 label: const Text('Очистить историю игр'),
-                style: buttonStyle,
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: exportData,
-                icon: const Icon(Icons.save),
-                label: const Text('Экспорт данных'),
-                style: buttonStyle,
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: importData,
-                icon: const Icon(Icons.upload),
-                label: const Text('Импорт данных'),
                 style: buttonStyle,
               ),
             ),
