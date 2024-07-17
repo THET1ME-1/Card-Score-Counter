@@ -10,7 +10,6 @@ void main() {
   runApp(const CardGameScoreTracker());
 }
 
-
 class CardGameScoreTracker extends StatefulWidget {
   const CardGameScoreTracker({super.key});
 

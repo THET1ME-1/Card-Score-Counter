@@ -17,7 +17,6 @@ class ScoreBoardScreen extends StatefulWidget {
   });
 
   @override
-  // ignore: library_private_types_in_public_api
   _ScoreBoardScreenState createState() => _ScoreBoardScreenState();
 }
 
@@ -29,6 +28,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   List<int> dividerIndices = [];
   double _textSize = 16.0;
   int currentPlayerIndex = 0;
+  String? gameId;
 
   @override
   void initState() {
@@ -41,9 +41,12 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       rounds = widget.initialData!['rounds'] ?? 0;
       dividerIndices = List<int>.from(widget.initialData!['dividerIndices'] ?? []);
       currentPlayerIndex = widget.initialData!['currentPlayerIndex'] ?? 0;
+      gameId = widget.initialData!['gameId'];
     } else {
       scores = List.generate(widget.players.length, (_) => []);
       remainingPlayers = List.from(widget.players);
+      gameId = DateTime.now().millisecondsSinceEpoch.toString(); // Generate a unique game ID
+      _saveNewGameToHistory();
     }
   }
 
@@ -54,10 +57,29 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
     });
   }
 
+  Future<void> _saveNewGameToHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final gameHistory = prefs.getStringList('gameHistory') ?? [];
+    final gameData = {
+      'gameId': gameId,
+      'players': widget.players,
+      'scores': scores,
+      'rounds': rounds,
+      'remainingPlayers': remainingPlayers,
+      'eliminatedPlayers': eliminatedPlayers,
+      'dividerIndices': dividerIndices,
+      'currentPlayerIndex': currentPlayerIndex,
+      'date': DateTime.now().toIso8601String(),
+    };
+    gameHistory.add(jsonEncode(gameData));
+    await prefs.setStringList('gameHistory', gameHistory);
+  }
+
   Future<void> _updateGameHistory() async {
     final prefs = await SharedPreferences.getInstance();
     final gameHistory = prefs.getStringList('gameHistory') ?? [];
     final gameData = {
+      'gameId': gameId,
       'players': widget.players,
       'scores': scores,
       'rounds': rounds,
@@ -68,11 +90,30 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       'date': DateTime.now().toIso8601String(),
     };
 
-    if (gameHistory.isNotEmpty) {
-      gameHistory.removeLast();
+    int gameIndex = gameHistory.indexWhere((entry) {
+      final Map<String, dynamic> gameMap = jsonDecode(entry);
+      return gameMap['gameId'] == gameId;
+    });
+
+    if (gameIndex != -1) {
+      gameHistory[gameIndex] = jsonEncode(gameData);
+    } else {
+      gameHistory.add(jsonEncode(gameData));
     }
 
-    gameHistory.add(jsonEncode(gameData));
+    await prefs.setStringList('gameHistory', gameHistory);
+  }
+
+  Future<void> _deleteEmptyGames() async {
+    final prefs = await SharedPreferences.getInstance();
+    final gameHistory = prefs.getStringList('gameHistory') ?? [];
+
+    gameHistory.removeWhere((entry) {
+      final Map<String, dynamic> gameMap = jsonDecode(entry);
+      final List<dynamic> scores = List<List<dynamic>>.from(gameMap['scores'] ?? []).expand((x) => x).toList();
+      return scores.isEmpty;
+    });
+
     await prefs.setStringList('gameHistory', gameHistory);
   }
 
@@ -143,6 +184,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       }
 
       _updateGameHistory();
+      _deleteEmptyGames(); // Удаление пустых игр
       _advanceToNextPlayer();
     });
   }
@@ -261,7 +303,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
               child: Text(
                 '${100 - lastValidScore}',
                 style: TextStyle(
-                  fontSize: 12.0, // Smaller font size
+                  fontSize: 12.0,
                   color: textColor,
                 ),
               ),
@@ -274,7 +316,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
               child: Text(
                 '',
                 style: TextStyle(
-                  fontSize: 12.0, // Smaller font size
+                  fontSize: 12.0,
                 ),
               ),
             ),
@@ -421,7 +463,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
             ],
           ),
           Positioned(
-            bottom: 100.0, // Adjust this value to position it above the buttons
+            bottom: 100.0,
             left: 0,
             right: 0,
             child: Row(
