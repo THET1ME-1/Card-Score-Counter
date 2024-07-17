@@ -254,7 +254,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
             break;
           }
         }
-        if (lastValidScore < 100) {
+        if (lastValidScore >= 60 && lastValidScore < 100) {
           widgets.add(
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4.0),
@@ -272,7 +272,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 4.0),
               child: Text(
-                '—',
+                '',
                 style: TextStyle(
                   fontSize: 12.0, // Smaller font size
                 ),
