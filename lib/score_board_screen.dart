@@ -120,7 +120,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
           scores[i].add(lastValidScore + roundScores[remainingIndex]);
         }
 
-        if (scores[i].last is int && scores[i].last >= 100) {
+        if (scores[i].last is int && scores[i].last >= 101) {
           playersToEliminate.add(widget.players[i]);
         }
 
@@ -171,7 +171,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
         eliminatedPlayers.clear();
         remainingPlayers = List.from(widget.players);
         for (int i = 0; i < widget.players.length; i++) {
-          if (scores[i].isNotEmpty && scores[i].last is int && scores[i].last >= 100) {
+          if (scores[i].isNotEmpty && scores[i].last is int && scores[i].last >= 101) {
             eliminatedPlayers.add(widget.players[i]);
             remainingPlayers.remove(widget.players[i]);
           }
@@ -254,7 +254,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
             break;
           }
         }
-        if (lastValidScore >= 60 && lastValidScore < 100) {
+        if (lastValidScore >= 60 && lastValidScore < 101) {
           widgets.add(
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4.0),
@@ -338,7 +338,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                                     children: scores[index].asMap().entries.map((entry) {
                                       int roundIndex = entry.key;
                                       var score = entry.value;
-                                      bool showTransparent = isEliminated && roundIndex >= scores[index].indexWhere((s) => s is int && s >= 100);
+                                      bool showTransparent = isEliminated && roundIndex >= scores[index].indexWhere((s) => s is int && s >= 101);
                                       return Column(
                                         children: [
                                           Text(
