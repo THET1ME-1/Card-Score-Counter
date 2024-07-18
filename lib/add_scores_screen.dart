@@ -13,7 +13,6 @@ class AddScoresScreen extends StatefulWidget {
   });
 
   @override
-  // ignore: library_private_types_in_public_api
   _AddScoresScreenState createState() => _AddScoresScreenState();
 }
 
@@ -26,7 +25,9 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
     _controllers = List.generate(
       widget.players.length,
       (index) => TextEditingController(
-        text: widget.initialScores.isNotEmpty ? widget.initialScores[index].toString() : '',
+        text: widget.initialScores.isNotEmpty && index < widget.initialScores.length
+            ? widget.initialScores[index].toString()
+            : '',
       ),
     );
   }
