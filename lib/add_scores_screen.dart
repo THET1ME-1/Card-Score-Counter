@@ -52,6 +52,14 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final buttonStyle = ElevatedButton.styleFrom(
+      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      textStyle: const TextStyle(fontSize: 16.0),
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Добавить очки'),
@@ -77,9 +85,13 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
                 },
               ),
             ),
-            ElevatedButton(
-              onPressed: _submitScores,
-              child: const Text('Сохранить'),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _submitScores,
+                style: buttonStyle,
+                child: const Text('Сохранить'),
+              ),
             ),
           ],
         ),
