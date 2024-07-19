@@ -81,53 +81,11 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     });
   }
 
-  Future<void> _editGameTitle(int index, String newTitle) async {
-    final prefs = await SharedPreferences.getInstance();
-    final gameHistoryData = prefs.getStringList('gameHistory') ?? [];
-    final gameMap = jsonDecode(gameHistoryData[index]);
-    gameMap['title'] = newTitle;
-    gameHistoryData[index] = jsonEncode(gameMap);
-    await prefs.setStringList('gameHistory', gameHistoryData);
-    setState(() {
-      gameHistory[index]['title'] = newTitle;
-    });
-  }
-
   String _formatDate(DateTime? date) {
     if (date == null) {
       return 'Дата неизвестна';
     }
     return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-  }
-
-  void _showEditTitleDialog(int index) {
-    final TextEditingController controller = TextEditingController();
-    controller.text = gameHistory[index]['title'] ?? 'Игра ${gameHistory.length - index}';
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Редактировать название игры'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(labelText: 'Название игры'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () {
-              _editGameTitle(index, controller.text);
-              Navigator.of(context).pop();
-            },
-            child: const Text('Сохранить'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -137,18 +95,6 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('История игр'),
-        actions: [
-          IconButton(
-            icon: Icon(isDescending ? Icons.arrow_downward : Icons.arrow_upward),
-            onPressed: () {
-              setState(() {
-                isDescending = !isDescending;
-                _sortGameHistory();
-                _saveSortingPreference();
-              });
-            },
-          ),
-        ],
       ),
       body: ListView.builder(
         itemCount: gameHistory.length,
@@ -185,10 +131,6 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.edit),
-                  onPressed: () => _showEditTitleDialog(index),
-                ),
                 IconButton(
                   icon: const Icon(Icons.delete),
                   onPressed: () {
