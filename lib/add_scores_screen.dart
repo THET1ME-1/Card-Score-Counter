@@ -31,6 +31,21 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
             : '',
       ),
     );
+
+    for (var controller in _controllers) {
+      controller.addListener(_checkIfEmptyFieldExists);
+    }
+  }
+
+  void _checkIfEmptyFieldExists() {
+    bool hasEmptyField = _controllers.any((controller) {
+      final text = controller.text;
+      return text.isEmpty || text == '0' || text == '-';
+    });
+
+    setState(() {
+      _hasEmptyField = hasEmptyField;
+    });
   }
 
   void _submitScores() {
@@ -40,16 +55,8 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
       return int.tryParse(text) ?? 0;
     }).toList();
 
-    bool hasEmptyField = scores.any((score) => score == 0);
-
-    if (hasEmptyField) {
-      widget.onAddScores(scores);
-      Navigator.pop(context);
-    } else {
-      setState(() {
-        _hasEmptyField = true;
-      });
-    }
+    widget.onAddScores(scores);
+    Navigator.pop(context);
   }
 
   void _eliminatePlayer(int index) {
@@ -61,6 +68,7 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
   @override
   void dispose() {
     for (var controller in _controllers) {
+      controller.removeListener(_checkIfEmptyFieldExists);
       controller.dispose();
     }
     super.dispose();
@@ -74,6 +82,27 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
         borderRadius: BorderRadius.circular(8.0),
       ),
       textStyle: const TextStyle(fontSize: 14.0), // Уменьшенный размер текста
+    );
+
+    final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDarkTheme ? const Color(0xFFC2B8ED) : Colors.purple;
+
+    final inputDecoration = InputDecoration(
+      contentPadding: const EdgeInsets.all(16.0),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8.0),
+        borderSide: BorderSide(color: borderColor),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8.0),
+        borderSide: BorderSide(color: borderColor),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8.0),
+        borderSide: const BorderSide(color: Colors.red),
+      ),
+      labelStyle: const TextStyle(fontSize: 14.0),
+      errorStyle: const TextStyle(fontSize: 14.0),
     );
 
     return Scaffold(
@@ -96,9 +125,8 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
                           flex: 2, // Поле для ввода занимает 2/3 ширины
                           child: TextField(
                             controller: _controllers[index],
-                            decoration: InputDecoration(
+                            decoration: inputDecoration.copyWith(
                               labelText: widget.players[index],
-                              errorText: _hasEmptyField && _controllers[index].text.isEmpty ? 'Это поле не может быть пустым' : null,
                             ),
                             keyboardType: TextInputType.number,
                           ),
@@ -107,7 +135,7 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
                         Expanded(
                           flex: 1, // Кнопка занимает 1/3 ширины
                           child: SizedBox(
-                            height: 50, // Высота кнопки равна высоте текстового поля
+                            height: 60, // Высота кнопки равна высоте текстового поля
                             child: ElevatedButton(
                               onPressed: () => _eliminatePlayer(index),
                               style: buttonStyle,
@@ -124,7 +152,7 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _submitScores,
+                onPressed: _hasEmptyField ? _submitScores : null,
                 style: buttonStyle,
                 child: const Text('Сохранить'),
               ),
