@@ -38,6 +38,7 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
             : DateTime.now(); // Assign current date if 'date' is null
         return gameMap;
       }).toList();
+      _sortGameHistory();
     });
   }
 
@@ -53,6 +54,22 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     });
   }
 
+  void _sortGameHistory() {
+    gameHistory.sort((a, b) {
+      final dateA = a['date'] as DateTime?;
+      final dateB = b['date'] as DateTime?;
+      if (dateA == null && dateB == null) return 0;
+      if (dateA == null) return 1;
+      if (dateB == null) return -1;
+      return isDescending ? dateB.compareTo(dateA) : dateA.compareTo(dateB);
+    });
+
+    // Assign titles based on the sorted order
+    for (int i = 0; i < gameHistory.length; i++) {
+      gameHistory[i]['title'] = 'Игра ${gameHistory.length - i}';
+    }
+  }
+
   Future<void> _deleteSingleGame(int index) async {
     final prefs = await SharedPreferences.getInstance();
     final gameHistoryData = prefs.getStringList('gameHistory') ?? [];
@@ -60,6 +77,19 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     await prefs.setStringList('gameHistory', gameHistoryData);
     setState(() {
       gameHistory.removeAt(index);
+      _sortGameHistory(); // Ensure the order is maintained after deletion
+    });
+  }
+
+  Future<void> _editGameTitle(int index, String newTitle) async {
+    final prefs = await SharedPreferences.getInstance();
+    final gameHistoryData = prefs.getStringList('gameHistory') ?? [];
+    final gameMap = jsonDecode(gameHistoryData[index]);
+    gameMap['title'] = newTitle;
+    gameHistoryData[index] = jsonEncode(gameMap);
+    await prefs.setStringList('gameHistory', gameHistoryData);
+    setState(() {
+      gameHistory[index]['title'] = newTitle;
     });
   }
 
@@ -70,6 +100,36 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
+  void _showEditTitleDialog(int index) {
+    final TextEditingController controller = TextEditingController();
+    controller.text = gameHistory[index]['title'] ?? 'Игра ${gameHistory.length - index}';
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Редактировать название игры'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: 'Название игры'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () {
+              _editGameTitle(index, controller.text);
+              Navigator.of(context).pop();
+            },
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
@@ -77,6 +137,18 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('История игр'),
+        actions: [
+          IconButton(
+            icon: Icon(isDescending ? Icons.arrow_downward : Icons.arrow_upward),
+            onPressed: () {
+              setState(() {
+                isDescending = !isDescending;
+                _sortGameHistory();
+                _saveSortingPreference();
+              });
+            },
+          ),
+        ],
       ),
       body: ListView.builder(
         itemCount: gameHistory.length,
@@ -84,7 +156,7 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
           final game = gameHistory[index];
           final date = game['date'] as DateTime?;
           final formattedDate = _formatDate(date);
-          final title = game['title'] ?? 'Игра ${index + 1}';
+          final title = game['title'] ?? 'Игра ${gameHistory.length - index}';
 
           final titleColor = isDarkTheme ? const Color(0xFFC2B8ED) : Colors.purple;
           final dateColor = isDarkTheme ? Colors.white : Colors.black;
@@ -110,32 +182,41 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
               ),
             ),
             subtitle: Text('Игроки: ${game['players'].join(', ')}'),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Удалить эту игру?'),
-                    content: const Text('Вы уверены, что хотите удалить эту игру из истории?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                        child: const Text('Отмена'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () => _showEditTitleDialog(index),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Удалить эту игру?'),
+                        content: const Text('Вы уверены, что хотите удалить эту игру из истории?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            child: const Text('Отмена'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              _deleteSingleGame(index);
+                              Navigator.of(context).pop();
+                            },
+                            child: const Text('Удалить'),
+                          ),
+                        ],
                       ),
-                      TextButton(
-                        onPressed: () {
-                          _deleteSingleGame(index);
-                          Navigator.of(context).pop();
-                        },
-                        child: const Text('Удалить'),
-                      ),
-                    ],
-                  ),
-                );
-              },
+                    );
+                  },
+                ),
+              ],
             ),
             onTap: () {
               widget.continueGame(game);

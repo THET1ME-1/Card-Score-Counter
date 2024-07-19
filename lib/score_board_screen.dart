@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'add_scores_screen.dart';
 import 'player_profile.dart';
+import 'package:auto_size_text/auto_size_text.dart';
 
 class ScoreBoardScreen extends StatefulWidget {
   final List<String> players;
@@ -363,9 +364,10 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                                       color: isCurrentPlayer ? currentPlayerColor : Colors.transparent,
                                     ),
                                     padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
-                                    child: Text(
+                                    child: AutoSizeText(
                                       player,
                                       maxLines: 1,
+                                      minFontSize: 8,
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 18.0,
@@ -384,8 +386,9 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                                       bool showTransparent = isEliminated && roundIndex >= scores[index].indexWhere((s) => s is int && s >= 101);
                                       return Column(
                                         children: [
-                                          Text(
+                                          AutoSizeText(
                                             score == '—' ? '—' : '$score',
+                                            minFontSize: 8,
                                             style: TextStyle(
                                               fontSize: _textSize,
                                               color: score == '—' && showTransparent ? Colors.transparent : textColor,
