@@ -105,7 +105,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              title: const Text('Редактировать профиль'),
+              title: const Text('Редактировать игрока'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -163,12 +163,18 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                 ],
               ),
               actions: [
-                TextButton(
+                IconButton(
                   onPressed: () {
                     _deleteProfile(index);
                     Navigator.of(context).pop();
                   },
-                  child: const Text('Удалить'),
+                  icon: const Icon(Icons.delete),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Отменить'),
                 ),
                 TextButton(
                   onPressed: () {
@@ -223,7 +229,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                           return StatefulBuilder(
                             builder: (context, setState) {
                               return AlertDialog(
-                                title: const Text('Новый профиль'),
+                                title: const Text('Новый игрок'),
                                 content: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -304,28 +310,51 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                 ],
               ),
             ),
-            const SizedBox(
-              height: 12,
+            const SizedBox(height: 12),
+            Expanded(
+              child: ListView.builder(
+                itemCount: profiles.length,
+                itemBuilder: (context, index) {
+                  PlayerProfile profile = profiles[index];
+                  bool isSelected = selectedProfiles.contains(index);
+                  int selectionOrder = isSelected ? selectedProfiles.indexOf(index) + 1 : 0;
+                  return GestureDetector(
+                    onLongPress: () => _showEditProfileDialog(index),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 8.0),
+                      decoration: BoxDecoration(
+                        color: profile.color.withOpacity(isSelected ? 0.7 : 0.5),
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      child: ListTile(
+                        leading: isSelected
+                            ? CircleAvatar(
+                                backgroundColor: profile.color,
+                                child: Text(
+                                  '$selectionOrder',
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              )
+                            : null,
+                        title: Text(
+                          profile.name,
+                          style: TextStyle(
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        trailing: isSelected
+                            ? const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                              )
+                            : null,
+                        onTap: () => _toggleProfileSelection(index),
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
-            Wrap(
-              spacing: 8.0, // Горизонтальный отступ между элементами
-              runSpacing: 8.0, // Вертикальный отступ между элементами
-              children: profiles.asMap().entries.map((entry) {
-                int index = entry.key;
-                PlayerProfile profile = entry.value;
-                return GestureDetector(
-                  onLongPress: () => _showEditProfileDialog(index),
-                  child: ChoiceChip(
-                    label: Text(profile.name),
-                    selected: selectedProfiles.contains(index),
-                    onSelected: (_) => _toggleProfileSelection(index),
-                    backgroundColor: profile.color.withOpacity(0.5),
-                    selectedColor: profile.color,
-                  ),
-                );
-              }).toList(),
-            ),
-            const Spacer(),
             ElevatedButton(
               onPressed: selectedProfiles.length >= 2
                   ? () async {

@@ -42,11 +42,6 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     });
   }
 
-  Future<void> _saveSortingPreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isDescending', isDescending);
-  }
-
   Future<void> _loadSortingPreference() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
