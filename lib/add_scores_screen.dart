@@ -18,6 +18,7 @@ class AddScoresScreen extends StatefulWidget {
 
 class _AddScoresScreenState extends State<AddScoresScreen> {
   late List<TextEditingController> _controllers;
+  bool _hasEmptyField = false;
 
   @override
   void initState() {
@@ -35,12 +36,26 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
   void _submitScores() {
     final List<int> scores = _controllers.map((controller) {
       final text = controller.text;
-      if (text.isEmpty) return 0;
+      if (text.isEmpty || text == '0' || text == '-') return 0;
       return int.tryParse(text) ?? 0;
     }).toList();
 
-    widget.onAddScores(scores);
-    Navigator.pop(context);
+    bool hasEmptyField = scores.any((score) => score == 0);
+
+    if (hasEmptyField) {
+      widget.onAddScores(scores);
+      Navigator.pop(context);
+    } else {
+      setState(() {
+        _hasEmptyField = true;
+      });
+    }
+  }
+
+  void _eliminatePlayer(int index) {
+    setState(() {
+      _controllers[index].text = '101';
+    });
   }
 
   @override
@@ -54,11 +69,11 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
   @override
   Widget build(BuildContext context) {
     final buttonStyle = ElevatedButton.styleFrom(
-      padding: const EdgeInsets.symmetric(vertical: 16.0),
+      padding: const EdgeInsets.all(16.0),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8.0),
       ),
-      textStyle: const TextStyle(fontSize: 16.0),
+      textStyle: const TextStyle(fontSize: 14.0), // Уменьшенный размер текста
     );
 
     return Scaffold(
@@ -75,12 +90,32 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
                 itemBuilder: (context, index) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: TextField(
-                      controller: _controllers[index],
-                      decoration: InputDecoration(
-                        labelText: widget.players[index],
-                      ),
-                      keyboardType: TextInputType.number,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 2, // Поле для ввода занимает 2/3 ширины
+                          child: TextField(
+                            controller: _controllers[index],
+                            decoration: InputDecoration(
+                              labelText: widget.players[index],
+                              errorText: _hasEmptyField && _controllers[index].text.isEmpty ? 'Это поле не может быть пустым' : null,
+                            ),
+                            keyboardType: TextInputType.number,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 1, // Кнопка занимает 1/3 ширины
+                          child: SizedBox(
+                            height: 50, // Высота кнопки равна высоте текстового поля
+                            child: ElevatedButton(
+                              onPressed: () => _eliminatePlayer(index),
+                              style: buttonStyle,
+                              child: const Text('Проиграл'),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 },

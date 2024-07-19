@@ -88,6 +88,11 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
+  bool _isGameFinished(Map<String, dynamic> game) {
+    final remainingPlayers = List<String>.from(game['remainingPlayers'] ?? []);
+    return remainingPlayers.length == 1;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
@@ -103,11 +108,13 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
           final date = game['date'] as DateTime?;
           final formattedDate = _formatDate(date);
           final title = game['title'] ?? 'Игра ${gameHistory.length - index}';
+          final isFinished = _isGameFinished(game);
 
           final titleColor = isDarkTheme ? const Color(0xFFC2B8ED) : Colors.purple;
           final dateColor = isDarkTheme ? Colors.white : Colors.black;
 
           return ListTile(
+            leading: isFinished ? const Icon(Icons.check_circle, color: Colors.green) : null,
             title: RichText(
               text: TextSpan(
                 style: DefaultTextStyle.of(context).style,

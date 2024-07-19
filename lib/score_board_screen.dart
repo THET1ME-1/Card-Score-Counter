@@ -18,7 +18,6 @@ class ScoreBoardScreen extends StatefulWidget {
   });
 
   @override
-  // ignore: library_private_types_in_public_api
   _ScoreBoardScreenState createState() => _ScoreBoardScreenState();
 }
 
@@ -236,42 +235,51 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   }
 
   void editLastRoundScores() {
-    setState(() {
-      if (rounds > 0) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AddScoresScreen(
-              players: remainingPlayers,
-              onAddScores: (newScores) {
-                setState(() {
-                  int remainingIndex = 0;
-                  for (int i = 0; i < widget.players.length; i++) {
-                    if (eliminatedPlayers.contains(widget.players[i])) {
-                      continue;
-                    }
-                    if (newScores[remainingIndex] == 0) {
-                      scores[i][scores[i].length - 1] = '—';
-                    } else {
-                      int lastValidScore = 0;
-                      for (int j = scores[i].length - 2; j >= 0; j--) {
-                        if (scores[i][j] is int) {
-                          lastValidScore = scores[i][j];
-                          break;
-                        }
-                      }
-                      scores[i][scores[i].length - 1] = lastValidScore + newScores[remainingIndex];
-                    }
-                    remainingIndex++;
-                  }
-                  _updateGameHistory();
-                });
-              },
-            ),
-          ),
-        );
+    if (rounds > 0) {
+      List<int> lastRoundScores = [];
+      for (int i = 0; i < widget.players.length; i++) {
+        if (eliminatedPlayers.contains(widget.players[i])) {
+          lastRoundScores.add(0);
+        } else {
+          var lastScore = scores[i].last;
+          lastRoundScores.add(lastScore is int ? lastScore : 0);
+        }
       }
-    });
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AddScoresScreen(
+            players: remainingPlayers,
+            initialScores: lastRoundScores,
+            onAddScores: (newScores) {
+              setState(() {
+                int remainingIndex = 0;
+                for (int i = 0; i < widget.players.length; i++) {
+                  if (eliminatedPlayers.contains(widget.players[i])) {
+                    continue;
+                  }
+                  if (newScores[remainingIndex] == 0) {
+                    scores[i][scores[i].length - 1] = '—';
+                  } else {
+                    int lastValidScore = 0;
+                    for (int j = scores[i].length - 2; j >= 0; j--) {
+                      if (scores[i][j] is int) {
+                        lastValidScore = scores[i][j];
+                        break;
+                      }
+                    }
+                    scores[i][scores[i].length - 1] = lastValidScore + newScores[remainingIndex];
+                  }
+                  remainingIndex++;
+                }
+                _updateGameHistory();
+              });
+            },
+          ),
+        ),
+      );
+    }
   }
 
   @override
