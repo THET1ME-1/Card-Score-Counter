@@ -3,6 +3,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'add_scores_screen.dart';
 import 'player_profile.dart';
+<<<<<<< Updated upstream
+=======
+import 'package:auto_size_text/auto_size_text.dart';
+import 'settings_screen.dart'; // Add import for GameProfile
+>>>>>>> Stashed changes
 
 class ScoreBoardScreen extends StatefulWidget {
   final List<String> players;
@@ -29,11 +34,17 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   List<int> dividerIndices = [];
   double _textSize = 16.0;
   int currentPlayerIndex = 0;
+<<<<<<< Updated upstream
+=======
+  String? gameId;
+  GameProfile? _gameProfile;
+>>>>>>> Stashed changes
 
   @override
   void initState() {
     super.initState();
     _loadTextSize();
+    _loadGameProfile();
     if (widget.initialData != null) {
       scores = List<List<dynamic>>.from(widget.initialData!['scores'] ?? []);
       remainingPlayers = List<String>.from(widget.initialData!['remainingPlayers'] ?? []);
@@ -54,6 +65,46 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
     });
   }
 
+<<<<<<< Updated upstream
+=======
+  Future<void> _loadGameProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final profileName = prefs.getString('selectedGameProfile');
+    final profilesStringList = prefs.getStringList('gameProfiles');
+    if (profileName != null && profilesStringList != null) {
+      final profile = profilesStringList.map((profileString) {
+        return GameProfile.fromJson(jsonDecode(profileString));
+      }).firstWhere((profile) => profile.name == profileName, orElse: () => GameProfile(name: 'КунКен', maxPoints: 101, winWithMaxPoints: false));
+      setState(() {
+        _gameProfile = profile;
+      });
+    } else {
+      // Set default profile if none found
+      setState(() {
+        _gameProfile = GameProfile(name: 'КунКен', maxPoints: 101, winWithMaxPoints: false);
+      });
+    }
+  }
+
+  Future<void> _saveNewGameToHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final gameHistory = prefs.getStringList('gameHistory') ?? [];
+    final gameData = {
+      'gameId': gameId,
+      'players': widget.players,
+      'scores': scores,
+      'rounds': rounds,
+      'remainingPlayers': remainingPlayers,
+      'eliminatedPlayers': eliminatedPlayers,
+      'dividerIndices': dividerIndices,
+      'currentPlayerIndex': currentPlayerIndex,
+      'date': DateTime.now().toIso8601String(),
+    };
+    gameHistory.add(jsonEncode(gameData));
+    await prefs.setStringList('gameHistory', gameHistory);
+  }
+
+>>>>>>> Stashed changes
   Future<void> _updateGameHistory() async {
     final prefs = await SharedPreferences.getInstance();
     final gameHistory = prefs.getStringList('gameHistory') ?? [];
@@ -120,8 +171,12 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
           scores[i].add(lastValidScore + roundScores[remainingIndex]);
         }
 
-        if (scores[i].last is int && scores[i].last >= 101) {
-          playersToEliminate.add(widget.players[i]);
+        if (_gameProfile != null) {
+          if (_gameProfile!.winWithMaxPoints && scores[i].last is int && scores[i].last >= _gameProfile!.maxPoints) {
+            playersToEliminate.add(widget.players[i]);
+          } else if (!_gameProfile!.winWithMaxPoints && scores[i].last is int && scores[i].last <= _gameProfile!.maxPoints) {
+            playersToEliminate.add(widget.players[i]);
+          }
         }
 
         remainingIndex++;
@@ -171,7 +226,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
         eliminatedPlayers.clear();
         remainingPlayers = List.from(widget.players);
         for (int i = 0; i < widget.players.length; i++) {
-          if (scores[i].isNotEmpty && scores[i].last is int && scores[i].last >= 101) {
+          if (scores[i].isNotEmpty && scores[i].last is int && scores[i].last >= _gameProfile!.maxPoints) {
             eliminatedPlayers.add(widget.players[i]);
             remainingPlayers.remove(widget.players[i]);
           }
@@ -254,12 +309,12 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
             break;
           }
         }
-        if (lastValidScore >= 60 && lastValidScore < 101) {
+        if (_gameProfile != null && lastValidScore >= _gameProfile!.maxPoints - 40 && lastValidScore < _gameProfile!.maxPoints) {
           widgets.add(
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4.0),
               child: Text(
-                '${100 - lastValidScore}',
+                '${_gameProfile!.maxPoints - lastValidScore}',
                 style: TextStyle(
                   fontSize: 12.0, // Smaller font size
                   color: textColor,
@@ -338,7 +393,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                                     children: scores[index].asMap().entries.map((entry) {
                                       int roundIndex = entry.key;
                                       var score = entry.value;
-                                      bool showTransparent = isEliminated && roundIndex >= scores[index].indexWhere((s) => s is int && s >= 101);
+                                      bool showTransparent = isEliminated && roundIndex >= scores[index].indexWhere((s) => s is int && s >= (_gameProfile?.maxPoints ?? 101));
                                       return Column(
                                         children: [
                                           Text(
@@ -385,6 +440,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                                       builder: (context) => AddScoresScreen(
                                         players: remainingPlayers,
                                         onAddScores: addScores,
+                                        gameProfile: _gameProfile,
                                       ),
                                     ),
                                   );

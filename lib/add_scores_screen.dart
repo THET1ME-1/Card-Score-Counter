@@ -1,13 +1,24 @@
 import 'package:flutter/material.dart';
+import 'settings_screen.dart';
 
 class AddScoresScreen extends StatefulWidget {
   final List<String> players;
   final Function(List<int>) onAddScores;
+<<<<<<< Updated upstream
+=======
+  final List<int> initialScores;
+  final GameProfile? gameProfile;
+>>>>>>> Stashed changes
 
   const AddScoresScreen({
     super.key,
     required this.players,
     required this.onAddScores,
+<<<<<<< Updated upstream
+=======
+    this.initialScores = const [],
+    this.gameProfile,
+>>>>>>> Stashed changes
   });
 
   @override
@@ -45,6 +56,24 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
     Navigator.pop(context);
   }
 
+<<<<<<< Updated upstream
+=======
+  void _eliminatePlayer(int index) {
+    setState(() {
+      _controllers[index].text = widget.gameProfile?.maxPoints.toString() ?? '101';
+    });
+  }
+
+  @override
+  void dispose() {
+    for (var controller in _controllers) {
+      controller.removeListener(_checkIfEmptyFieldExists);
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+>>>>>>> Stashed changes
   @override
   Widget build(BuildContext context) {
     return Scaffold(
