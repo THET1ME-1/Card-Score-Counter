@@ -283,6 +283,18 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
     }
   }
 
+  void _restartGame() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ScoreBoardScreen(
+          players: widget.players,
+          endCurrentGame: widget.endCurrentGame,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
@@ -427,6 +439,25 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                 padding: const EdgeInsets.all(16.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: buildRemainingPoints(),
+                ),
+              ),
+              if (remainingPlayers.length == 1)
+                Padding(
+                  padding: const EdgeInsets.all(18.0),
+                  child: Container(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _restartGame,
+                      style: buttonStyle,
+                      child: const Text('Играть заново'),
+                    ),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     Expanded(
                       child: Padding(
@@ -474,15 +505,6 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                 ),
               ),
             ],
-          ),
-          Positioned(
-            bottom: 100.0,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: buildRemainingPoints(),
-            ),
           ),
         ],
       ),
