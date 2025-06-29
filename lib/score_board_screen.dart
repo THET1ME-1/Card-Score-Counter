@@ -196,7 +196,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
         }
       }
 
-      _updateGameHistory();
+      _updateGameHistory(); // currentPlayerIndex будет сохранён
       _deleteEmptyGames(); // Удаление пустых игр
       _advanceToNextPlayer();
     });
@@ -208,7 +208,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
         currentPlayerIndex = (currentPlayerIndex + 1) % widget.players.length;
       } while (eliminatedPlayers.contains(widget.players[currentPlayerIndex]));
     });
-    _updateGameHistory();
+    _updateGameHistory(); // currentPlayerIndex будет сохранён
   }
 
   void undoLastRound() {
@@ -233,7 +233,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
             remainingPlayers.remove(widget.players[i]);
           }
         }
-        _updateGameHistory();
+        _updateGameHistory(); // currentPlayerIndex будет сохранён
         _advanceToPreviousPlayer();
       }
     });
@@ -246,18 +246,37 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
             widget.players.length;
       } while (eliminatedPlayers.contains(widget.players[currentPlayerIndex]));
     });
-    _updateGameHistory();
+    _updateGameHistory(); // currentPlayerIndex будет сохранён
   }
 
   void editLastRoundScores() {
     if (rounds > 0) {
-      List<int> lastRoundScores = [];
+      List<int?> lastRoundScores = [];
       for (int i = 0; i < widget.players.length; i++) {
         if (eliminatedPlayers.contains(widget.players[i])) {
           lastRoundScores.add(0);
         } else {
-          var lastScore = scores[i].last;
-          lastRoundScores.add(lastScore is int ? lastScore : 0);
+          // Если последний элемент — '—', значит игрок не вписал очков (победитель)
+          if (scores[i].isNotEmpty && scores[i].last == '—') {
+            lastRoundScores.add(null); // будет пустое поле
+          } else {
+            // Найти последнее и предпоследнее числовое значение
+            int lastValid = 0;
+            int prevValid = 0;
+            int found = 0;
+            for (int j = scores[i].length - 1; j >= 0; j--) {
+              if (scores[i][j] is int) {
+                if (found == 0) {
+                  lastValid = scores[i][j];
+                  found++;
+                } else if (found == 1) {
+                  prevValid = scores[i][j];
+                  break;
+                }
+              }
+            }
+            lastRoundScores.add(lastValid - prevValid);
+          }
         }
       }
 
@@ -266,7 +285,8 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
         MaterialPageRoute(
           builder: (context) => AddScoresScreen(
             players: remainingPlayers,
-            initialScores: lastRoundScores,
+            initialScores: lastRoundScores.map((e) => e ?? 0).toList(),
+            // AddScoresScreen сам решает, что null/0 = пустое поле
             onAddScores: (newScores) {
               setState(() {
                 int remainingIndex = 0;
@@ -289,7 +309,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                   }
                   remainingIndex++;
                 }
-                _updateGameHistory();
+                _updateGameHistory(); // currentPlayerIndex будет сохранён
               });
             },
           ),
