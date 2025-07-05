@@ -1,6 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
+
 import 'score_board_screen.dart';
 
 class GameHistoryScreen extends StatefulWidget {
@@ -33,8 +35,8 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     setState(() {
       gameHistory = gameHistoryData.map((entry) {
         final Map<String, dynamic> gameMap = jsonDecode(entry);
-        gameMap['date'] = gameMap.containsKey('date') && gameMap['date'] != null 
-            ? DateTime.parse(gameMap['date']) 
+        gameMap['date'] = gameMap.containsKey('date') && gameMap['date'] != null
+            ? DateTime.parse(gameMap['date'])
             : DateTime.now(); // Assign current date if 'date' is null
         return gameMap;
       }).toList();
@@ -105,11 +107,14 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
           final title = game['title'] ?? 'Игра ${gameHistory.length - index}';
           final isFinished = _isGameFinished(game);
 
-          final titleColor = isDarkTheme ? const Color(0xFFC2B8ED) : Colors.purple;
+          final titleColor =
+              isDarkTheme ? const Color(0xFFC2B8ED) : Colors.purple;
           final dateColor = isDarkTheme ? Colors.white : Colors.black;
 
           return ListTile(
-            leading: isFinished ? const Icon(Icons.check_circle, color: Colors.green) : null,
+            leading: isFinished
+                ? const Icon(Icons.check_circle, color: Colors.green)
+                : null,
             title: RichText(
               text: TextSpan(
                 style: DefaultTextStyle.of(context).style,
@@ -140,7 +145,8 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
                       context: context,
                       builder: (context) => AlertDialog(
                         title: const Text('Удалить эту игру?'),
-                        content: const Text('Вы уверены, что хотите удалить эту игру из истории?'),
+                        content: const Text(
+                            'Вы уверены, что хотите удалить эту игру из истории?'),
                         actions: [
                           TextButton(
                             onPressed: () {
@@ -171,6 +177,7 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
                     players: List<String>.from(game['players']),
                     endCurrentGame: () {},
                     initialData: game,
+                    isNewGame: false, // <-- всегда false для истории
                   ),
                 ),
               );

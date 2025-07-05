@@ -1,7 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
+
 import 'player_profile.dart';
 import 'score_board_screen.dart';
 
@@ -34,16 +36,20 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
     final prefs = await SharedPreferences.getInstance();
     final List<String>? profilesStringList = prefs.getStringList('profiles');
     if (profilesStringList != null) {
-      final List<dynamic> profileList = profilesStringList.map((profile) => jsonDecode(profile)).toList();
+      final List<dynamic> profileList =
+          profilesStringList.map((profile) => jsonDecode(profile)).toList();
       setState(() {
-        profiles = profileList.map((profile) => PlayerProfile.fromJson(profile)).toList();
+        profiles = profileList
+            .map((profile) => PlayerProfile.fromJson(profile))
+            .toList();
       });
     }
   }
 
   Future<void> _saveProfiles() async {
     final prefs = await SharedPreferences.getInstance();
-    final profilesStringList = profiles.map((profile) => jsonEncode(profile.toJson())).toList();
+    final profilesStringList =
+        profiles.map((profile) => jsonEncode(profile.toJson())).toList();
     await prefs.setStringList('profiles', profilesStringList);
   }
 
@@ -77,23 +83,6 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
       selectedProfiles.remove(index);
     });
     _saveProfiles();
-  }
-
-  Future<void> _saveGameToHistory(List<String> playerNames) async {
-    final prefs = await SharedPreferences.getInstance();
-    final gameHistory = prefs.getStringList('gameHistory') ?? [];
-    final gameData = jsonEncode({
-      'players': playerNames,
-      'scores': List.generate(playerNames.length, (_) => []),
-      'rounds': 0,
-      'remainingPlayers': playerNames,
-      'eliminatedPlayers': [],
-      'dividerIndices': [],
-      'dealerIndex': 0,
-      'date': DateTime.now().toIso8601String(),
-    });
-    gameHistory.insert(0, gameData); // Добавляем новую игру в начало списка
-    await prefs.setStringList('gameHistory', gameHistory);
   }
 
   void _showEditProfileDialog(int index) {
@@ -234,7 +223,8 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     TextField(
-                                      decoration: const InputDecoration(labelText: 'Имя'),
+                                      decoration: const InputDecoration(
+                                          labelText: 'Имя'),
                                       onChanged: (value) {
                                         name = value;
                                       },
@@ -249,11 +239,14 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                                               context: context,
                                               builder: (context) {
                                                 return AlertDialog(
-                                                  title: const Text('Выберите цвет'),
-                                                  content: SingleChildScrollView(
+                                                  title: const Text(
+                                                      'Выберите цвет'),
+                                                  content:
+                                                      SingleChildScrollView(
                                                     child: BlockPicker(
                                                       pickerColor: color,
-                                                      onColorChanged: (newColor) {
+                                                      onColorChanged:
+                                                          (newColor) {
                                                         setState(() {
                                                           color = newColor;
                                                         });
@@ -263,9 +256,11 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                                                   actions: [
                                                     TextButton(
                                                       onPressed: () {
-                                                        Navigator.of(context).pop();
+                                                        Navigator.of(context)
+                                                            .pop();
                                                       },
-                                                      child: const Text('Готово'),
+                                                      child:
+                                                          const Text('Готово'),
                                                     ),
                                                   ],
                                                 );
@@ -317,13 +312,15 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                 itemBuilder: (context, index) {
                   PlayerProfile profile = profiles[index];
                   bool isSelected = selectedProfiles.contains(index);
-                  int selectionOrder = isSelected ? selectedProfiles.indexOf(index) + 1 : 0;
+                  int selectionOrder =
+                      isSelected ? selectedProfiles.indexOf(index) + 1 : 0;
                   return GestureDetector(
                     onLongPress: () => _showEditProfileDialog(index),
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 8.0),
                       decoration: BoxDecoration(
-                        color: profile.color.withOpacity(isSelected ? 0.7 : 0.5),
+                        color:
+                            profile.color.withOpacity(isSelected ? 0.7 : 0.5),
                         borderRadius: BorderRadius.circular(8.0),
                       ),
                       child: ListTile(
@@ -339,7 +336,9 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                         title: Text(
                           profile.name,
                           style: TextStyle(
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         ),
                         trailing: isSelected
@@ -361,22 +360,21 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                       List<String> selectedPlayerNames = selectedProfiles
                           .map((index) => profiles[index].name)
                           .toList();
-                      await _saveGameToHistory(selectedPlayerNames);
                       widget.startNewGame(selectedPlayerNames);
                       Navigator.push(
-                        // ignore: use_build_context_synchronously
                         context,
                         MaterialPageRoute(
                           builder: (context) => ScoreBoardScreen(
                             players: selectedPlayerNames,
                             endCurrentGame: widget.endCurrentGame,
+                            isNewGame: true,
                           ),
                         ),
                       );
                     }
                   : null,
               style: buttonStyle,
-              child: const Text('Начать игру'), // Применяем стиль для кнопки
+              child: const Text('Начать игру'),
             ),
           ],
         ),

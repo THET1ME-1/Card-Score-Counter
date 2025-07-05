@@ -127,8 +127,10 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _widgetOptions = [
+      // Важно: startNewGame должен вызываться только по действию пользователя (например, по кнопке "Начать игру" внутри PlayerInputScreen)
       PlayerInputScreen(
-        startNewGame: widget.startNewGame,
+        startNewGame: widget
+            .startNewGame, // <-- должен вызываться только по кнопке внутри PlayerInputScreen
         endCurrentGame: widget.endCurrentGame,
       ),
       GameHistoryScreen(
@@ -164,19 +166,19 @@ class _MainScreenState extends State<MainScreen> {
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
-            label: 'Главное меню',
+            label: 'Главное меню', // <-- правильно
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.history),
-            label: 'История игр',
+            label: 'История игр', // <-- правильно
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.leaderboard),
-            label: 'Таблица лидеров',
+            label: 'Таблица лидеров', // <-- правильно
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
-            label: 'Настройки',
+            label: 'Настройки', // <-- правильно
           ),
         ],
         currentIndex: _selectedIndex,

@@ -11,12 +11,14 @@ class ScoreBoardScreen extends StatefulWidget {
   final List<String> players;
   final Function() endCurrentGame;
   final Map<String, dynamic>? initialData;
+  final bool isNewGame; // <--- добавлено
 
   const ScoreBoardScreen({
     super.key,
     required this.players,
     required this.endCurrentGame,
     this.initialData,
+    this.isNewGame = false, // <--- добавлено
   });
 
   @override
@@ -55,7 +57,9 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       gameId = DateTime.now()
           .millisecondsSinceEpoch
           .toString(); // Generate a unique game ID
-      _saveNewGameToHistory();
+      if (widget.isNewGame) {
+        _saveNewGameToHistory();
+      }
     }
   }
 
@@ -305,6 +309,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
         builder: (context) => ScoreBoardScreen(
           players: widget.players,
           endCurrentGame: widget.endCurrentGame,
+          isNewGame: true, // <-- только при реальном старте новой игры!
         ),
       ),
     );

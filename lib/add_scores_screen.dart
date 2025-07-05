@@ -27,7 +27,8 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
     _controllers = List.generate(
       widget.players.length,
       (index) => TextEditingController(
-        text: widget.initialScores.isNotEmpty && index < widget.initialScores.length
+        text: widget.initialScores.isNotEmpty &&
+                index < widget.initialScores.length
             ? widget.initialScores[index].toString()
             : '',
       ),
@@ -136,7 +137,8 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
                         Expanded(
                           flex: 1, // Кнопка занимает 1/3 ширины
                           child: SizedBox(
-                            height: 60, // Высота кнопки равна высоте текстового поля
+                            height:
+                                60, // Высота кнопки равна высоте текстового поля
                             child: ElevatedButton(
                               onPressed: () => _eliminatePlayer(index),
                               style: buttonStyle,
