@@ -70,12 +70,25 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
   Future<void> _deleteSingleGame(int index) async {
     final prefs = await SharedPreferences.getInstance();
     final gameHistoryData = prefs.getStringList('gameHistory') ?? [];
-    gameHistoryData.removeAt(index);
-    await prefs.setStringList('gameHistory', gameHistoryData);
-    setState(() {
-      gameHistory.removeAt(index);
-      _sortGameHistory(); // Ensure the order is maintained after deletion
+
+    // Find the gameId of the item that the user wants to delete
+    final String gameIdToDelete = gameHistory[index]['gameId'];
+
+    // Remove the correct element from the stored list irrespective of ordering
+    gameHistoryData.removeWhere((entry) {
+      final decoded = jsonDecode(entry);
+      return decoded['gameId'] == gameIdToDelete;
     });
+
+    await prefs.setStringList('gameHistory', gameHistoryData);
+
+    // Update local state only if the index is still valid (defensive programming)
+    if (index >= 0 && index < gameHistory.length) {
+      setState(() {
+        gameHistory.removeAt(index);
+        _sortGameHistory(); // Maintain ordering after deletion
+      });
+    }
   }
 
   String _formatDate(DateTime? date) {
@@ -92,6 +105,14 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Ensure the game history is always up-to-date when the screen becomes
+    // visible again (for example after returning from the score board).
+    // Using a post-frame callback prevents setState from being called during
+    // an active build and avoids redundant rebuilds.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _loadGameHistory();
+    });
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -168,15 +189,32 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
                 ),
               ],
             ),
-            onTap: () {
-              widget.continueGame(game);
+            onTap: () async {
+              // Always fetch the latest version of this game from storage to avoid
+              // showing stale data after the game was updated elsewhere.
+              final prefs = await SharedPreferences.getInstance();
+              final storedGames = prefs.getStringList('gameHistory') ?? [];
+              Map<String, dynamic> latestGame = game;
+              for (final entry in storedGames) {
+                final decoded = jsonDecode(entry);
+                if (decoded['gameId'] == game['gameId']) {
+                  latestGame = decoded;
+                  // Convert stored date back to DateTime object for consistency
+                  if (latestGame['date'] != null && latestGame['date'] is String) {
+                    latestGame['date'] = DateTime.parse(latestGame['date']);
+                  }
+                  break;
+                }
+              }
+
+              widget.continueGame(latestGame); // Update app state
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => ScoreBoardScreen(
-                    players: List<String>.from(game['players']),
+                    players: List<String>.from(latestGame['players']),
                     endCurrentGame: () {},
-                    initialData: game,
+                    initialData: latestGame,
                     isNewGame: false, // <-- всегда false для истории
                   ),
                 ),

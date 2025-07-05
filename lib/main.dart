@@ -52,6 +52,7 @@ class _CardGameScoreTrackerState extends State<CardGameScoreTracker> {
       _currentPlayers = players;
       _currentGameData = null;
     });
+    _loadSavedGames(); // обновить наличие сохранённых игр
   }
 
   void _continueGame(Map<String, dynamic> gameData) {
@@ -59,6 +60,7 @@ class _CardGameScoreTrackerState extends State<CardGameScoreTracker> {
       _currentPlayers = List<String>.from(gameData['players']);
       _currentGameData = gameData;
     });
+    _loadSavedGames(); // обновить наличие сохранённых игр
   }
 
   void _endCurrentGame() {
@@ -66,6 +68,7 @@ class _CardGameScoreTrackerState extends State<CardGameScoreTracker> {
       _currentPlayers = null;
       _currentGameData = null;
     });
+    _loadSavedGames(); // обновить наличие сохранённых игр
   }
 
   @override

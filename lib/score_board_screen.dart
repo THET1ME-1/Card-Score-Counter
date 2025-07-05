@@ -303,6 +303,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   }
 
   void _restartGame() {
+    _updateGameHistory(); // Сохраняем игру перед рестартом
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -313,6 +314,12 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _updateGameHistory(); // Сохраняем игру при выходе с экрана
+    super.dispose();
   }
 
   @override
