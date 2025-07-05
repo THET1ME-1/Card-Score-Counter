@@ -1,11 +1,9 @@
-import 'dart:convert';
-
-import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'dart:convert';
 import 'add_scores_screen.dart';
 import 'player_profile.dart';
+import 'package:auto_size_text/auto_size_text.dart';
 
 class ScoreBoardScreen extends StatefulWidget {
   final List<String> players;
@@ -40,21 +38,16 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
     _loadTextSize();
     if (widget.initialData != null) {
       scores = List<List<dynamic>>.from(widget.initialData!['scores'] ?? []);
-      remainingPlayers =
-          List<String>.from(widget.initialData!['remainingPlayers'] ?? []);
-      eliminatedPlayers =
-          List<String>.from(widget.initialData!['eliminatedPlayers'] ?? []);
+      remainingPlayers = List<String>.from(widget.initialData!['remainingPlayers'] ?? []);
+      eliminatedPlayers = List<String>.from(widget.initialData!['eliminatedPlayers'] ?? []);
       rounds = widget.initialData!['rounds'] ?? 0;
-      dividerIndices =
-          List<int>.from(widget.initialData!['dividerIndices'] ?? []);
+      dividerIndices = List<int>.from(widget.initialData!['dividerIndices'] ?? []);
       currentPlayerIndex = widget.initialData!['currentPlayerIndex'] ?? 0;
       gameId = widget.initialData!['gameId'];
     } else {
       scores = List.generate(widget.players.length, (_) => []);
       remainingPlayers = List.from(widget.players);
-      gameId = DateTime.now()
-          .millisecondsSinceEpoch
-          .toString(); // Generate a unique game ID
+      gameId = DateTime.now().millisecondsSinceEpoch.toString(); // Generate a unique game ID
       _saveNewGameToHistory();
     }
   }
@@ -119,10 +112,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
 
     gameHistory.removeWhere((entry) {
       final Map<String, dynamic> gameMap = jsonDecode(entry);
-      final List<dynamic> scores =
-          List<List<dynamic>>.from(gameMap['scores'] ?? [])
-              .expand((x) => x)
-              .toList();
+      final List<dynamic> scores = List<List<dynamic>>.from(gameMap['scores'] ?? []).expand((x) => x).toList();
       return scores.isEmpty;
     });
 
@@ -134,8 +124,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
     final List<String>? profilesStringList = prefs.getStringList('profiles');
     if (profilesStringList != null) {
       final List<PlayerProfile> profiles = profilesStringList
-          .map((profileString) =>
-              PlayerProfile.fromJson(jsonDecode(profileString)))
+          .map((profileString) => PlayerProfile.fromJson(jsonDecode(profileString)))
           .toList();
       for (var profile in profiles) {
         if (profile.name == playerName) {
@@ -226,9 +215,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
         eliminatedPlayers.clear();
         remainingPlayers = List.from(widget.players);
         for (int i = 0; i < widget.players.length; i++) {
-          if (scores[i].isNotEmpty &&
-              scores[i].last is int &&
-              scores[i].last >= 101) {
+          if (scores[i].isNotEmpty && scores[i].last is int && scores[i].last >= 101) {
             eliminatedPlayers.add(widget.players[i]);
             remainingPlayers.remove(widget.players[i]);
           }
@@ -242,8 +229,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   void _advanceToPreviousPlayer() {
     setState(() {
       do {
-        currentPlayerIndex = (currentPlayerIndex - 1 + widget.players.length) %
-            widget.players.length;
+        currentPlayerIndex = (currentPlayerIndex - 1 + widget.players.length) % widget.players.length;
       } while (eliminatedPlayers.contains(widget.players[currentPlayerIndex]));
     });
     _updateGameHistory();
@@ -284,8 +270,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                         break;
                       }
                     }
-                    scores[i][scores[i].length - 1] =
-                        lastValidScore + newScores[remainingIndex];
+                    scores[i][scores[i].length - 1] = lastValidScore + newScores[remainingIndex];
                   }
                   remainingIndex++;
                 }
@@ -314,8 +299,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDarkTheme ? Colors.white : Colors.black;
-    final currentPlayerColor =
-        isDarkTheme ? const Color(0xFFC2B8ED) : Colors.purple;
+    final currentPlayerColor = isDarkTheme ? const Color(0xFFC2B8ED) : Colors.purple;
     final currentPlayerTextColor = isDarkTheme ? Colors.black : Colors.white;
 
     final buttonStyle = ElevatedButton.styleFrom(
@@ -389,8 +373,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                           ...widget.players.asMap().entries.map((entry) {
                             int index = entry.key;
                             String player = entry.value;
-                            bool isEliminated =
-                                eliminatedPlayers.contains(player);
+                            bool isEliminated = eliminatedPlayers.contains(player);
                             bool isCurrentPlayer = index == currentPlayerIndex;
 
                             return Expanded(
@@ -399,12 +382,9 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                                   Container(
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(8),
-                                      color: isCurrentPlayer
-                                          ? currentPlayerColor
-                                          : Colors.transparent,
+                                      color: isCurrentPlayer ? currentPlayerColor : Colors.transparent,
                                     ),
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 4.0, horizontal: 8.0),
+                                    padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
                                     child: AutoSizeText(
                                       player,
                                       maxLines: 1,
@@ -421,16 +401,10 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                                     ),
                                   ),
                                   Column(
-                                    children: scores[index]
-                                        .asMap()
-                                        .entries
-                                        .map((entry) {
+                                    children: scores[index].asMap().entries.map((entry) {
                                       int roundIndex = entry.key;
                                       var score = entry.value;
-                                      bool showTransparent = isEliminated &&
-                                          roundIndex >=
-                                              scores[index].indexWhere(
-                                                  (s) => s is int && s >= 101);
+                                      bool showTransparent = isEliminated && roundIndex >= scores[index].indexWhere((s) => s is int && s >= 101);
                                       return Column(
                                         children: [
                                           AutoSizeText(
@@ -438,17 +412,12 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                                             minFontSize: 8,
                                             style: TextStyle(
                                               fontSize: _textSize,
-                                              color: score == '—' &&
-                                                      showTransparent
-                                                  ? Colors.transparent
-                                                  : textColor,
+                                              color: score == '—' && showTransparent ? Colors.transparent : textColor,
                                             ),
                                           ),
-                                          if (dividerIndices
-                                              .contains(roundIndex + 1))
+                                          if (dividerIndices.contains(roundIndex + 1))
                                             const Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                  vertical: 8.0),
+                                              padding: EdgeInsets.symmetric(vertical: 8.0),
                                               child: Divider(thickness: 2),
                                             ),
                                         ],
@@ -476,7 +445,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
               if (remainingPlayers.length == 1)
                 Padding(
                   padding: const EdgeInsets.all(18.0),
-                  child: SizedBox(
+                  child: Container(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _restartGame,
