@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'player_input_screen.dart';
+
 import 'game_history_screen.dart';
 import 'leaderboard_screen.dart';
+import 'player_input_screen.dart';
 import 'settings_screen.dart';
 
 void main() {
@@ -149,8 +150,11 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final selectedItemColor = widget.isDarkTheme ? const Color(0xFFC2B8ED) : Colors.purple;
-    final unselectedItemColor = widget.isDarkTheme ? const Color(0xFFC2B8ED).withOpacity(0.6) : Colors.grey;
+    final selectedItemColor =
+        widget.isDarkTheme ? const Color(0xFFC2B8ED) : Colors.purple;
+    final unselectedItemColor = widget.isDarkTheme
+        ? const Color(0xFFC2B8ED).withOpacity(0.6)
+        : Colors.grey;
 
     return Scaffold(
       body: Center(
