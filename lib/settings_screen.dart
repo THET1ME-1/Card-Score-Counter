@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'player_profile.dart';
+import 'rules_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final Function(bool) onThemeChanged;
@@ -192,6 +193,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: const Icon(Icons.delete),
                 label: const Text('Очистить историю игр'),
                 style: buttonStyle,
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Divider(),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const RulesScreen()),
+                  );
+                },
+                icon: const Icon(Icons.help_outline),
+                label: const Text('Правила игры КунКен'),
+                style: buttonStyle.copyWith(
+                  backgroundColor: MaterialStateProperty.all<Color>(
+                    Theme.of(context).primaryColor.withOpacity(0.8),
+                  ),
+                ),
               ),
             ),
             const Spacer(),
