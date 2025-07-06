@@ -78,7 +78,7 @@ class RulesScreen extends StatelessWidget {
                       subtitleColor,
                       textColor,
                     ),
-                    _buildDivider(dividerColor!),
+                    _buildDivider(dividerColor),
                     _buildRuleItem(
                       context,
                       'Цель:',
