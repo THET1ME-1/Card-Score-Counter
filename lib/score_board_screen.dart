@@ -218,25 +218,56 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   void undoLastRound() {
     setState(() {
       if (rounds > 0) {
+        // Get the current state of eliminated players before undoing
+        final previousEliminatedPlayers = List<String>.from(eliminatedPlayers);
+        
+        // Remove the last scores
         for (int i = 0; i < widget.players.length; i++) {
           if (scores[i].isNotEmpty) {
             scores[i].removeLast();
           }
         }
+        
         rounds--;
         if (dividerIndices.isNotEmpty && rounds % widget.players.length == 0) {
           dividerIndices.removeLast();
         }
+        
+        // Reset the player lists
         eliminatedPlayers.clear();
-        remainingPlayers = List.from(widget.players);
+        remainingPlayers.clear();
+        
+        // Check each player's total score to determine elimination
         for (int i = 0; i < widget.players.length; i++) {
-          if (scores[i].isNotEmpty &&
-              scores[i].last is int &&
-              scores[i].last >= 101) {
+          bool isEliminated = false;
+          
+          // Find the last valid score (int) for this player
+          int lastValidScore = 0;
+          for (int j = scores[i].length - 1; j >= 0; j--) {
+            if (scores[i][j] is int) {
+              lastValidScore = scores[i][j];
+              break;
+            }
+          }
+          
+          // Check if player was previously eliminated or has a score >= 101
+          if (previousEliminatedPlayers.contains(widget.players[i]) || 
+              (scores[i].isNotEmpty && lastValidScore >= 101)) {
             eliminatedPlayers.add(widget.players[i]);
-            remainingPlayers.remove(widget.players[i]);
+            isEliminated = true;
+          }
+          
+          if (!isEliminated) {
+            remainingPlayers.add(widget.players[i]);
           }
         }
+        
+        // If all players are eliminated, something went wrong - reset to initial state
+        if (remainingPlayers.isEmpty && widget.players.isNotEmpty) {
+          remainingPlayers = List.from(widget.players);
+          eliminatedPlayers.clear();
+        }
+        
         _updateGameHistory();
         _advanceToPreviousPlayer();
       }
@@ -259,9 +290,33 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       for (int i = 0; i < widget.players.length; i++) {
         if (eliminatedPlayers.contains(widget.players[i])) {
           lastRoundScores.add(0);
+          continue;
+        }
+        
+        // Find the last valid score (int) before the last round
+        int lastValidScore = 0;
+        int lastRoundIndex = scores[i].length - 1;
+        
+        // If there's only one score, use it as is
+        if (scores[i].length == 1 && scores[i].last is int) {
+          lastRoundScores.add(scores[i].last);
+          continue;
+        }
+        
+        // For multiple scores, find the last valid score before the current round
+        for (int j = lastRoundIndex - 1; j >= 0; j--) {
+          if (scores[i][j] is int) {
+            lastValidScore = scores[i][j];
+            break;
+          }
+        }
+        
+        // Calculate the score for the last round only (current total - previous total)
+        var currentScore = scores[i].last;
+        if (currentScore is int) {
+          lastRoundScores.add(currentScore - lastValidScore);
         } else {
-          var lastScore = scores[i].last;
-          lastRoundScores.add(lastScore is int ? lastScore : 0);
+          lastRoundScores.add(0);
         }
       }
 
@@ -278,20 +333,22 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
                   if (eliminatedPlayers.contains(widget.players[i])) {
                     continue;
                   }
-                  if (newScores[remainingIndex] == 0) {
-                    scores[i][scores[i].length - 1] = '—';
-                  } else {
-                    int lastValidScore = 0;
-                    for (int j = scores[i].length - 2; j >= 0; j--) {
-                      if (scores[i][j] is int) {
-                        lastValidScore = scores[i][j];
-                        break;
+                  if (scores[i].isNotEmpty) {
+                    if (newScores[remainingIndex] == 0) {
+                      scores[i][scores[i].length - 1] = '—';
+                    } else {
+                      int lastValidScore = 0;
+                      for (int j = scores[i].length - 2; j >= 0; j--) {
+                        if (scores[i][j] is int) {
+                          lastValidScore = scores[i][j];
+                          break;
+                        }
                       }
+                      scores[i][scores[i].length - 1] =
+                          lastValidScore + newScores[remainingIndex];
                     }
-                    scores[i][scores[i].length - 1] =
-                        lastValidScore + newScores[remainingIndex];
+                    remainingIndex++;
                   }
-                  remainingIndex++;
                 }
                 _updateGameHistory();
               });
