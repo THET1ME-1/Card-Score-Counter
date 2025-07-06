@@ -14,7 +14,7 @@
 
 # Сборка релизного APK (или AAB):
 
-1. Выполните команду: `flutter build apk --release` для сборки APK, или `Выполните команду: flutter build apk --release для сборки APK, или flutter build appbundle --release для сборки AAB.` для сборки AAB.
+1. Выполните команду: `flutter build apk --release` для сборки APK, или Выполните команду: `flutter build apk --release` для сборки APK, или `flutter build appbundle --release` для сборки AAB для сборки AAB.
 2. Установка на устройство:
   - Подключите Android-телефон к компьютеру через USB кабель. Убедитесь, что на телефоне включена отладка по USB в настройках разработчика.
   - Найдите сгенерированный APK файл на компьютере и скопируйте его на телефон в любую удобную директорию.
