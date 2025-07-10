@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
@@ -6,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'player_profile.dart';
 import 'score_board_screen.dart';
+import 'utils/image_picker_util.dart';
 
 class PlayerInputScreen extends StatefulWidget {
   final Function(List<String>) startNewGame;
@@ -25,6 +27,7 @@ class PlayerInputScreen extends StatefulWidget {
 class _PlayerInputScreenState extends State<PlayerInputScreen> {
   List<PlayerProfile> profiles = [];
   List<int> selectedProfiles = [];
+  final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
@@ -53,18 +56,31 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
     await prefs.setStringList('profiles', profilesStringList);
   }
 
-  void _addProfile(String name, Color color) {
+  Future<void> _addProfile(String name, Color color, {String? imagePath}) async {
     setState(() {
-      profiles.add(PlayerProfile(name: name, color: color));
+      profiles.add(PlayerProfile(
+        name: name,
+        color: color,
+        imagePath: imagePath,
+      ));
     });
-    _saveProfiles();
+    await _saveProfiles();
   }
 
-  void _editProfile(int index, String name, Color color) {
+  Future<void> _editProfile(int index, String name, Color color, {String? imagePath}) async {
+    // Delete old image if it's being replaced
+    if (imagePath != null && imagePath != profiles[index].imagePath) {
+      await ImagePickerUtil.deleteImage(profiles[index].imagePath);
+    }
+    
     setState(() {
-      profiles[index] = PlayerProfile(name: name, color: color);
+      profiles[index] = PlayerProfile(
+        name: name,
+        color: color,
+        imagePath: imagePath ?? profiles[index].imagePath,
+      );
     });
-    _saveProfiles();
+    await _saveProfiles();
   }
 
   void _toggleProfileSelection(int index) {
@@ -88,6 +104,9 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
   void _showEditProfileDialog(int index) {
     String name = profiles[index].name;
     Color color = profiles[index].color;
+    String? currentImagePath = profiles[index].imagePath;
+    String? newImagePath;
+    
     showDialog(
       context: context,
       builder: (context) {
@@ -95,61 +114,117 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
           builder: (context, setState) {
             return AlertDialog(
               title: const Text('Редактировать игрока'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    decoration: const InputDecoration(labelText: 'Имя'),
-                    onChanged: (value) {
-                      name = value;
-                    },
-                    controller: TextEditingController(text: name),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      const Text('Цвет: '),
-                      GestureDetector(
-                        onTap: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) {
-                              return AlertDialog(
-                                title: const Text('Выберите цвет'),
-                                content: SingleChildScrollView(
-                                  child: BlockPicker(
-                                    pickerColor: color,
-                                    onColorChanged: (newColor) {
-                                      setState(() {
-                                        color = newColor;
-                                      });
-                                    },
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Profile Picture Section
+                    GestureDetector(
+                      onTap: () async {
+                        final imagePath = await ImagePickerUtil.pickImage();
+                        if (imagePath != null) {
+                          setState(() {
+                            newImagePath = imagePath;
+                          });
+                        }
+                      },
+                      child: Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 40,
+                            backgroundColor: color.withOpacity(0.3),
+                            child: newImagePath != null
+                                ? ClipOval(
+                                    child: Image.file(
+                                      File(newImagePath!), // Non-null assertion is safe here as we're in a conditional
+                                      width: 80,
+                                      height: 80,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  )
+                                : currentImagePath != null && File(currentImagePath!).existsSync()
+                                    ? ClipOval(
+                                        child: Image.file(
+                                          File(currentImagePath!), // Non-null assertion is safe here as we're in a conditional
+                                          width: 80,
+                                          height: 80,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      )
+                                    : Text(
+                                        name.isNotEmpty ? name[0].toUpperCase() : '?',
+                                        style: const TextStyle(fontSize: 32, color: Colors.white),
+                                      ),
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.blue,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      decoration: const InputDecoration(labelText: 'Имя'),
+                      onChanged: (value) {
+                        name = value;
+                      },
+                      controller: TextEditingController(text: name),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        const Text('Цвет: '),
+                        GestureDetector(
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) {
+                                return AlertDialog(
+                                  title: const Text('Выберите цвет'),
+                                  content: SingleChildScrollView(
+                                    child: BlockPicker(
+                                      pickerColor: color,
+                                      onColorChanged: (newColor) {
+                                        setState(() {
+                                          color = newColor;
+                                        });
+                                      },
+                                    ),
                                   ),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                    },
-                                    child: const Text('Готово'),
-                                  ),
-                                ],
-                              );
-                            },
-                          );
-                        },
-                        child: Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                      child: const Text('Готово'),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 IconButton(
@@ -166,9 +241,158 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                   child: const Text('Отменить'),
                 ),
                 TextButton(
+                  onPressed: () async {
+                    if (_formKey.currentState!.validate()) {
+                      await _editProfile(
+                        index,
+                        name,
+                        color,
+                        imagePath: newImagePath,
+                      );
+                      if (mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    }
+                  },
+                  child: const Text('Сохранить'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showAddProfileDialog() {
+    String name = '';
+    Color color = Colors.primaries[0];
+    String? imagePath;
+    
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Добавить игрока'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Profile Picture Section
+                    GestureDetector(
+                      onTap: () async {
+                        final path = await ImagePickerUtil.pickImage();
+                        if (path != null) {
+                          setState(() {
+                            imagePath = path;
+                          });
+                        }
+                      },
+                      child: Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 40,
+                            backgroundColor: color.withOpacity(0.3),
+                            child: imagePath != null
+                                ? ClipOval(
+                                    child: Image.file(
+                                      File(imagePath!),
+                                      width: 80,
+                                      height: 80,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  )
+                                : Text(
+                                    name.isNotEmpty ? name[0].toUpperCase() : '?',
+                                    style: const TextStyle(fontSize: 32, color: Colors.white),
+                                  ),
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.blue,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      decoration: const InputDecoration(labelText: 'Имя'),
+                      onChanged: (value) {
+                        name = value;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        const Text('Цвет: '),
+                        GestureDetector(
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) {
+                                return AlertDialog(
+                                  title: const Text('Выберите цвет'),
+                                  content: SingleChildScrollView(
+                                    child: BlockPicker(
+                                      pickerColor: color,
+                                      onColorChanged: (newColor) {
+                                        setState(() {
+                                          color = newColor;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                      child: const Text('Готово'),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
                   onPressed: () {
-                    _editProfile(index, name, color);
                     Navigator.of(context).pop();
+                  },
+                  child: const Text('Отмена'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    if (_formKey.currentState!.validate()) {
+                      await _addProfile(name, color, imagePath: imagePath);
+                      if (mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    }
                   },
                   child: const Text('Сохранить'),
                 ),
@@ -210,96 +434,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                   GestureDetector(
                     child: const Icon(Icons.add),
                     onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) {
-                          String name = '';
-                          Color color = Colors.blue;
-                          return StatefulBuilder(
-                            builder: (context, setState) {
-                              return AlertDialog(
-                                title: const Text('Новый игрок'),
-                                content: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    TextField(
-                                      decoration: const InputDecoration(
-                                          labelText: 'Имя'),
-                                      onChanged: (value) {
-                                        name = value;
-                                      },
-                                    ),
-                                    const SizedBox(height: 20),
-                                    Row(
-                                      children: [
-                                        const Text('Цвет: '),
-                                        GestureDetector(
-                                          onTap: () {
-                                            showDialog(
-                                              context: context,
-                                              builder: (context) {
-                                                return AlertDialog(
-                                                  title: const Text(
-                                                      'Выберите цвет'),
-                                                  content:
-                                                      SingleChildScrollView(
-                                                    child: BlockPicker(
-                                                      pickerColor: color,
-                                                      onColorChanged:
-                                                          (newColor) {
-                                                        setState(() {
-                                                          color = newColor;
-                                                        });
-                                                      },
-                                                    ),
-                                                  ),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () {
-                                                        Navigator.of(context)
-                                                            .pop();
-                                                      },
-                                                      child:
-                                                          const Text('Готово'),
-                                                    ),
-                                                  ],
-                                                );
-                                              },
-                                            );
-                                          },
-                                          child: Container(
-                                            width: 24,
-                                            height: 24,
-                                            decoration: BoxDecoration(
-                                              color: color,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                    },
-                                    child: const Text('Отмена'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      _addProfile(name, color);
-                                      Navigator.of(context).pop();
-                                    },
-                                    child: const Text('Сохранить'),
-                                  ),
-                                ],
-                              );
-                            },
-                          );
-                        },
-                      );
+                      _showAddProfileDialog();
                     },
                   ),
                 ],

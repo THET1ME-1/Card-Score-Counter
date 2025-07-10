@@ -50,9 +50,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               itemBuilder: (context, index) {
                 final profile = profiles[index];
                 return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: profile.color,
-                  ),
+                  leading: profile.getAvatar(radius: 24),
                   title: Text(profile.name),
                   trailing: Text('Победы: ${profile.wins}'),
                 );

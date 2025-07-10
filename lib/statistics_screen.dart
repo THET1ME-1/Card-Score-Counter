@@ -1,6 +1,7 @@
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'player_profile.dart';
 
 class StatisticsScreen extends StatefulWidget {
@@ -16,6 +17,7 @@ class PlayerStats {
   final int totalWins;
   final int totalGames;
   final double winPercentage;
+  final String? imagePath;
 
   PlayerStats({
     required this.name,
@@ -23,6 +25,7 @@ class PlayerStats {
     required this.totalWins,
     required this.totalGames,
     required this.winPercentage,
+    this.imagePath,
   });
 }
 
@@ -62,6 +65,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             totalWins: existing.totalWins,
             totalGames: existing.totalGames + 1,
             winPercentage: 0, // Will be calculated later
+            imagePath: existing.imagePath
           ),
           ifAbsent: () => PlayerStats(
             name: player,
@@ -69,6 +73,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             totalWins: 0,
             totalGames: 1,
             winPercentage: 0,
+            imagePath: null,
           ),
         );
       }
@@ -85,6 +90,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           totalWins: profile.wins,
           totalGames: stats.totalGames,
           winPercentage: stats.totalGames > 0 ? (profile.wins / stats.totalGames * 100) : 0,
+          imagePath: profile.imagePath,
         );
       } else {
         statsMap[profile.name] = PlayerStats(
@@ -93,6 +99,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           totalWins: profile.wins,
           totalGames: 0,
           winPercentage: 0,
+          imagePath: profile.imagePath,
         );
       }
     }
@@ -115,7 +122,27 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
       child: ListTile(
-        leading: CircleAvatar(backgroundColor: stats.color),
+        leading: stats.imagePath != null && File(stats.imagePath!).existsSync()
+            ? CircleAvatar(
+                radius: 24,
+                backgroundColor: stats.color.withOpacity(0.3),
+                child: ClipOval(
+                  child: Image.file(
+                    File(stats.imagePath!), // Non-null assertion is safe here due to the condition
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              )
+            : CircleAvatar(
+                radius: 24,
+                backgroundColor: stats.color,
+                child: Text(
+                  stats.name.isNotEmpty ? stats.name[0].toUpperCase() : '?',
+                  style: const TextStyle(color: Colors.white, fontSize: 18),
+                ),
+              ),
         title: Text(
           stats.name,
           style: const TextStyle(fontWeight: FontWeight.bold),
@@ -139,14 +166,27 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            CircleAvatar(
-              backgroundColor: stats.color,
-              radius: 40,
-              child: Text(
-                stats.name[0].toUpperCase(),
-                style: const TextStyle(fontSize: 32, color: Colors.white),
-              ),
-            ),
+            stats.imagePath != null && File(stats.imagePath!).existsSync()
+                ? CircleAvatar(
+                    radius: 40,
+                    backgroundColor: stats.color.withOpacity(0.3),
+                    child: ClipOval(
+                      child: Image.file(
+                        File(stats.imagePath!), // Non-null assertion is safe here due to the condition
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  )
+                : CircleAvatar(
+                    radius: 40,
+                    backgroundColor: stats.color,
+                    child: Text(
+                      stats.name.isNotEmpty ? stats.name[0].toUpperCase() : '?',
+                      style: const TextStyle(fontSize: 32, color: Colors.white),
+                    ),
+                  ),
             const SizedBox(height: 16),
             Text(
               stats.name,
