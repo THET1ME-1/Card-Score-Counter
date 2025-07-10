@@ -256,14 +256,27 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                               margin: const EdgeInsets.all(8.0),
                               child: Column(
                                 children: [
-                                  CircleAvatar(
-                                    backgroundColor: stats.color,
-                                    radius: 25,
-                                    child: Text(
-                                      stats.name[0].toUpperCase(),
-                                      style: const TextStyle(color: Colors.white),
-                                    ),
-                                  ),
+                                  stats.imagePath != null && File(stats.imagePath!).existsSync()
+                                      ? CircleAvatar(
+                                          radius: 25,
+                                          backgroundColor: stats.color.withOpacity(0.3),
+                                          child: ClipOval(
+                                            child: Image.file(
+                                              File(stats.imagePath!),
+                                              width: 50,
+                                              height: 50,
+                                              fit: BoxFit.cover,
+                                            ),
+                                          ),
+                                        )
+                                      : CircleAvatar(
+                                          backgroundColor: stats.color,
+                                          radius: 25,
+                                          child: Text(
+                                            stats.name.isNotEmpty ? stats.name[0].toUpperCase() : '?',
+                                            style: const TextStyle(color: Colors.white),
+                                          ),
+                                        ),
                                   const SizedBox(height: 4),
                                   Text(
                                     stats.name.split(' ').map((s) => s[0]).join(''),
