@@ -78,7 +78,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final List<String>? profilesStringList = prefs.getStringList('profiles');
     if (profilesStringList != null) {
       final List<PlayerProfile> profiles = profilesStringList
-          .map((profileString) => PlayerProfile.fromJson(jsonDecode(profileString)))
+          .map((profileString) =>
+              PlayerProfile.fromJson(jsonDecode(profileString)))
           .toList();
       for (var profile in profiles) {
         profile.wins = 0;
@@ -120,7 +121,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Сбросить счетчики побед?'),
-        content: const Text('Это действие сбросит все счетчики побед у всех игроков.'),
+        content: const Text(
+            'Это действие сбросит все счетчики побед у всех игроков.'),
         actions: [
           TextButton(
             onPressed: () {
@@ -204,13 +206,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const RulesScreen()),
+                    MaterialPageRoute(
+                        builder: (context) => const RulesScreen()),
                   );
                 },
                 icon: const Icon(Icons.help_outline),
                 label: const Text('Правила игры КунКен'),
                 style: buttonStyle.copyWith(
-                  backgroundColor: MaterialStateProperty.all<Color>(
+                  backgroundColor: WidgetStateProperty.all<Color>(
                     Theme.of(context).primaryColor.withOpacity(0.8),
                   ),
                 ),

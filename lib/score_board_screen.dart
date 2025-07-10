@@ -91,6 +91,19 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   Future<void> _updateGameHistory() async {
     final prefs = await SharedPreferences.getInstance();
     final gameHistory = prefs.getStringList('gameHistory') ?? [];
+    
+    // Find the existing game data to preserve its creation date
+    String? existingDate;
+    int existingGameIndex = gameHistory.indexWhere((entry) {
+      final Map<String, dynamic> gameMap = jsonDecode(entry);
+      return gameMap['gameId'] == gameId;
+    });
+
+    if (existingGameIndex != -1) {
+      final existingGame = jsonDecode(gameHistory[existingGameIndex]);
+      existingDate = existingGame['date'];
+    }
+
     final gameData = {
       'gameId': gameId,
       'players': widget.players,
@@ -100,16 +113,11 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       'eliminatedPlayers': eliminatedPlayers,
       'dividerIndices': dividerIndices,
       'currentPlayerIndex': currentPlayerIndex,
-      'date': DateTime.now().toIso8601String(),
+      'date': existingDate ?? DateTime.now().toIso8601String(),
     };
 
-    int gameIndex = gameHistory.indexWhere((entry) {
-      final Map<String, dynamic> gameMap = jsonDecode(entry);
-      return gameMap['gameId'] == gameId;
-    });
-
-    if (gameIndex != -1) {
-      gameHistory[gameIndex] = jsonEncode(gameData);
+    if (existingGameIndex != -1) {
+      gameHistory[existingGameIndex] = jsonEncode(gameData);
     } else {
       gameHistory.add(jsonEncode(gameData));
     }
