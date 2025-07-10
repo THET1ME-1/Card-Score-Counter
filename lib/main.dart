@@ -1,33 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'achievements_screen.dart';
 import 'game_history_screen.dart';
 import 'leaderboard_screen.dart';
 import 'player_input_screen.dart';
-import 'services/achievement_service.dart';
 import 'settings_screen.dart';
-import 'stats_screen.dart';
-import 'widgets/achievement_notification.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize shared preferences
-  await SharedPreferences.getInstance();
-
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AchievementService()),
-      ],
-      child: const CardGameScoreTracker(),
-    ),
-  );
+  runApp(const CardGameScoreTracker());
 }
-
-// Achievement notification widget has been moved to widgets/achievement_notification.dart
 
 class CardGameScoreTracker extends StatefulWidget {
   const CardGameScoreTracker({super.key});
@@ -39,11 +21,15 @@ class CardGameScoreTracker extends StatefulWidget {
 
 class _CardGameScoreTrackerState extends State<CardGameScoreTracker> {
   bool _isDarkTheme = true;
+  List<String>? _currentPlayers;
+  Map<String, dynamic>? _currentGameData;
+  bool _hasSavedGames = false;
 
   @override
   void initState() {
     super.initState();
     _loadThemePreference();
+    _loadSavedGames();
   }
 
   Future<void> _loadThemePreference() async {
@@ -53,49 +39,81 @@ class _CardGameScoreTrackerState extends State<CardGameScoreTracker> {
     });
   }
 
+  Future<void> _loadSavedGames() async {
+    final prefs = await SharedPreferences.getInstance();
+    final gameHistory = prefs.getStringList('gameHistory') ?? [];
+    setState(() {
+      _hasSavedGames = gameHistory.isNotEmpty;
+    });
+  }
+
+  void _startNewGame(List<String> players) {
+    setState(() {
+      _currentPlayers = players;
+      _currentGameData = null;
+    });
+    _loadSavedGames(); // обновить наличие сохранённых игр
+  }
+
+  void _continueGame(Map<String, dynamic> gameData) {
+    setState(() {
+      _currentPlayers = List<String>.from(gameData['players']);
+      _currentGameData = gameData;
+    });
+    _loadSavedGames(); // обновить наличие сохранённых игр
+  }
+
+  void _endCurrentGame() {
+    setState(() {
+      _currentPlayers = null;
+      _currentGameData = null;
+    });
+    _loadSavedGames(); // обновить наличие сохранённых игр
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Score Master',
-      debugShowCheckedModeBanner: false,
+      title: 'Card Game Score Tracker',
       theme: _isDarkTheme ? ThemeData.dark() : ThemeData.light(),
       home: MainScreen(
-        isDarkTheme: _isDarkTheme,
-        onThemeChanged: (isDark) {
+        onThemeChanged: (isDarkTheme) {
           setState(() {
-            _isDarkTheme = isDark;
+            _isDarkTheme = isDarkTheme;
           });
         },
+        startNewGame: _startNewGame,
+        continueGame: _continueGame,
+        endCurrentGame: _endCurrentGame,
+        currentPlayers: _currentPlayers,
+        currentGameData: _currentGameData,
+        hasSavedGames: _hasSavedGames,
+        isDarkTheme: _isDarkTheme,
       ),
-      builder: (context, child) {
-        return AchievementNotifier(
-          child: child!,
-        );
-      },
     );
   }
 }
 
 class MainScreen extends StatefulWidget {
   final Function(bool) onThemeChanged;
-  final bool isDarkTheme;
-  final Function(List<String>)? startNewGame;
-  final Function(Map<String, dynamic>)? continueGame;
-  final Function()? endCurrentGame;
+  final Function(List<String>) startNewGame;
+  final Function(Map<String, dynamic>) continueGame;
+  final Function() endCurrentGame;
   final List<String>? currentPlayers;
   final Map<String, dynamic>? currentGameData;
   final bool hasSavedGames;
+  final bool isDarkTheme;
 
   const MainScreen({
     super.key,
     required this.onThemeChanged,
+    required this.startNewGame,
+    required this.continueGame,
+    required this.endCurrentGame,
+    required this.currentPlayers,
+    required this.currentGameData,
+    required this.hasSavedGames,
     required this.isDarkTheme,
-    this.startNewGame,
-    this.continueGame,
-    this.endCurrentGame,
-    this.currentPlayers,
-    this.currentGameData,
-    this.hasSavedGames = false,
   });
 
   @override
@@ -112,55 +130,21 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _widgetOptions = [
-      // Home screen (index 0)
+      // Важно: startNewGame должен вызываться только по действию пользователя (например, по кнопке "Начать игру" внутри PlayerInputScreen)
       PlayerInputScreen(
-        startNewGame: widget.startNewGame ??
-            (_) {
-              // Default implementation if not provided
-              debugPrint('Starting new game');
-            },
-        endCurrentGame: widget.endCurrentGame ??
-            () {
-              // Default implementation if not provided
-              debugPrint('Ending current game');
-            },
+        startNewGame: widget
+            .startNewGame, // <-- должен вызываться только по кнопке внутри PlayerInputScreen
+        endCurrentGame: widget.endCurrentGame,
       ),
-      // Game History (index 1)
       GameHistoryScreen(
-        continueGame: widget.continueGame ??
-            (_) {
-              // Default implementation if not provided
-              debugPrint('Continuing game');
-            },
+        continueGame: widget.continueGame,
       ),
-      // Leaderboard (index 2)
       const LeaderboardScreen(),
-      // Settings (index 3)
       SettingsScreen(
         onThemeChanged: widget.onThemeChanged,
         isDarkTheme: widget.isDarkTheme,
       ),
-      // Stats (index 4)
-      const StatsScreen(),
     ];
-  }
-
-  // Get the app bar title based on the selected tab
-  String _getAppBarTitle(int index) {
-    switch (index) {
-      case 0:
-        return 'Главное меню';
-      case 1:
-        return 'История игр';
-      case 2:
-        return 'Таблица лидеров';
-      case 3:
-        return 'Настройки';
-      case 4:
-        return 'Статистика';
-      default:
-        return 'Card Game Score Tracker';
-    }
   }
 
   void _onItemTapped(int index) {
@@ -174,55 +158,10 @@ class _MainScreenState extends State<MainScreen> {
     final selectedItemColor =
         widget.isDarkTheme ? const Color(0xFFC2B8ED) : Colors.purple;
     final unselectedItemColor = widget.isDarkTheme
-        ? const Color(0xFFC2B8ED).withAlpha((0.6 * 255).round())
+        ? const Color(0xFFC2B8ED).withOpacity(0.6)
         : Colors.grey;
-    final hasUnseenAchievements = context.select<AchievementService, bool>(
-      (service) => service.unlockedAchievements.any((a) =>
-          a.unlockedAt?.isAfter(
-            DateTime.now().subtract(const Duration(minutes: 5)),
-          ) ??
-          false),
-    );
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_getAppBarTitle(_selectedIndex)),
-        actions: [
-          if (_selectedIndex ==
-              0) // Show achievements button only on home screen
-            Stack(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.emoji_events_outlined),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AchievementsScreen(),
-                      ),
-                    );
-                  },
-                ),
-                if (hasUnseenAchievements)
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 12,
-                        minHeight: 12,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-        ],
-      ),
       body: Center(
         child: _widgetOptions.elementAt(_selectedIndex),
       ),
@@ -230,23 +169,19 @@ class _MainScreenState extends State<MainScreen> {
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
-            label: 'Главная',
+            label: 'Главное меню', // <-- правильно
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.history),
-            label: 'История',
+            label: 'История игр', // <-- правильно
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.leaderboard),
-            label: 'Лидеры',
+            label: 'Таблица лидеров', // <-- правильно
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
-            label: 'Настройки',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
-            label: 'Статистика',
+            label: 'Настройки', // <-- правильно
           ),
         ],
         currentIndex: _selectedIndex,
@@ -254,7 +189,6 @@ class _MainScreenState extends State<MainScreen> {
         unselectedItemColor: unselectedItemColor,
         backgroundColor: widget.isDarkTheme ? Colors.black : Colors.white,
         onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
       ),
     );
   }

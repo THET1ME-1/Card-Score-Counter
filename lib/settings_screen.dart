@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'player_profile.dart';
@@ -211,8 +210,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: const Icon(Icons.help_outline),
                 label: const Text('Правила игры КунКен'),
                 style: buttonStyle.copyWith(
-                  backgroundColor: WidgetStateProperty.all<Color>(
-                    Theme.of(context).primaryColor.withAlpha((0.8 * 255).round()),
+                  backgroundColor: MaterialStateProperty.all<Color>(
+                    Theme.of(context).primaryColor.withOpacity(0.8),
                   ),
                 ),
               ),
