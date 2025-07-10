@@ -319,8 +319,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 8.0),
                       decoration: BoxDecoration(
-                        color:
-                            profile.color.withOpacity(isSelected ? 0.7 : 0.5),
+                        color: profile.color.withAlpha((isSelected ? 180 : 128)),
                         borderRadius: BorderRadius.circular(8.0),
                       ),
                       child: ListTile(

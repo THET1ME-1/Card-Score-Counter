@@ -2,10 +2,12 @@ import 'dart:convert';
 
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
+import 'player_profile.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'add_scores_screen.dart';
-import 'player_profile.dart';
+import 'services/achievement_service.dart';
 
 class ScoreBoardScreen extends StatefulWidget {
   final List<String> players;
@@ -134,27 +136,78 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   }
 
   Future<void> _incrementPlayerWin(String playerName) async {
-    final prefs = await SharedPreferences.getInstance();
-    final List<String>? profilesStringList = prefs.getStringList('profiles');
-    if (profilesStringList != null) {
-      final List<PlayerProfile> profiles = profilesStringList
-          .map((profileString) =>
-              PlayerProfile.fromJson(jsonDecode(profileString)))
-          .toList();
-      for (var profile in profiles) {
-        if (profile.name == playerName) {
-          profile.wins++;
-          break;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Update wins in SharedPreferences
+      final wins = prefs.getInt('wins_$playerName') ?? 0;
+      final newWins = wins + 1;
+      await prefs.setInt('wins_$playerName', newWins);
+      
+      // Update wins in PlayerProfile
+      final profilesStringList = prefs.getStringList('profiles') ?? [];
+      bool profileFound = false;
+      
+      final updatedProfiles = profilesStringList.map((profileString) {
+        final profileData = jsonDecode(profileString);
+        if (profileData['name'] == playerName) {
+          profileFound = true;
+          profileData['wins'] = (profileData['wins'] ?? 0) + 1;
         }
+        return jsonEncode(profileData);
+      }).toList();
+      
+      // If player doesn't have a profile yet, create one
+      if (!profileFound) {
+        final newProfile = PlayerProfile(
+          name: playerName,
+          color: Colors.primaries[playerName.length % Colors.primaries.length],
+          wins: 1,
+        );
+        updatedProfiles.add(jsonEncode(newProfile.toJson()));
       }
-      await prefs.setStringList(
-        'profiles',
-        profiles.map((profile) => jsonEncode(profile.toJson())).toList(),
-      );
+      
+      await prefs.setStringList('profiles', updatedProfiles);
+
+      // Track consecutive wins for achievements
+      final achievementService = Provider.of<AchievementService>(context, listen: false);
+      
+      // Get the current number of consecutive wins
+      final consecutiveWins = prefs.getInt('consecutive_wins_$playerName') ?? 0;
+      final newConsecutiveWins = consecutiveWins + 1;
+      await prefs.setInt('consecutive_wins_$playerName', newConsecutiveWins);
+      
+      // Update achievement for consecutive wins
+      if (newConsecutiveWins >= 5) {
+        achievementService.onConsecutiveWin();
+      }
+      
+      // Track session completion for the 'first_step' achievement
+      achievementService.onSessionCompleted();
+      
+      // Mark achievements as seen after showing them
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        achievementService.markAchievementsAsSeen();
+      });
+      
+      debugPrint('Win recorded for $playerName. Total wins: $newWins, Consecutive wins: $newConsecutiveWins');
+    } catch (e) {
+      debugPrint('Error in _incrementPlayerWin: $e');
     }
   }
 
-  void addScores(List<int> roundScores) {
+  void addScores(List<int> roundScores) async {
+    final achievementService = Provider.of<AchievementService>(context, listen: false);
+    bool hasHighScore = false;
+    
+    // Check for high scores (10+ points) in this round
+    for (final score in roundScores) {
+      if (score >= 10) {
+        hasHighScore = true;
+        break;
+      }
+    }
+
     setState(() {
       List<String> playersToEliminate = [];
       int remainingIndex = 0;
@@ -198,6 +251,23 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
         if (rounds % remainingPlayers.length == 0) {
           dividerIndices.add(scores[0].length);
         }
+      }
+
+      // Track points scored in a round for achievements
+      for (int i = 0; i < roundScores.length; i++) {
+        if (i < scores.length) {
+          if (roundScores[i] >= 10) {
+            achievementService.onPointsScoredInRound(roundScores[i]);
+          }
+        }
+      }
+
+      // Track round completion
+      achievementService.onRoundCounted();
+
+      // Track high score if any
+      if (hasHighScore) {
+        achievementService.onPointsScoredInRound(10);
       }
 
       _updateGameHistory();

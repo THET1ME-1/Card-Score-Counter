@@ -20,8 +20,16 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     super.initState();
     _loadProfiles();
   }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reload profiles when the screen becomes visible again
+    _loadProfiles();
+  }
 
   Future<void> _loadProfiles() async {
+    if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();
     final profilesStringList = prefs.getStringList('profiles');
     if (profilesStringList != null) {
@@ -45,9 +53,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              itemCount: profiles.length,
-              itemBuilder: (context, index) {
+            child: RefreshIndicator(
+              onRefresh: _loadProfiles,
+              child: ListView.builder(
+                itemCount: profiles.length,
+                itemBuilder: (context, index) {
                 final profile = profiles[index];
                 return ListTile(
                   leading: CircleAvatar(
@@ -56,7 +66,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   title: Text(profile.name),
                   trailing: Text('Победы: ${profile.wins}'),
                 );
-              },
+                },
+              ),
             ),
           ),
           SizedBox(
