@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'game_history_screen.dart';
 import 'leaderboard_screen.dart';
+import 'statistics_screen.dart';
 import 'player_input_screen.dart';
 import 'settings_screen.dart';
 
@@ -140,6 +141,7 @@ class _MainScreenState extends State<MainScreen> {
         continueGame: widget.continueGame,
       ),
       const LeaderboardScreen(),
+      const StatisticsScreen(),
       SettingsScreen(
         onThemeChanged: widget.onThemeChanged,
         isDarkTheme: widget.isDarkTheme,
@@ -148,9 +150,11 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    if (index >= 0 && index < _widgetOptions.length) {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   @override
@@ -169,21 +173,26 @@ class _MainScreenState extends State<MainScreen> {
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
-            label: 'Главное меню', // <-- правильно
+            label: 'Главное меню',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.history),
-            label: 'История игр', // <-- правильно
+            label: 'История игр',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.leaderboard),
-            label: 'Таблица лидеров', // <-- правильно
+            label: 'Лидеры',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.analytics),
+            label: 'Статистика',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
-            label: 'Настройки', // <-- правильно
+            label: 'Настройки',
           ),
         ],
+        type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
         selectedItemColor: selectedItemColor,
         unselectedItemColor: unselectedItemColor,
