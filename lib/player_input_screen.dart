@@ -56,7 +56,8 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
     await prefs.setStringList('profiles', profilesStringList);
   }
 
-  Future<void> _addProfile(String name, Color color, {String? imagePath}) async {
+  Future<void> _addProfile(String name, Color color,
+      {String? imagePath}) async {
     setState(() {
       profiles.add(PlayerProfile(
         name: name,
@@ -67,12 +68,13 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
     await _saveProfiles();
   }
 
-  Future<void> _editProfile(int index, String name, Color color, {String? imagePath}) async {
+  Future<void> _editProfile(int index, String name, Color color,
+      {String? imagePath}) async {
     // Delete old image if it's being replaced
     if (imagePath != null && imagePath != profiles[index].imagePath) {
       await ImagePickerUtil.deleteImage(profiles[index].imagePath);
     }
-    
+
     setState(() {
       profiles[index] = PlayerProfile(
         name: name,
@@ -102,11 +104,12 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
   }
 
   void _showEditProfileDialog(int index) {
+    final _formKey = GlobalKey<FormState>();
     String name = profiles[index].name;
     Color color = profiles[index].color;
     String? currentImagePath = profiles[index].imagePath;
     String? newImagePath;
-    
+
     showDialog(
       context: context,
       builder: (context) {
@@ -114,116 +117,137 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
           builder: (context, setState) {
             return AlertDialog(
               title: const Text('Редактировать игрока'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Profile Picture Section
-                    GestureDetector(
-                      onTap: () async {
-                        final imagePath = await ImagePickerUtil.pickImage();
-                        if (imagePath != null) {
-                          setState(() {
-                            newImagePath = imagePath;
-                          });
-                        }
-                      },
-                      child: Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 40,
-                            backgroundColor: color.withOpacity(0.3),
-                            child: newImagePath != null
-                                ? ClipOval(
-                                    child: Image.file(
-                                      File(newImagePath!), // Non-null assertion is safe here as we're in a conditional
-                                      width: 80,
-                                      height: 80,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  )
-                                : currentImagePath != null && File(currentImagePath!).existsSync()
-                                    ? ClipOval(
-                                        child: Image.file(
-                                          File(currentImagePath!), // Non-null assertion is safe here as we're in a conditional
-                                          width: 80,
-                                          height: 80,
-                                          fit: BoxFit.cover,
-                                        ),
-                                      )
-                                    : Text(
-                                        name.isNotEmpty ? name[0].toUpperCase() : '?',
-                                        style: const TextStyle(fontSize: 32, color: Colors.white),
+              content: Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Profile Picture Section
+                      GestureDetector(
+                        onTap: () async {
+                          final imagePath = await ImagePickerUtil.pickImage();
+                          if (imagePath != null) {
+                            setState(() {
+                              newImagePath = imagePath;
+                            });
+                          }
+                        },
+                        child: Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: 40,
+                              backgroundColor: color.withOpacity(0.3),
+                              child: newImagePath != null
+                                  ? ClipOval(
+                                      child: Image.file(
+                                        File(
+                                            newImagePath!), // Non-null assertion is safe here as we're in a conditional
+                                        width: 80,
+                                        height: 80,
+                                        fit: BoxFit.cover,
                                       ),
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: Colors.blue,
-                                shape: BoxShape.circle,
+                                    )
+                                  : currentImagePath != null &&
+                                          File(currentImagePath!).existsSync()
+                                      ? ClipOval(
+                                          child: Image.file(
+                                            File(
+                                                currentImagePath!), // Non-null assertion is safe here as we're in a conditional
+                                            width: 80,
+                                            height: 80,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        )
+                                      : Text(
+                                          name.isNotEmpty
+                                              ? name[0].toUpperCase()
+                                              : '?',
+                                          style: const TextStyle(
+                                              fontSize: 32,
+                                              color: Colors.white),
+                                        ),
+                            ),
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Colors.blue,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.camera_alt,
+                                    size: 20, color: Colors.white),
                               ),
-                              child: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        decoration: const InputDecoration(
+                          labelText: 'Имя',
+                          border: OutlineInputBorder(),
+                        ),
+                        initialValue: name,
+                        onChanged: (value) {
+                          name = value;
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Пожалуйста, введите имя';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          const Text('Цвет: '),
+                          GestureDetector(
+                            onTap: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) {
+                                  return AlertDialog(
+                                    title: const Text('Выберите цвет'),
+                                    content: SingleChildScrollView(
+                                      child: BlockPicker(
+                                        pickerColor: color,
+                                        onColorChanged: (newColor) {
+                                          setState(() {
+                                            color = newColor;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                        },
+                                        child: const Text('Готово'),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.grey),
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      decoration: const InputDecoration(labelText: 'Имя'),
-                      onChanged: (value) {
-                        name = value;
-                      },
-                      controller: TextEditingController(text: name),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        const Text('Цвет: '),
-                        GestureDetector(
-                          onTap: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) {
-                                return AlertDialog(
-                                  title: const Text('Выберите цвет'),
-                                  content: SingleChildScrollView(
-                                    child: BlockPicker(
-                                      pickerColor: color,
-                                      onColorChanged: (newColor) {
-                                        setState(() {
-                                          color = newColor;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () {
-                                        Navigator.of(context).pop();
-                                      },
-                                      child: const Text('Готово'),
-                                    ),
-                                  ],
-                                );
-                              },
-                            );
-                          },
-                          child: Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: color,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               actions: [
@@ -265,10 +289,11 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
   }
 
   void _showAddProfileDialog() {
+    final _formKey = GlobalKey<FormState>();
     String name = '';
     Color color = Colors.primaries[0];
     String? imagePath;
-    
+
     showDialog(
       context: context,
       builder: (context) {
@@ -276,106 +301,124 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
           builder: (context, setState) {
             return AlertDialog(
               title: const Text('Добавить игрока'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Profile Picture Section
-                    GestureDetector(
-                      onTap: () async {
-                        final path = await ImagePickerUtil.pickImage();
-                        if (path != null) {
-                          setState(() {
-                            imagePath = path;
-                          });
-                        }
-                      },
-                      child: Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 40,
-                            backgroundColor: color.withOpacity(0.3),
-                            child: imagePath != null
-                                ? ClipOval(
-                                    child: Image.file(
-                                      File(imagePath!),
-                                      width: 80,
-                                      height: 80,
-                                      fit: BoxFit.cover,
+              content: Form(
+                key: _formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Profile Picture Section
+                      GestureDetector(
+                        onTap: () async {
+                          final path = await ImagePickerUtil.pickImage();
+                          if (path != null) {
+                            setState(() {
+                              imagePath = path;
+                            });
+                          }
+                        },
+                        child: Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: 40,
+                              backgroundColor: color.withOpacity(0.3),
+                              child: imagePath != null
+                                  ? ClipOval(
+                                      child: Image.file(
+                                        File(
+                                            imagePath!), // Non-null assertion is safe here as we're in a conditional
+                                        width: 80,
+                                        height: 80,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : Text(
+                                      name.isNotEmpty
+                                          ? name[0].toUpperCase()
+                                          : '?',
+                                      style: const TextStyle(
+                                          fontSize: 32, color: Colors.white),
                                     ),
-                                  )
-                                : Text(
-                                    name.isNotEmpty ? name[0].toUpperCase() : '?',
-                                    style: const TextStyle(fontSize: 32, color: Colors.white),
-                                  ),
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: Colors.blue,
-                                shape: BoxShape.circle,
+                            ),
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Colors.blue,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.camera_alt,
+                                    size: 20, color: Colors.white),
                               ),
-                              child: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        decoration: const InputDecoration(
+                          labelText: 'Имя',
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (value) {
+                          name = value;
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Пожалуйста, введите имя';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          const Text('Цвет: '),
+                          GestureDetector(
+                            onTap: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) {
+                                  return AlertDialog(
+                                    title: const Text('Выберите цвет'),
+                                    content: SingleChildScrollView(
+                                      child: BlockPicker(
+                                        pickerColor: color,
+                                        onColorChanged: (newColor) {
+                                          setState(() {
+                                            color = newColor;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                        },
+                                        child: const Text('Готово'),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            },
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.grey),
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      decoration: const InputDecoration(labelText: 'Имя'),
-                      onChanged: (value) {
-                        name = value;
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        const Text('Цвет: '),
-                        GestureDetector(
-                          onTap: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) {
-                                return AlertDialog(
-                                  title: const Text('Выберите цвет'),
-                                  content: SingleChildScrollView(
-                                    child: BlockPicker(
-                                      pickerColor: color,
-                                      onColorChanged: (newColor) {
-                                        setState(() {
-                                          color = newColor;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () {
-                                        Navigator.of(context).pop();
-                                      },
-                                      child: const Text('Готово'),
-                                    ),
-                                  ],
-                                );
-                              },
-                            );
-                          },
-                          child: Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: color,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               actions: [
