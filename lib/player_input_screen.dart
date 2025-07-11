@@ -70,19 +70,86 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
 
   Future<void> _editProfile(int index, String name, Color color,
       {String? imagePath}) async {
+    final oldName = profiles[index].name;
+    final oldImagePath = profiles[index].imagePath;
+    final wins = profiles[index].wins;
+    
     // Delete old image if it's being replaced
-    if (imagePath != null && imagePath != profiles[index].imagePath) {
-      await ImagePickerUtil.deleteImage(profiles[index].imagePath);
+    if (imagePath != null && imagePath != oldImagePath) {
+      await ImagePickerUtil.deleteImage(oldImagePath);
     }
 
+    // Update the profile
     setState(() {
       profiles[index] = PlayerProfile(
         name: name,
         color: color,
-        imagePath: imagePath ?? profiles[index].imagePath,
+        wins: wins,
+        imagePath: imagePath ?? oldImagePath,
       );
     });
+    
     await _saveProfiles();
+    
+    // If the name changed, update all game history and statistics
+    if (name != oldName) {
+      await _updatePlayerNameInGameData(oldName, name);
+    }
+  }
+  
+  Future<void> _updatePlayerNameInGameData(String oldName, String newName) async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Update game history
+    final gameHistory = prefs.getStringList('gameHistory') ?? [];
+    final updatedGameHistory = <String>[];
+    
+    for (final gameJson in gameHistory) {
+      try {
+        final gameData = jsonDecode(gameJson);
+        
+        // Update players list
+        if (gameData['players'] != null) {
+          final players = List<String>.from(gameData['players']);
+          final playerIndex = players.indexOf(oldName);
+          if (playerIndex != -1) {
+            players[playerIndex] = newName;
+            gameData['players'] = players;
+          }
+        }
+        
+        // Update remainingPlayers list
+        if (gameData['remainingPlayers'] != null) {
+          final remainingPlayers = List<String>.from(gameData['remainingPlayers']);
+          final playerIndex = remainingPlayers.indexOf(oldName);
+          if (playerIndex != -1) {
+            remainingPlayers[playerIndex] = newName;
+            gameData['remainingPlayers'] = remainingPlayers;
+          }
+        }
+        
+        // Update eliminatedPlayers list
+        if (gameData['eliminatedPlayers'] != null) {
+          final eliminatedPlayers = List<String>.from(gameData['eliminatedPlayers']);
+          final playerIndex = eliminatedPlayers.indexOf(oldName);
+          if (playerIndex != -1) {
+            eliminatedPlayers[playerIndex] = newName;
+            gameData['eliminatedPlayers'] = eliminatedPlayers;
+          }
+        }
+        
+        updatedGameHistory.add(jsonEncode(gameData));
+      } catch (e) {
+        // Skip corrupted game data
+        debugPrint('Error updating game data: $e');
+        updatedGameHistory.add(gameJson);
+      }
+    }
+    
+    await prefs.setStringList('gameHistory', updatedGameHistory);
+    
+    // Update statistics will be handled by the statistics screen
+    // by reloading the data from the updated game history
   }
 
   void _toggleProfileSelection(int index) {
@@ -104,7 +171,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
   }
 
   void _showEditProfileDialog(int index) {
-    final _formKey = GlobalKey<FormState>();
+    final formKey = GlobalKey<FormState>();
     String name = profiles[index].name;
     Color color = profiles[index].color;
     String? currentImagePath = profiles[index].imagePath;
@@ -118,7 +185,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
             return AlertDialog(
               title: const Text('Редактировать игрока'),
               content: Form(
-                key: _formKey,
+                key: formKey,
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -149,11 +216,11 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                                       ),
                                     )
                                   : currentImagePath != null &&
-                                          File(currentImagePath!).existsSync()
+                                          File(currentImagePath).existsSync()
                                       ? ClipOval(
                                           child: Image.file(
                                             File(
-                                                currentImagePath!), // Non-null assertion is safe here as we're in a conditional
+                                                currentImagePath), // Non-null assertion is safe here as we're in a conditional
                                             width: 80,
                                             height: 80,
                                             fit: BoxFit.cover,
@@ -266,7 +333,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                 ),
                 TextButton(
                   onPressed: () async {
-                    if (_formKey.currentState!.validate()) {
+                    if (formKey.currentState!.validate()) {
                       await _editProfile(
                         index,
                         name,
@@ -289,7 +356,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
   }
 
   void _showAddProfileDialog() {
-    final _formKey = GlobalKey<FormState>();
+    final formKey = GlobalKey<FormState>();
     String name = '';
     Color color = Colors.primaries[0];
     String? imagePath;
@@ -302,7 +369,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
             return AlertDialog(
               title: const Text('Добавить игрока'),
               content: Form(
-                key: _formKey,
+                key: formKey,
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -430,7 +497,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                 ),
                 TextButton(
                   onPressed: () async {
-                    if (_formKey.currentState!.validate()) {
+                    if (formKey.currentState!.validate()) {
                       await _addProfile(name, color, imagePath: imagePath);
                       if (mounted) {
                         Navigator.of(context).pop();
