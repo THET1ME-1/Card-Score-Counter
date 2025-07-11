@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'game_history_screen.dart';
 import 'leaderboard_screen.dart';
-import 'statistics_screen.dart';
+import 'enhanced_statistics_screen.dart';
 import 'player_input_screen.dart';
 import 'settings_screen.dart';
 
@@ -141,7 +141,7 @@ class _MainScreenState extends State<MainScreen> {
         continueGame: widget.continueGame,
       ),
       const LeaderboardScreen(),
-      const StatisticsScreen(),
+      const EnhancedStatisticsScreen(),
       SettingsScreen(
         onThemeChanged: widget.onThemeChanged,
         isDarkTheme: widget.isDarkTheme,
