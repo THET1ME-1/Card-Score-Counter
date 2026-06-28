@@ -1,23 +1,15 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'player_profile.dart';
 import 'score_board_screen.dart';
+import 'services/game_repository.dart';
 import 'utils/image_picker_util.dart';
 
 class PlayerInputScreen extends StatefulWidget {
-  final Function(List<String>) startNewGame;
-  final Function() endCurrentGame;
-
-  const PlayerInputScreen({
-    super.key,
-    required this.startNewGame,
-    required this.endCurrentGame,
-  });
+  const PlayerInputScreen({super.key});
 
   @override
   // ignore: library_private_types_in_public_api
@@ -25,9 +17,10 @@ class PlayerInputScreen extends StatefulWidget {
 }
 
 class _PlayerInputScreenState extends State<PlayerInputScreen> {
+  final GameRepository _repo = GameRepository.instance;
+
   List<PlayerProfile> profiles = [];
   List<int> selectedProfiles = [];
-  final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
@@ -36,24 +29,13 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
   }
 
   Future<void> _loadProfiles() async {
-    final prefs = await SharedPreferences.getInstance();
-    final List<String>? profilesStringList = prefs.getStringList('profiles');
-    if (profilesStringList != null) {
-      final List<dynamic> profileList =
-          profilesStringList.map((profile) => jsonDecode(profile)).toList();
-      setState(() {
-        profiles = profileList
-            .map((profile) => PlayerProfile.fromJson(profile))
-            .toList();
-      });
-    }
+    final loaded = await _repo.loadProfiles();
+    if (!mounted) return;
+    setState(() => profiles = loaded);
   }
 
   Future<void> _saveProfiles() async {
-    final prefs = await SharedPreferences.getInstance();
-    final profilesStringList =
-        profiles.map((profile) => jsonEncode(profile.toJson())).toList();
-    await prefs.setStringList('profiles', profilesStringList);
+    await _repo.saveProfiles(profiles);
   }
 
   Future<void> _addProfile(String name, Color color,
@@ -90,66 +72,11 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
     });
     
     await _saveProfiles();
-    
-    // If the name changed, update all game history and statistics
+
+    // Имя — это ключ игрока в истории, поэтому переименовываем во всех играх.
     if (name != oldName) {
-      await _updatePlayerNameInGameData(oldName, name);
+      await _repo.renamePlayerInGames(oldName, name);
     }
-  }
-  
-  Future<void> _updatePlayerNameInGameData(String oldName, String newName) async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Update game history
-    final gameHistory = prefs.getStringList('gameHistory') ?? [];
-    final updatedGameHistory = <String>[];
-    
-    for (final gameJson in gameHistory) {
-      try {
-        final gameData = jsonDecode(gameJson);
-        
-        // Update players list
-        if (gameData['players'] != null) {
-          final players = List<String>.from(gameData['players']);
-          final playerIndex = players.indexOf(oldName);
-          if (playerIndex != -1) {
-            players[playerIndex] = newName;
-            gameData['players'] = players;
-          }
-        }
-        
-        // Update remainingPlayers list
-        if (gameData['remainingPlayers'] != null) {
-          final remainingPlayers = List<String>.from(gameData['remainingPlayers']);
-          final playerIndex = remainingPlayers.indexOf(oldName);
-          if (playerIndex != -1) {
-            remainingPlayers[playerIndex] = newName;
-            gameData['remainingPlayers'] = remainingPlayers;
-          }
-        }
-        
-        // Update eliminatedPlayers list
-        if (gameData['eliminatedPlayers'] != null) {
-          final eliminatedPlayers = List<String>.from(gameData['eliminatedPlayers']);
-          final playerIndex = eliminatedPlayers.indexOf(oldName);
-          if (playerIndex != -1) {
-            eliminatedPlayers[playerIndex] = newName;
-            gameData['eliminatedPlayers'] = eliminatedPlayers;
-          }
-        }
-        
-        updatedGameHistory.add(jsonEncode(gameData));
-      } catch (e) {
-        // Skip corrupted game data
-        debugPrint('Error updating game data: $e');
-        updatedGameHistory.add(gameJson);
-      }
-    }
-    
-    await prefs.setStringList('gameHistory', updatedGameHistory);
-    
-    // Update statistics will be handled by the statistics screen
-    // by reloading the data from the updated game history
   }
 
   void _toggleProfileSelection(int index) {
@@ -204,7 +131,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                           children: [
                             CircleAvatar(
                               radius: 40,
-                              backgroundColor: color.withOpacity(0.3),
+                              backgroundColor: color.withValues(alpha: 0.3),
                               child: newImagePath != null
                                   ? ClipOval(
                                       child: Image.file(
@@ -334,15 +261,14 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                 TextButton(
                   onPressed: () async {
                     if (formKey.currentState!.validate()) {
+                      final navigator = Navigator.of(context);
                       await _editProfile(
                         index,
                         name,
                         color,
                         imagePath: newImagePath,
                       );
-                      if (mounted) {
-                        Navigator.of(context).pop();
-                      }
+                      navigator.pop();
                     }
                   },
                   child: const Text('Сохранить'),
@@ -388,7 +314,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                           children: [
                             CircleAvatar(
                               radius: 40,
-                              backgroundColor: color.withOpacity(0.3),
+                              backgroundColor: color.withValues(alpha: 0.3),
                               child: imagePath != null
                                   ? ClipOval(
                                       child: Image.file(
@@ -498,10 +424,9 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                 TextButton(
                   onPressed: () async {
                     if (formKey.currentState!.validate()) {
+                      final navigator = Navigator.of(context);
                       await _addProfile(name, color, imagePath: imagePath);
-                      if (mounted) {
-                        Navigator.of(context).pop();
-                      }
+                      navigator.pop();
                     }
                   },
                   child: const Text('Сохранить'),
@@ -516,13 +441,6 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final buttonStyle = ElevatedButton.styleFrom(
-      padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 24.0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8.0),
-      ),
-    );
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Главное меню'),
@@ -552,77 +470,124 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
             ),
             const SizedBox(height: 12),
             Expanded(
-              child: ListView.builder(
-                itemCount: profiles.length,
-                itemBuilder: (context, index) {
-                  PlayerProfile profile = profiles[index];
-                  bool isSelected = selectedProfiles.contains(index);
-                  int selectionOrder =
-                      isSelected ? selectedProfiles.indexOf(index) + 1 : 0;
-                  return GestureDetector(
-                    onLongPress: () => _showEditProfileDialog(index),
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 8.0),
-                      decoration: BoxDecoration(
-                        color:
-                            profile.color.withOpacity(isSelected ? 0.7 : 0.5),
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                      child: ListTile(
-                        leading: isSelected
-                            ? CircleAvatar(
-                                backgroundColor: profile.color,
-                                child: Text(
-                                  '$selectionOrder',
-                                  style: const TextStyle(color: Colors.white),
+              child: profiles.isEmpty
+                  ? _emptyState(context)
+                  : ListView.builder(
+                      itemCount: profiles.length,
+                      itemBuilder: (context, index) {
+                        PlayerProfile profile = profiles[index];
+                        bool isSelected = selectedProfiles.contains(index);
+                        int selectionOrder = isSelected
+                            ? selectedProfiles.indexOf(index) + 1
+                            : 0;
+                        return GestureDetector(
+                          onLongPress: () => _showEditProfileDialog(index),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8.0),
+                            decoration: BoxDecoration(
+                              color: profile.color
+                                  .withValues(alpha: isSelected ? 0.7 : 0.5),
+                              borderRadius: BorderRadius.circular(8.0),
+                            ),
+                            child: ListTile(
+                              leading: Stack(
+                                alignment: Alignment.bottomRight,
+                                children: [
+                                  profile.getAvatar(radius: 20),
+                                  if (isSelected)
+                                    CircleAvatar(
+                                      radius: 9,
+                                      backgroundColor: Colors.black87,
+                                      child: Text(
+                                        '$selectionOrder',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              title: Text(
+                                profile.name,
+                                style: TextStyle(
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                                 ),
-                              )
-                            : null,
-                        title: Text(
-                          profile.name,
-                          style: TextStyle(
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
+                              ),
+                              trailing: isSelected
+                                  ? const Icon(Icons.check_circle,
+                                      color: Colors.white)
+                                  : null,
+                              onTap: () => _toggleProfileSelection(index),
+                            ),
                           ),
-                        ),
-                        trailing: isSelected
-                            ? const Icon(
-                                Icons.check,
-                                color: Colors.white,
-                              )
-                            : null,
-                        onTap: () => _toggleProfileSelection(index),
-                      ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
-            ElevatedButton(
-              onPressed: selectedProfiles.length >= 2
-                  ? () async {
-                      List<String> selectedPlayerNames = selectedProfiles
-                          .map((index) => profiles[index].name)
-                          .toList();
-                      widget.startNewGame(selectedPlayerNames);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ScoreBoardScreen(
-                            players: selectedPlayerNames,
-                            endCurrentGame: widget.endCurrentGame,
-                            isNewGame: true,
+            if (profiles.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Text(
+                  selectedProfiles.length >= 2
+                      ? 'Выбрано игроков: ${selectedProfiles.length}'
+                      : 'Выберите минимум 2 игроков (нажмите по именам)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.outline,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: selectedProfiles.length >= 2
+                    ? () {
+                        final selectedPlayerNames = selectedProfiles
+                            .map((index) => profiles[index].name)
+                            .toList();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ScoreBoardScreen(
+                              players: selectedPlayerNames,
+                            ),
                           ),
-                        ),
-                      );
-                    }
-                  : null,
-              style: buttonStyle,
-              child: const Text('Начать игру'),
+                        );
+                      }
+                    : null,
+                icon: const Icon(Icons.play_arrow_rounded),
+                label: const Text('Начать игру'),
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _emptyState(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.group_add, size: 72, color: scheme.outlineVariant),
+          const SizedBox(height: 16),
+          Text('Нет игроков', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              'Нажмите «+» вверху, чтобы создать первого игрока.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
       ),
     );
   }

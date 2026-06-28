@@ -78,35 +78,6 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final buttonStyle = ElevatedButton.styleFrom(
-      padding: const EdgeInsets.all(16.0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8.0),
-      ),
-      textStyle: const TextStyle(fontSize: 14.0), // Уменьшенный размер текста
-    );
-
-    final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
-    final borderColor = isDarkTheme ? const Color(0xFFC2B8ED) : Colors.purple;
-
-    final inputDecoration = InputDecoration(
-      contentPadding: const EdgeInsets.all(16.0),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8.0),
-        borderSide: BorderSide(color: borderColor),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8.0),
-        borderSide: BorderSide(color: borderColor),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8.0),
-        borderSide: const BorderSide(color: Colors.red),
-      ),
-      labelStyle: const TextStyle(fontSize: 14.0),
-      errorStyle: const TextStyle(fontSize: 14.0),
-    );
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Добавить очки'),
@@ -115,6 +86,29 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            Card(
+              color: Theme.of(context)
+                  .colorScheme
+                  .secondaryContainer
+                  .withValues(alpha: 0.5),
+              child: const Padding(
+                padding: EdgeInsets.all(12.0),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Очки получают проигравшие. Тот, кто закрыл раунд, '
+                        'остаётся с пустым полем или 0.',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
             Expanded(
               child: ListView.builder(
                 itemCount: widget.players.length,
@@ -127,7 +121,7 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
                           flex: 2, // Поле для ввода занимает 2/3 ширины
                           child: TextField(
                             controller: _controllers[index],
-                            decoration: inputDecoration.copyWith(
+                            decoration: InputDecoration(
                               labelText: widget.players[index],
                             ),
                             keyboardType: TextInputType.number,
@@ -138,10 +132,9 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
                           flex: 1, // Кнопка занимает 1/3 ширины
                           child: SizedBox(
                             height:
-                                60, // Высота кнопки равна высоте текстового поля
-                            child: ElevatedButton(
+                                56, // Высота кнопки равна высоте текстового поля
+                            child: FilledButton.tonal(
                               onPressed: () => _eliminatePlayer(index),
-                              style: buttonStyle,
                               child: const Text('Проиграл'),
                             ),
                           ),
@@ -154,10 +147,10 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
             ),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
+              child: FilledButton.icon(
                 onPressed: _hasEmptyField ? _submitScores : null,
-                style: buttonStyle,
-                child: const Text('Сохранить'),
+                icon: const Icon(Icons.check),
+                label: const Text('Сохранить раунд'),
               ),
             ),
           ],

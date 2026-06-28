@@ -1,8 +1,10 @@
 import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'player_profile.dart';
+
+import 'services/game_repository.dart';
 import 'rules_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -21,212 +23,248 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  final GameRepository _repo = GameRepository.instance;
+
   late bool _isDarkTheme;
   double _textSize = 16.0;
-  String _appVersion = 'Загрузка...';
+  String _appVersion = '…';
+
   @override
   void initState() {
     super.initState();
     _isDarkTheme = widget.isDarkTheme;
-    loadPreferences();
+    _loadPreferences();
     _loadAppVersion();
   }
 
-  Future<void> loadPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
+  Future<void> _loadPreferences() async {
+    final dark = await _repo.isDarkTheme(fallback: widget.isDarkTheme);
+    final size = await _repo.textSize();
+    if (!mounted) return;
     setState(() {
-      _isDarkTheme = prefs.getBool('isDarkTheme') ?? widget.isDarkTheme;
-      _textSize = prefs.getDouble('textSize') ?? 16.0;
+      _isDarkTheme = dark;
+      _textSize = size;
     });
   }
 
   Future<void> _loadAppVersion() async {
-    final packageInfo = await PackageInfo.fromPlatform();
-    setState(() {
-      _appVersion = packageInfo.version;
-    });
-  }
-
-  Future<void> savePreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isDarkTheme', _isDarkTheme);
-    await prefs.setDouble('textSize', _textSize);
-  }
-
-  void _toggleTheme(bool value) {
-    setState(() {
-      _isDarkTheme = value;
-      widget.onThemeChanged(value);
-      savePreferences();
-    });
-  }
-
-  void _updateTextSize(double value) {
-    setState(() {
-      _textSize = value;
-      savePreferences();
-    });
-  }
-
-  Future<void> _clearGameHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('gameHistory');
-  }
-
-  Future<void> _resetWinCounters() async {
-    final prefs = await SharedPreferences.getInstance();
-    final List<String>? profilesStringList = prefs.getStringList('profiles');
-    if (profilesStringList != null) {
-      final List<PlayerProfile> profiles = profilesStringList
-          .map((profileString) =>
-              PlayerProfile.fromJson(jsonDecode(profileString)))
-          .toList();
-      for (var profile in profiles) {
-        profile.wins = 0;
-      }
-      await prefs.setStringList(
-        'profiles',
-        profiles.map((profile) => jsonEncode(profile.toJson())).toList(),
-      );
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() => _appVersion = info.version);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _appVersion = '—');
     }
   }
 
-  void _showClearHistoryDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Очистить историю игр?'),
-        content: const Text('Это действие удалит все записи из истории игр.'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () {
-              _clearGameHistory();
-              Navigator.of(context).pop();
-            },
-            child: const Text('Удалить'),
-          ),
-        ],
-      ),
-    );
+  void _toggleTheme(bool value) {
+    setState(() => _isDarkTheme = value);
+    widget.onThemeChanged(value);
+    _repo.setDarkTheme(value);
   }
 
-  void _showResetWinsDialog() {
-    showDialog(
+  void _updateTextSize(double value) {
+    setState(() => _textSize = value);
+    _repo.setTextSize(value);
+  }
+
+  void _snack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  // ----------------------- Опасные действия -----------------------
+
+  Future<void> _confirm({
+    required String title,
+    required String content,
+    required String actionLabel,
+    required VoidCallback onConfirm,
+  }) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Сбросить счетчики побед?'),
-        content: const Text(
-            'Это действие сбросит все счетчики побед у всех игроков.'),
+        title: Text(title),
+        content: Text(content),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
+            onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Отмена'),
           ),
-          TextButton(
-            onPressed: () {
-              _resetWinCounters();
-              Navigator.of(context).pop();
-            },
-            child: const Text('Сбросить'),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(actionLabel),
           ),
         ],
       ),
     );
+    if (confirmed == true) onConfirm();
+  }
+
+  // ------------------------ Бэкап / восстановление ------------------------
+
+  Future<void> _exportData() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final json = await _repo.exportData();
+      final bytes = utf8.encode(json);
+      final path = await FilePicker.platform.saveFile(
+        dialogTitle: 'Сохранить резервную копию',
+        fileName: 'scoremaster_backup.json',
+        bytes: bytes,
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(path == null
+            ? 'Экспорт отменён'
+            : 'Резервная копия сохранена'),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('Ошибка экспорта: $e')));
+    }
+  }
+
+  Future<void> _importData() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        dialogTitle: 'Выберите резервную копию',
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        withData: true,
+      );
+      if (result == null) return;
+      final bytes = result.files.single.bytes;
+      if (bytes == null) {
+        messenger.showSnackBar(
+            const SnackBar(content: Text('Не удалось прочитать файл')));
+        return;
+      }
+      final ok = await _repo.importData(utf8.decode(bytes));
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(ok
+            ? 'Данные восстановлены из копии'
+            : 'Неверный формат файла резервной копии'),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text('Ошибка импорта: $e')));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final buttonStyle = ElevatedButton.styleFrom(
-      padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 24.0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8.0),
-      ),
-    );
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Настройки'),
-      ),
-      body: Padding(
+      appBar: AppBar(title: const Text('Настройки')),
+      body: ListView(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SwitchListTile(
-              title: const Text('Темная тема'),
-              value: _isDarkTheme,
-              onChanged: _toggleTheme,
-              secondary: const Icon(Icons.brightness_6),
-            ),
-            const SizedBox(height: 20),
-            const Text('Размер текста:'),
-            Slider(
+        children: [
+          _sectionTitle('Внешний вид'),
+          SwitchListTile(
+            title: const Text('Тёмная тема'),
+            value: _isDarkTheme,
+            onChanged: _toggleTheme,
+            secondary: const Icon(Icons.brightness_6),
+          ),
+          ListTile(
+            leading: const Icon(Icons.format_size),
+            title: const Text('Размер текста в табло'),
+            subtitle: Slider(
               value: _textSize,
               min: 10.0,
               max: 30.0,
               divisions: 20,
-              label: _textSize.toString(),
+              label: _textSize.toStringAsFixed(0),
               onChanged: _updateTextSize,
             ),
-            const Divider(),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _showResetWinsDialog,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Сбросить счетчики побед'),
-                style: buttonStyle,
-              ),
+          ),
+          const Divider(height: 32),
+
+          _sectionTitle('Данные'),
+          ListTile(
+            leading: const Icon(Icons.save_alt),
+            title: const Text('Создать резервную копию'),
+            subtitle: const Text('Сохранить игроков и историю в файл'),
+            onTap: _exportData,
+          ),
+          ListTile(
+            leading: const Icon(Icons.restore),
+            title: const Text('Восстановить из копии'),
+            subtitle: const Text('Заменить текущие данные данными из файла'),
+            onTap: () => _confirm(
+              title: 'Восстановить данные?',
+              content:
+                  'Текущие игроки и история будут заменены данными из файла.',
+              actionLabel: 'Выбрать файл',
+              onConfirm: _importData,
             ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _showClearHistoryDialog,
-                icon: const Icon(Icons.delete),
-                label: const Text('Очистить историю игр'),
-                style: buttonStyle,
-              ),
+          ),
+          const SizedBox(height: 8),
+          ListTile(
+            leading: Icon(Icons.refresh, color: Theme.of(context).colorScheme.error),
+            title: const Text('Сбросить счётчики побед'),
+            onTap: () => _confirm(
+              title: 'Сбросить счётчики побед?',
+              content:
+                  'Это действие обнулит все счётчики побед у всех игроков.',
+              actionLabel: 'Сбросить',
+              onConfirm: () async {
+                await _repo.resetWins();
+                _snack('Счётчики побед сброшены');
+              },
             ),
-            const SizedBox(height: 20),
-            const Divider(),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const RulesScreen()),
-                  );
-                },
-                icon: const Icon(Icons.help_outline),
-                label: const Text('Правила игры КунКен'),
-                style: buttonStyle.copyWith(
-                  backgroundColor: WidgetStateProperty.all<Color>(
-                    Theme.of(context).primaryColor.withOpacity(0.8),
-                  ),
-                ),
-              ),
+          ),
+          ListTile(
+            leading: Icon(Icons.delete_forever,
+                color: Theme.of(context).colorScheme.error),
+            title: const Text('Очистить историю игр'),
+            onTap: () => _confirm(
+              title: 'Очистить историю игр?',
+              content: 'Это действие удалит все записи из истории игр.',
+              actionLabel: 'Удалить',
+              onConfirm: () async {
+                await _repo.clearGames();
+                _snack('История игр очищена');
+              },
             ),
-            const Spacer(),
-            Center(
-              child: Text(
-                'Версия приложения: $_appVersion',
-                style: const TextStyle(color: Colors.grey),
-              ),
+          ),
+          const Divider(height: 32),
+
+          _sectionTitle('Справка'),
+          ListTile(
+            leading: const Icon(Icons.help_outline),
+            title: const Text('Правила игры КунКен'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const RulesScreen()),
+              );
+            },
+          ),
+          const SizedBox(height: 24),
+          Center(
+            child: Text(
+              'Версия приложения: $_appVersion',
+              style: TextStyle(color: Theme.of(context).colorScheme.outline),
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4, top: 4),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: Theme.of(context).colorScheme.primary,
         ),
       ),
     );

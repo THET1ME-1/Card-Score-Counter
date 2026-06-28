@@ -1,17 +1,11 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import 'models/game_session.dart';
 import 'score_board_screen.dart';
+import 'services/game_repository.dart';
 
 class GameHistoryScreen extends StatefulWidget {
-  final Function(Map<String, dynamic>) continueGame;
-
-  const GameHistoryScreen({
-    super.key,
-    required this.continueGame,
-  });
+  const GameHistoryScreen({super.key});
 
   @override
   // ignore: library_private_types_in_public_api
@@ -19,209 +13,169 @@ class GameHistoryScreen extends StatefulWidget {
 }
 
 class _GameHistoryScreenState extends State<GameHistoryScreen> {
-  List<Map<String, dynamic>> gameHistory = [];
-  bool isDescending = true; // Default sorting order
+  final GameRepository _repo = GameRepository.instance;
+
+  List<GameSession> _games = [];
+  bool _isDescending = true;
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadSortingPreference();
-    _loadGameHistory();
+    _load();
   }
 
-  Future<void> _loadGameHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    final gameHistoryData = prefs.getStringList('gameHistory') ?? [];
+  Future<void> _load() async {
+    final descending = await _repo.isDescending();
+    final games = await _repo.loadGames();
+    games.sort((a, b) =>
+        descending ? b.date.compareTo(a.date) : a.date.compareTo(b.date));
+    if (!mounted) return;
     setState(() {
-      gameHistory = gameHistoryData.map((entry) {
-        final Map<String, dynamic> gameMap = jsonDecode(entry);
-        gameMap['date'] = gameMap.containsKey('date') && gameMap['date'] != null
-            ? DateTime.parse(gameMap['date'])
-            : DateTime.now(); // Assign current date if 'date' is null
-        return gameMap;
-      }).toList();
-      _sortGameHistory();
+      _isDescending = descending;
+      _games = games;
+      _loading = false;
     });
   }
 
-  Future<void> _loadSortingPreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      isDescending = prefs.getBool('isDescending') ?? true;
-    });
+  Future<void> _toggleSort() async {
+    await _repo.setDescending(!_isDescending);
+    await _load();
   }
 
-  void _sortGameHistory() {
-    gameHistory.sort((a, b) {
-      final dateA = a['date'] as DateTime?;
-      final dateB = b['date'] as DateTime?;
-      if (dateA == null && dateB == null) return 0;
-      if (dateA == null) return 1;
-      if (dateB == null) return -1;
-      return isDescending ? dateB.compareTo(dateA) : dateA.compareTo(dateB);
-    });
-
-    // Assign titles based on the sorted order
-    for (int i = 0; i < gameHistory.length; i++) {
-      gameHistory[i]['title'] = 'Игра ${gameHistory.length - i}';
-    }
+  Future<void> _deleteGame(GameSession game) async {
+    await _repo.deleteGame(game.gameId);
+    await _load();
   }
 
-  Future<void> _deleteSingleGame(int index) async {
-    final prefs = await SharedPreferences.getInstance();
-    final gameHistoryData = prefs.getStringList('gameHistory') ?? [];
-
-    // Find the gameId of the item that the user wants to delete
-    final String gameIdToDelete = gameHistory[index]['gameId'];
-
-    // Remove the correct element from the stored list irrespective of ordering
-    gameHistoryData.removeWhere((entry) {
-      final decoded = jsonDecode(entry);
-      return decoded['gameId'] == gameIdToDelete;
-    });
-
-    await prefs.setStringList('gameHistory', gameHistoryData);
-
-    // Update local state only if the index is still valid (defensive programming)
-    if (index >= 0 && index < gameHistory.length) {
-      setState(() {
-        gameHistory.removeAt(index);
-        _sortGameHistory(); // Maintain ordering after deletion
-      });
-    }
+  String _formatDate(DateTime date) {
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${two(date.day)}.${two(date.month)}.${date.year} '
+        '${two(date.hour)}:${two(date.minute)}';
   }
 
-  String _formatDate(DateTime? date) {
-    if (date == null) {
-      return 'Дата неизвестна';
-    }
-    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-  }
-
-  bool _isGameFinished(Map<String, dynamic> game) {
-    final remainingPlayers = List<String>.from(game['remainingPlayers'] ?? []);
-    return remainingPlayers.length == 1;
+  void _confirmDelete(GameSession game) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить эту игру?'),
+        content: const Text(
+            'Вы уверены, что хотите удалить эту игру из истории?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _deleteGame(game);
+            },
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Ensure the game history is always up-to-date when the screen becomes
-    // visible again (for example after returning from the score board).
-    // Using a post-frame callback prevents setState from being called during
-    // an active build and avoids redundant rebuilds.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _loadGameHistory();
-    });
-    final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('История игр'),
+        actions: [
+          IconButton(
+            tooltip: _isDescending ? 'Сначала новые' : 'Сначала старые',
+            icon: Icon(
+                _isDescending ? Icons.arrow_downward : Icons.arrow_upward),
+            onPressed: _games.isEmpty ? null : _toggleSort,
+          ),
+        ],
       ),
-      body: ListView.builder(
-        itemCount: gameHistory.length,
-        itemBuilder: (context, index) {
-          final game = gameHistory[index];
-          final date = game['date'] as DateTime?;
-          final formattedDate = _formatDate(date);
-          final title = game['title'] ?? 'Игра ${gameHistory.length - index}';
-          final isFinished = _isGameFinished(game);
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _games.isEmpty
+              ? _emptyState(context)
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: _games.length,
+                  itemBuilder: (context, index) {
+                    final game = _games[index];
+                    final number =
+                        _isDescending ? _games.length - index : index + 1;
 
-          final titleColor =
-              isDarkTheme ? const Color(0xFFC2B8ED) : Colors.purple;
-          final dateColor = isDarkTheme ? Colors.white : Colors.black;
-
-          return ListTile(
-            leading: isFinished
-                ? const Icon(Icons.check_circle, color: Colors.green)
-                : null,
-            title: RichText(
-              text: TextSpan(
-                style: DefaultTextStyle.of(context).style,
-                children: <TextSpan>[
-                  TextSpan(
-                    text: '$title ',
-                    style: TextStyle(
-                      color: titleColor,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  TextSpan(
-                    text: '- $formattedDate',
-                    style: TextStyle(color: dateColor, fontSize: 16),
-                  ),
-                ],
-              ),
-            ),
-            subtitle: Text('Игроки: ${game['players'].join(', ')}'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Удалить эту игру?'),
-                        content: const Text(
-                            'Вы уверены, что хотите удалить эту игру из истории?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                            },
-                            child: const Text('Отмена'),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              _deleteSingleGame(index);
-                              Navigator.of(context).pop();
-                            },
-                            child: const Text('Удалить'),
-                          ),
-                        ],
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
+                      child: ListTile(
+                        leading: game.isFinished
+                            ? const Icon(Icons.emoji_events,
+                                color: Colors.amber)
+                            : Icon(Icons.timelapse, color: scheme.outline),
+                        title: Text(
+                          'Игра $number',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_formatDate(game.date)),
+                            const SizedBox(height: 2),
+                            Text('Игроки: ${game.players.join(', ')}'),
+                            if (game.isFinished)
+                              Text(
+                                'Победитель: ${game.winner}',
+                                style: TextStyle(
+                                  color: scheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                          ],
+                        ),
+                        isThreeLine: true,
+                        trailing: IconButton(
+                          tooltip: 'Удалить',
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _confirmDelete(game),
+                        ),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ScoreBoardScreen(
+                                players: game.players,
+                                initialData: game.toJson(),
+                              ),
+                            ),
+                          ).then((_) => _load());
+                        },
                       ),
                     );
                   },
                 ),
-              ],
-            ),
-            onTap: () async {
-              // Always fetch the latest version of this game from storage to avoid
-              // showing stale data after the game was updated elsewhere.
-              final prefs = await SharedPreferences.getInstance();
-              final storedGames = prefs.getStringList('gameHistory') ?? [];
-              Map<String, dynamic> latestGame = game;
-              for (final entry in storedGames) {
-                final decoded = jsonDecode(entry);
-                if (decoded['gameId'] == game['gameId']) {
-                  latestGame = decoded;
-                  // Convert stored date back to DateTime object for consistency
-                  if (latestGame['date'] != null && latestGame['date'] is String) {
-                    latestGame['date'] = DateTime.parse(latestGame['date']);
-                  }
-                  break;
-                }
-              }
+    );
+  }
 
-              widget.continueGame(latestGame); // Update app state
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ScoreBoardScreen(
-                    players: List<String>.from(latestGame['players']),
-                    endCurrentGame: () {},
-                    initialData: latestGame,
-                    isNewGame: false, // <-- всегда false для истории
-                  ),
-                ),
-              );
-            },
-          );
-        },
+  Widget _emptyState(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.history, size: 72, color: scheme.outlineVariant),
+          const SizedBox(height: 16),
+          Text('История пуста', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              'Сыграйте первую партию — она появится здесь.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
       ),
     );
   }

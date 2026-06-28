@@ -1,10 +1,8 @@
 import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import 'player_profile.dart';
+import 'services/game_repository.dart';
 
 enum TimePeriod { day, month, year }
 
@@ -12,6 +10,7 @@ class EnhancedStatisticsScreen extends StatefulWidget {
   const EnhancedStatisticsScreen({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _EnhancedStatisticsScreenState createState() =>
       _EnhancedStatisticsScreenState();
 }
@@ -131,30 +130,24 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen>
       _isLoading = true;
     });
 
-    final prefs = await SharedPreferences.getInstance();
-    final gameHistory = prefs.getStringList('gameHistory') ?? [];
-    final profilesJson = prefs.getStringList('profiles') ?? [];
+    final games = await GameRepository.instance.loadGames();
+    final profiles = await GameRepository.instance.loadProfiles();
 
     final Map<String, PlayerStats> statsMap = {};
-    final now = DateTime.now();
 
     // Process game history to count total games and stats per player
-    for (var gameJson in gameHistory) {
+    for (final game in games) {
       try {
-        final gameData = jsonDecode(gameJson);
-        final players = List<String>.from(gameData['players'] ?? []);
-        final gameDate = gameData['date'] != null
-            ? DateTime.tryParse(gameData['date']) ?? now
-            : now;
-            
+        final players = game.players;
+        final gameDate = game.date;
+
         // Create keys for different time periods
         final dayKey = _dayFormat.format(gameDate);
         final monthKey = _monthFormat.format(gameDate);
         final yearKey = _yearFormat.format(gameDate);
 
         // Check if this game has a winner (last remaining player)
-        final remainingPlayers = List<String>.from(gameData['remainingPlayers'] ?? []);
-        final String? winner = remainingPlayers.length == 1 ? remainingPlayers.first : null;
+        final String? winner = game.winner;
 
         for (var player in players) {
           final isWinner = winner == player;
@@ -238,9 +231,8 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen>
     }
 
     // Process profiles to get colors and update stats
-    for (var profileString in profilesJson) {
+    for (final profile in profiles) {
       try {
-        final profile = PlayerProfile.fromJson(jsonDecode(profileString));
         if (statsMap.containsKey(profile.name)) {
           final stats = statsMap[profile.name]!;
           final winPercentage = stats.totalGames > 0
@@ -293,7 +285,7 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen>
   Widget _buildPlayerAvatar(PlayerStats stats, {double radius = 30}) {
     return CircleAvatar(
       radius: radius,
-      backgroundColor: stats.color.withOpacity(0.3),
+      backgroundColor: stats.color.withValues(alpha: 0.3),
       child: stats.imagePath != null && File(stats.imagePath!).existsSync()
           ? ClipOval(
               child: Image.file(
@@ -368,7 +360,6 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen>
         periodWins = stats.yearlyWins;
         break;
       case TimePeriod.month:
-      default:
         periodGames = stats.monthlyGames;
         periodWins = stats.monthlyWins;
     }
@@ -861,13 +852,14 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen>
         bottom: TabBar(
           controller: _tabController,
           labelColor: theme.brightness == Brightness.dark ? Colors.white : theme.primaryColor,
-          unselectedLabelColor: theme.textTheme.bodyLarge?.color?.withOpacity(0.6),
+          unselectedLabelColor:
+              theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.6),
           indicator: BoxDecoration(
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(8),
               topRight: Radius.circular(8),
             ),
-            color: theme.primaryColor.withOpacity(0.1),
+            color: theme.primaryColor.withValues(alpha: 0.1),
           ),
           indicatorWeight: 3,
           indicatorSize: TabBarIndicatorSize.tab,

@@ -26,7 +26,7 @@ class PlayerProfile {
   Map<String, dynamic> toJson() {
     return {
       'name': name,
-      'color': color.value,
+      'color': color.toARGB32(),
       'wins': wins,
       'imagePath': imagePath,
     };
