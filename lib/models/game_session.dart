@@ -23,6 +23,13 @@ class GameSession {
   /// Флаг защищает от двойного начисления при повторном завершении/отмене.
   final bool winCredited;
 
+  /// Имя победителя партии по правилу игры. Сохраняется явно, потому что для
+  /// игр НЕ на вылет (гонка до порога, минимум при пороге, ручной режим)
+  /// победителя нельзя вывести только из [remainingPlayers]. Для старых игр и
+  /// игр «на вылет» — может быть null, тогда работает запасной вывод по
+  /// оставшимся игрокам (см. [winner]).
+  final String? winnerName;
+
   const GameSession({
     required this.gameId,
     required this.players,
@@ -34,13 +41,23 @@ class GameSession {
     required this.currentPlayerIndex,
     required this.date,
     this.winCredited = false,
+    this.winnerName,
   });
 
-  /// Игра завершена, когда остался ровно один игрок.
-  bool get isFinished => remainingPlayers.length == 1;
+  /// Победитель партии (или null, если не завершена).
+  ///
+  /// Приоритет у явно сохранённого [winnerName] (работает для всех правил);
+  /// если его нет — запасной вывод «на вылет»: остался один игрок из многих.
+  String? get winner {
+    if (winnerName != null && winnerName!.isNotEmpty) return winnerName;
+    if (players.length > 1 && remainingPlayers.length == 1) {
+      return remainingPlayers.first;
+    }
+    return null;
+  }
 
-  /// Победитель завершённой игры (или null).
-  String? get winner => isFinished ? remainingPlayers.first : null;
+  /// Игра завершена, когда есть победитель.
+  bool get isFinished => winner != null;
 
   /// В игре не записано ни одного очка.
   bool get isEmpty => scores.every((row) => row.isEmpty);
@@ -65,6 +82,7 @@ class GameSession {
           ? (DateTime.tryParse(json['date'].toString()) ?? DateTime.now())
           : DateTime.now(),
       winCredited: json['winCredited'] as bool? ?? false,
+      winnerName: json['winnerName']?.toString(),
     );
   }
 
@@ -79,5 +97,6 @@ class GameSession {
         'currentPlayerIndex': currentPlayerIndex,
         'date': date.toIso8601String(),
         'winCredited': winCredited,
+        'winnerName': winnerName,
       };
 }

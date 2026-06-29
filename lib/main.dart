@@ -1,68 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'game_history_screen.dart';
-import 'leaderboard_screen.dart';
 import 'enhanced_statistics_screen.dart';
+import 'l10n/locale_controller.dart';
+import 'l10n/strings.dart';
 import 'player_input_screen.dart';
 import 'settings_screen.dart';
-import 'services/game_repository.dart';
 import 'theme/app_theme.dart';
+import 'theme/theme_controller.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ThemeController.instance.load();
+  await LocaleController.instance.load();
   runApp(const CardGameScoreTracker());
 }
 
-class CardGameScoreTracker extends StatefulWidget {
+class CardGameScoreTracker extends StatelessWidget {
   const CardGameScoreTracker({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
-  _CardGameScoreTrackerState createState() => _CardGameScoreTrackerState();
-}
-
-class _CardGameScoreTrackerState extends State<CardGameScoreTracker> {
-  bool _isDarkTheme = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadThemePreference();
-  }
-
-  Future<void> _loadThemePreference() async {
-    final dark = await GameRepository.instance.isDarkTheme();
-    if (!mounted) return;
-    setState(() => _isDarkTheme = dark);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'ScoreMaster',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: _isDarkTheme ? ThemeMode.dark : ThemeMode.light,
-      home: MainScreen(
-        isDarkTheme: _isDarkTheme,
-        onThemeChanged: (isDarkTheme) {
-          setState(() => _isDarkTheme = isDarkTheme);
-        },
+    final theme = ThemeController.instance;
+    final locale = LocaleController.instance;
+    return ListenableBuilder(
+      listenable: Listenable.merge([theme, locale]),
+      builder: (context, _) => MaterialApp(
+        title: 'ScoreMaster',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light(theme.seedColor),
+        darkTheme: AppTheme.dark(theme.seedColor),
+        themeMode: theme.themeMode,
+        locale: locale.locale,
+        supportedLocales: LocaleController.supported,
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: const MainScreen(),
       ),
     );
   }
 }
 
 class MainScreen extends StatefulWidget {
-  final Function(bool) onThemeChanged;
-  final bool isDarkTheme;
-
-  const MainScreen({
-    super.key,
-    required this.onThemeChanged,
-    required this.isDarkTheme,
-  });
+  const MainScreen({super.key});
 
   @override
   // ignore: library_private_types_in_public_api
@@ -70,24 +54,20 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  static const int _tabCount = 5;
+  static const int _tabCount = 4;
   int _selectedIndex = 0;
 
-  /// Экран строится при каждом показе, поэтому история, лидеры и статистика
-  /// всегда отражают актуальные данные после сыгранной партии.
+  /// Экран строится при каждом показе, поэтому история и статистика всегда
+  /// отражают актуальные данные после сыгранной партии. Лидеры теперь живут
+  /// внутри экрана статистики (вкладка «Лидеры»), отдельной вкладки нет.
   Widget _screenFor(int index) {
     switch (index) {
       case 1:
         return const GameHistoryScreen();
       case 2:
-        return const LeaderboardScreen();
-      case 3:
         return const EnhancedStatisticsScreen();
-      case 4:
-        return SettingsScreen(
-          onThemeChanged: widget.onThemeChanged,
-          isDarkTheme: widget.isDarkTheme,
-        );
+      case 3:
+        return const SettingsScreen();
       case 0:
       default:
         return const PlayerInputScreen();
@@ -109,31 +89,29 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: _onItemTapped,
-        destinations: const <NavigationDestination>[
+        // Только иконки, без подписей — компактно и по-M3. Контур → заливка
+        // при выборе (rounded-вариант M3-иконок).
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+        destinations: <NavigationDestination>[
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Меню',
+            icon: const Icon(Icons.groups_outlined, size: 28),
+            selectedIcon: const Icon(Icons.groups_rounded, size: 28),
+            label: tr('nav_menu'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.history_outlined),
-            selectedIcon: Icon(Icons.history),
-            label: 'История',
+            icon: const Icon(Icons.history_rounded, size: 28),
+            selectedIcon: const Icon(Icons.history_rounded, size: 28),
+            label: tr('nav_history'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.leaderboard_outlined),
-            selectedIcon: Icon(Icons.leaderboard),
-            label: 'Лидеры',
+            icon: const Icon(Icons.leaderboard_outlined, size: 28),
+            selectedIcon: const Icon(Icons.leaderboard_rounded, size: 28),
+            label: tr('nav_stats'),
           ),
           NavigationDestination(
-            icon: Icon(Icons.analytics_outlined),
-            selectedIcon: Icon(Icons.analytics),
-            label: 'Статистика',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Настройки',
+            icon: const Icon(Icons.settings_outlined, size: 28),
+            selectedIcon: const Icon(Icons.settings_rounded, size: 28),
+            label: tr('nav_settings'),
           ),
         ],
       ),

@@ -1,1039 +1,221 @@
-import 'dart:io';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart';
+
+import 'l10n/strings.dart';
 import 'services/game_repository.dart';
+import 'theme/app_theme.dart';
+import 'widgets/player_shapes.dart';
 
-enum TimePeriod { day, month, year }
+/// Период для графика динамики.
+enum _Period { day, month, year }
 
+/// Экран статистики — полностью на плоском Material 3 Expressive в духе
+/// главного меню и табло: крупные цифры, скруглённые карточки без теней,
+/// фирменный шрифт, кольцо винрейта и плоские столбики (без сторонних
+/// чарт-библиотек). Данные считаются из истории партий по сохранённому
+/// победителю [winnerName] — работает для всех правил, не только «на вылет».
 class EnhancedStatisticsScreen extends StatefulWidget {
   const EnhancedStatisticsScreen({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
-  _EnhancedStatisticsScreenState createState() =>
+  State<EnhancedStatisticsScreen> createState() =>
       _EnhancedStatisticsScreenState();
 }
 
-class PlayerStats {
+/// Сводная статистика одного игрока.
+class _PlayerStat {
   final String name;
   final Color color;
-  final int totalWins;
-  final int totalGames;
-  final double winPercentage;
   final String? imagePath;
-  final Map<String, int> dailyWins;
-  final Map<String, int> dailyGames;
-  final Map<String, int> monthlyWins;
-  final Map<String, int> monthlyGames;
-  final Map<String, int> yearlyWins;
-  final Map<String, int> yearlyGames;
 
-  PlayerStats({
-    required this.name,
-    required this.color,
-    required this.totalWins,
-    required this.totalGames,
-    required this.winPercentage,
-    this.imagePath,
-    Map<String, int>? dailyWins,
-    Map<String, int>? dailyGames,
-    Map<String, int>? monthlyWins,
-    Map<String, int>? monthlyGames,
-    Map<String, int>? yearlyWins,
-    Map<String, int>? yearlyGames,
-  })  : dailyWins = dailyWins ?? {},
-        dailyGames = dailyGames ?? {},
-        monthlyWins = monthlyWins ?? {},
-        monthlyGames = monthlyGames ?? {},
-        yearlyWins = yearlyWins ?? {},
-        yearlyGames = yearlyGames ?? {};
+  /// Индекс формы аватара (как в меню) — чтобы фигура игрока совпадала везде.
+  int shapeIndex = 0;
 
-  String get formattedWinPercentage => winPercentage.toStringAsFixed(1);
+  int wins = 0;
+  int played = 0; // завершённые партии, в которых участвовал
+  int streak = 0; // текущая серия побед (с последних партий)
+  DateTime? lastPlayed;
 
-  double get gamesPerWin => totalWins > 0 ? totalGames / totalWins : 0;
+  /// Ключ периода → [победы, игры].
+  final Map<String, List<int>> byDay = {};
+  final Map<String, List<int>> byMonth = {};
+  final Map<String, List<int>> byYear = {};
 
-  String get lastActiveMonth {
-    if (monthlyGames.isEmpty) return 'Нет данных';
-    final sortedMonths = monthlyGames.keys.toList()
-      ..sort((a, b) => b.compareTo(a));
-    final lastMonth = sortedMonths.first;
-    return '${_formatMonth(lastMonth)} (${monthlyGames[lastMonth]} игр)';
+  /// Результаты завершённых партий в хронологическом порядке (для серии).
+  final List<bool> _chrono = [];
+
+  _PlayerStat(this.name, this.color, this.imagePath);
+
+  int get losses => (played - wins).clamp(0, 1 << 30);
+  double get winRate => played > 0 ? wins / played * 100 : 0;
+
+  Map<String, List<int>> mapFor(_Period p) => switch (p) {
+        _Period.day => byDay,
+        _Period.month => byMonth,
+        _Period.year => byYear,
+      };
+
+  void _bump(Map<String, List<int>> m, String key, bool won) {
+    final cell = m.putIfAbsent(key, () => [0, 0]);
+    cell[1]++;
+    if (won) cell[0]++;
   }
 
-  static String _formatMonth(String month) {
-    final parts = month.split('-');
-    if (parts.length != 2) return month;
-    final year = int.tryParse(parts[0]) ?? 0;
-    final monthNum = int.tryParse(parts[1]) ?? 0;
-    if (monthNum < 1 || monthNum > 12) return month;
+  void record(DateTime date, bool won) {
+    played++;
+    if (won) wins++;
+    _chrono.add(won);
+    if (lastPlayed == null || date.isAfter(lastPlayed!)) lastPlayed = date;
 
-    final monthNames = [
-      'Январь',
-      'Февраль',
-      'Март',
-      'Апрель',
-      'Май',
-      'Июнь',
-      'Июль',
-      'Август',
-      'Сентябрь',
-      'Октябрь',
-      'Ноябрь',
-      'Декабрь'
-    ];
+    String two(int v) => v.toString().padLeft(2, '0');
+    final d = '${date.year}-${two(date.month)}-${two(date.day)}';
+    final mo = '${date.year}-${two(date.month)}';
+    final y = '${date.year}';
+    _bump(byDay, d, won);
+    _bump(byMonth, mo, won);
+    _bump(byYear, y, won);
+  }
 
-    return '${monthNames[monthNum - 1]} $year';
+  /// Считаем серию побед с конца хронологии.
+  void finalizeStreak() {
+    var s = 0;
+    for (var i = _chrono.length - 1; i >= 0; i--) {
+      if (_chrono[i]) {
+        s++;
+      } else {
+        break;
+      }
+    }
+    streak = s;
   }
 }
 
-class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen>
-    with SingleTickerProviderStateMixin {
-  List<PlayerStats> allPlayersStats = [];
-  PlayerStats? selectedPlayerStats;
-  bool _isLoading = true;
-  late TabController _tabController;
-  final int _tabsCount = 3;
-  final PageController _pageController = PageController();
+class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
+  static const Color _gold = Color(0xFFFFD700);
+  static const Color _silver = Color(0xFFC0C0C0);
+  static const Color _bronze = Color(0xFFCD7F32);
 
-  // Chart data
-  TimePeriod _selectedPeriod = TimePeriod.month;
-  
-  // Date formatters
-  final _dayFormat = DateFormat('yyyy-MM-dd');
-  final _monthFormat = DateFormat('yyyy-MM');
-  final _yearFormat = DateFormat('yyyy');
-  final _displayDayFormat = DateFormat('dd.MM.yy');
-  final _displayMonthFormat = DateFormat('MMM yyyy');
+  final GameRepository _repo = GameRepository.instance;
 
-  List<Color> gradientColors = [
-    const Color(0xff23b6e6),
-    const Color(0xff02d39a),
-  ];
+  List<_PlayerStat> _stats = [];
+  String? _selectedName;
+  int _section = 0; // 0 игрок, 1 лидеры, 2 аналитика
+  _Period _period = _Period.month;
+  bool _loading = true;
+
+  int _totalFinished = 0;
+  int _totalRounds = 0;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(vsync: this, length: _tabsCount);
-    _loadStatistics();
+    _repo.addListener(_onRepoChanged);
+    _load();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
-    _pageController.dispose();
+    _repo.removeListener(_onRepoChanged);
     super.dispose();
   }
 
-  Future<void> _loadStatistics() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    final games = await GameRepository.instance.loadGames();
-    final profiles = await GameRepository.instance.loadProfiles();
-
-    final Map<String, PlayerStats> statsMap = {};
-
-    // Process game history to count total games and stats per player
-    for (final game in games) {
-      try {
-        final players = game.players;
-        final gameDate = game.date;
-
-        // Create keys for different time periods
-        final dayKey = _dayFormat.format(gameDate);
-        final monthKey = _monthFormat.format(gameDate);
-        final yearKey = _yearFormat.format(gameDate);
-
-        // Check if this game has a winner (last remaining player)
-        final String? winner = game.winner;
-
-        for (var player in players) {
-          final isWinner = winner == player;
-          statsMap.update(
-            player,
-            (existing) {
-              // Create copies of the maps to avoid modifying them directly
-              final dailyWins = Map<String, int>.from(existing.dailyWins);
-              final dailyGames = Map<String, int>.from(existing.dailyGames);
-              final monthlyWins = Map<String, int>.from(existing.monthlyWins);
-              final monthlyGames = Map<String, int>.from(existing.monthlyGames);
-              final yearlyWins = Map<String, int>.from(existing.yearlyWins);
-              final yearlyGames = Map<String, int>.from(existing.yearlyGames);
-
-              // Update daily stats
-              dailyGames.update(dayKey, (value) => value + 1, ifAbsent: () => 1);
-              if (isWinner) {
-                dailyWins.update(dayKey, (value) => value + 1, ifAbsent: () => 1);
-              }
-              
-              // Update monthly stats
-              monthlyGames.update(monthKey, (value) => value + 1, ifAbsent: () => 1);
-              if (isWinner) {
-                monthlyWins.update(monthKey, (value) => value + 1, ifAbsent: () => 1);
-              }
-              
-              // Update yearly stats
-              yearlyGames.update(yearKey, (value) => value + 1, ifAbsent: () => 1);
-              if (isWinner) {
-                yearlyWins.update(yearKey, (value) => value + 1, ifAbsent: () => 1);
-              }
-
-              return PlayerStats(
-                name: existing.name,
-                color: existing.color,
-                totalWins: isWinner ? existing.totalWins + 1 : existing.totalWins,
-                totalGames: existing.totalGames + 1,
-                winPercentage: 0, // Will be calculated later
-                imagePath: existing.imagePath,
-                dailyWins: dailyWins,
-                dailyGames: dailyGames,
-                monthlyWins: monthlyWins,
-                monthlyGames: monthlyGames,
-                yearlyWins: yearlyWins,
-                yearlyGames: yearlyGames,
-              );
-            },
-            ifAbsent: () {
-              final dailyWins = <String, int>{};
-              final dailyGames = <String, int>{dayKey: 1};
-              final monthlyWins = <String, int>{};
-              final monthlyGames = <String, int>{monthKey: 1};
-              final yearlyWins = <String, int>{};
-              final yearlyGames = <String, int>{yearKey: 1};
-
-              if (isWinner) {
-                dailyWins[dayKey] = 1;
-                monthlyWins[monthKey] = 1;
-                yearlyWins[yearKey] = 1;
-              }
-
-              return PlayerStats(
-                name: player,
-                color: Colors.grey,
-                totalWins: isWinner ? 1 : 0,
-                totalGames: 1,
-                winPercentage: isWinner ? 100.0 : 0.0,
-                dailyWins: dailyWins,
-                dailyGames: dailyGames,
-                monthlyWins: monthlyWins,
-                monthlyGames: monthlyGames,
-                yearlyWins: yearlyWins,
-                yearlyGames: yearlyGames,
-              );
-            },
-          );
-        }
-      } catch (e) {
-        debugPrint('Error processing game history: $e');
-      }
-    }
-
-    // Process profiles to get colors and update stats
-    for (final profile in profiles) {
-      try {
-        if (statsMap.containsKey(profile.name)) {
-          final stats = statsMap[profile.name]!;
-          final winPercentage = stats.totalGames > 0
-              ? (stats.totalWins / stats.totalGames * 100)
-              : 0;
-
-          statsMap[profile.name] = PlayerStats(
-            name: profile.name,
-            color: profile.color,
-            totalWins: profile.wins,
-            totalGames: stats.totalGames,
-            winPercentage: winPercentage.toDouble(),
-            imagePath: profile.imagePath,
-            dailyWins: stats.dailyWins,
-            dailyGames: stats.dailyGames,
-            monthlyWins: stats.monthlyWins,
-            monthlyGames: stats.monthlyGames,
-            yearlyWins: stats.yearlyWins,
-            yearlyGames: stats.yearlyGames,
-          );
-        } else {
-          statsMap[profile.name] = PlayerStats(
-            name: profile.name,
-            color: profile.color,
-            totalWins: profile.wins,
-            totalGames: 0,
-            winPercentage: 0,
-            imagePath: profile.imagePath,
-          );
-        }
-      } catch (e) {
-        debugPrint('Error processing profile: $e');
-      }
-    }
-
-    final statsList = statsMap.values.toList()
-      ..sort((a, b) => b.totalWins.compareTo(a.totalWins));
-
-    if (mounted) {
-      setState(() {
-        allPlayersStats = statsList;
-        if (statsList.isNotEmpty) {
-          selectedPlayerStats = statsList.first;
-        }
-        _isLoading = false;
-      });
-    }
+  void _onRepoChanged() {
+    if (mounted) _load();
   }
 
-  Widget _buildPlayerAvatar(PlayerStats stats, {double radius = 30}) {
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: stats.color.withValues(alpha: 0.3),
-      child: stats.imagePath != null && File(stats.imagePath!).existsSync()
-          ? ClipOval(
-              child: Image.file(
-                File(stats.imagePath!), // Safe due to the condition above
-                width: radius * 2,
-                height: radius * 2,
-                fit: BoxFit.cover,
-              ),
-            )
-          : Text(
-              stats.name.isNotEmpty ? stats.name[0].toUpperCase() : '?',
-              style: TextStyle(
-                fontSize: radius * 0.7,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-    );
-  }
+  Future<void> _load() async {
+    final games = await _repo.loadGames();
+    final profiles = await _repo.loadProfiles();
 
-  Widget _buildPeriodSelector() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _buildPeriodButton('День', TimePeriod.day),
-          const SizedBox(width: 8),
-          _buildPeriodButton('Месяц', TimePeriod.month),
-          const SizedBox(width: 8),
-          _buildPeriodButton('Год', TimePeriod.year),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildPeriodButton(String label, TimePeriod period) {
-    final isSelected = _selectedPeriod == period;
-    return ElevatedButton(
-      onPressed: () {
-        setState(() {
-          _selectedPeriod = period;
-        });
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: isSelected ? Theme.of(context).primaryColor : Colors.grey[300],
-        foregroundColor: isSelected ? Colors.white : Colors.black87,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      ),
-      child: Text(label),
-    );
-  }
-
-  Widget _buildWinRateChart() {
-    if (selectedPlayerStats == null) return const SizedBox.shrink();
-    final stats = selectedPlayerStats!;
-    
-    // Get data based on selected period
-    Map<String, int> periodGames;
-    Map<String, int> periodWins;
-    
-    switch (_selectedPeriod) {
-      case TimePeriod.day:
-        periodGames = stats.dailyGames;
-        periodWins = stats.dailyWins;
-        break;
-      case TimePeriod.year:
-        periodGames = stats.yearlyGames;
-        periodWins = stats.yearlyWins;
-        break;
-      case TimePeriod.month:
-        periodGames = stats.monthlyGames;
-        periodWins = stats.monthlyWins;
-    }
-    
-    // Sort periods chronologically
-    final periods = periodGames.keys.toList()..sort((a, b) {
-      try {
-        if (_selectedPeriod == TimePeriod.day) {
-          return _dayFormat.parse(a).compareTo(_dayFormat.parse(b));
-        } else if (_selectedPeriod == TimePeriod.month) {
-          return _monthFormat.parse(a).compareTo(_monthFormat.parse(b));
-        } else {
-          return int.parse(a).compareTo(int.parse(b));
-        }
-      } catch (e) {
-        return a.compareTo(b);
-      }
-    });
-
-    if (periods.isEmpty) {
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.bar_chart, size: 48, color: Colors.grey),
-          const SizedBox(height: 16),
-          const Text(
-            'Недостаточно данных для отображения графика',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Выберите другой период или дождитесь накопления данных',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
-          ),
-        ],
-      );
-    }
-
-    // Group data for better visualization if there are many points
-    final int maxVisibleBars = 12;
-    final Map<String, int> groupedGames = {};
-    final Map<String, int> groupedWins = {};
-    
-    if (periods.length > maxVisibleBars) {
-      final groupSize = (periods.length / maxVisibleBars).ceil();
-      
-      for (int i = 0; i < periods.length; i += groupSize) {
-        final end = (i + groupSize < periods.length) ? i + groupSize : periods.length;
-        final groupKey = '${periods[i]} - ${periods[end - 1]}';
-        
-        int totalGames = 0;
-        int totalWins = 0;
-        
-        for (int j = i; j < end; j++) {
-          final period = periods[j];
-          totalGames += periodGames[period] ?? 0;
-          totalWins += periodWins[period] ?? 0;
-        }
-        
-        groupedGames[groupKey] = totalGames;
-        groupedWins[groupKey] = totalWins;
-      }
-    } else {
-      for (final period in periods) {
-        groupedGames[period] = periodGames[period] ?? 0;
-        groupedWins[period] = periodWins[period] ?? 0;
-      }
-    }
-    
-    final visiblePeriods = groupedGames.keys.toList();
-    
-    // Format period for display
-    String formatPeriod(String periodStr) {
-      try {
-        if (periodStr.contains(' - ')) {
-          final parts = periodStr.split(' - ');
-          if (parts.length == 2) {
-            if (_selectedPeriod == TimePeriod.day) {
-              final start = _displayDayFormat.format(_dayFormat.parse(parts[0]));
-              final end = _displayDayFormat.format(_dayFormat.parse(parts[1]));
-              return '$start - $end';
-            } else if (_selectedPeriod == TimePeriod.month) {
-              final start = _displayMonthFormat.format(_monthFormat.parse(parts[0]));
-              final end = _displayMonthFormat.format(_monthFormat.parse(parts[1]));
-              return '$start - $end';
+    final byName = <String, _PlayerStat>{};
+    _PlayerStat statFor(String name) => byName.putIfAbsent(name, () {
+          Color color = Colors.grey;
+          String? image;
+          for (final pr in profiles) {
+            if (pr.name == name) {
+              color = pr.color;
+              image = pr.imagePath;
+              break;
             }
-            return periodStr;
           }
-        }
-        
-        if (_selectedPeriod == TimePeriod.day) {
-          final date = _dayFormat.parse(periodStr);
-          return _displayDayFormat.format(date);
-        } else if (_selectedPeriod == TimePeriod.month) {
-          final date = _monthFormat.parse(periodStr);
-          return _displayMonthFormat.format(date);
-        }
-        return periodStr;
-      } catch (e) {
-        return periodStr;
+          final s = _PlayerStat(name, color, image);
+          // Запасная форма для игроков без профиля — по имени (стабильно).
+          s.shapeIndex = name.runes.fold(0, (a, b) => a + b);
+          return s;
+        });
+
+    // Игроки без партий тоже видны (создали профиль — но ещё не играли).
+    // Форму берём по позиции в профилях — ровно как в главном меню.
+    for (var i = 0; i < profiles.length; i++) {
+      statFor(profiles[i].name).shapeIndex = i;
+    }
+
+    var finished = 0;
+    var rounds = 0;
+    // По возрастанию даты — для корректного подсчёта серии.
+    final sorted = [...games]..sort((a, b) => a.date.compareTo(b.date));
+    for (final g in sorted) {
+      rounds += g.rounds;
+      if (!g.isFinished) continue;
+      finished++;
+      final winner = g.winner;
+      for (final player in g.players) {
+        statFor(player).record(g.date, player == winner);
       }
     }
-
-    return Card(
-      margin: const EdgeInsets.all(16),
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Статистика побед по ${_selectedPeriod == TimePeriod.day ? 'дням' : _selectedPeriod == TimePeriod.month ? 'месяцам' : 'годам'},',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 250,
-              child: BarChart(
-                BarChartData(
-                  alignment: BarChartAlignment.spaceAround,
-                  maxY: 100,
-                  minY: 0,
-                  barTouchData: BarTouchData(
-                    enabled: true,
-                    touchTooltipData: BarTouchTooltipData(
-                      getTooltipColor: (_) => Colors.blueGrey,
-                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                        final period = visiblePeriods[group.x.toInt()];
-                        final games = groupedGames[period] ?? 0;
-                        final wins = groupedWins[period] ?? 0;
-                        final winRate = rod.toY;
-                        
-                        return BarTooltipItem(
-                          '${formatPeriod(period)}\n',
-                          const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: '${winRate.toStringAsFixed(1)}% побед\n',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                              ),
-                            ),
-                            TextSpan(
-                              text: '$wins из $games игр',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                  titlesData: FlTitlesData(
-                    show: true,
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (value, meta) {
-                          if (value >= 0 && value < visiblePeriods.length) {
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
-                              child: Text(
-                                formatPeriod(visiblePeriods[value.toInt()]),
-                                style: const TextStyle(fontSize: 10),
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            );
-                          }
-                          return const Text('');
-                        },
-                        reservedSize: 40,
-                      ),
-                    ),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        interval: 20,
-                        reservedSize: 30,
-                        getTitlesWidget: (value, meta) {
-                          return Text(
-                            '${value.toInt()}%',
-                            style: const TextStyle(fontSize: 10),
-                          );
-                        },
-                      ),
-                    ),
-                    rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                  ),
-                  gridData: const FlGridData(show: false),
-                  borderData: FlBorderData(show: false),
-                  barGroups: List.generate(
-                    visiblePeriods.length,
-                    (index) {
-                      final period = visiblePeriods[index];
-                      final games = groupedGames[period] ?? 0;
-                      final wins = groupedWins[period] ?? 0;
-                      final winRate = games > 0 ? (wins / games) * 100 : 0;
-
-                      return BarChartGroupData(
-                        x: index,
-                        barRods: [
-                          BarChartRodData(
-                            toY: winRate.toDouble(),
-                            color: Theme.of(context).primaryColor,
-                            width: 16,
-                            borderRadius: BorderRadius.circular(4),
-                            backDrawRodData: BackgroundBarChartRodData(
-                              show: true,
-                              toY: 100,
-                              color: Colors.grey[200]!,
-                            ),
-                          ),
-                        ],
-                        showingTooltipIndicators: [0],
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWinPieChart() {
-    if (allPlayersStats.isEmpty) return const SizedBox.shrink();
-
-    final totalWins =
-        allPlayersStats.fold<int>(0, (sum, player) => sum + player.totalWins);
-    if (totalWins == 0) {
-      return const Center(
-        child: Text('Нет данных о победах'),
-      );
+    for (final s in byName.values) {
+      s.finalizeStreak();
     }
 
-    // Sort players by wins (descending)
-    final sortedPlayers = List<PlayerStats>.from(allPlayersStats)
-      ..sort((a, b) => b.totalWins.compareTo(a.totalWins));
+    final list = byName.values.toList()
+      ..sort((a, b) {
+        final byWins = b.wins.compareTo(a.wins);
+        if (byWins != 0) return byWins;
+        return b.winRate.compareTo(a.winRate);
+      });
 
-    // Take top 5 players + group others
-    final topPlayers = sortedPlayers.take(5).toList();
-    final otherWins = sortedPlayers
-        .skip(5)
-        .fold<int>(0, (sum, player) => sum + player.totalWins);
+    if (!mounted) return;
+    setState(() {
+      _stats = list;
+      _totalFinished = finished;
+      _totalRounds = rounds;
+      _selectedName = list.any((s) => s.name == _selectedName)
+          ? _selectedName
+          : (list.isNotEmpty ? list.first.name : null);
+      _loading = false;
+    });
+  }
 
-    final pieSections = <PieChartSectionData>[];
-
-    // Add top players
-    for (var player in topPlayers) {
-      if (player.totalWins == 0) continue;
-
-      final percentage =
-          (player.totalWins / totalWins * 100).toStringAsFixed(1);
-
-      pieSections.add(
-        PieChartSectionData(
-          color: player.color,
-          value: player.totalWins.toDouble(),
-          title: '${player.name}\n$percentage%',
-          radius: 80,
-          titleStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            shadows: [
-              Shadow(color: Colors.black, blurRadius: 2),
-            ],
-          ),
-        ),
-      );
+  _PlayerStat? get _selected {
+    if (_selectedName == null) return null;
+    for (final s in _stats) {
+      if (s.name == _selectedName) return s;
     }
-
-    // Add "Others" section if needed
-    if (otherWins > 0) {
-      final otherPercentage = (otherWins / totalWins * 100).toStringAsFixed(1);
-
-      pieSections.add(
-        PieChartSectionData(
-          color: Colors.grey,
-          value: otherWins.toDouble(),
-          title: 'Другие\n$otherPercentage%',
-          radius: 80,
-          titleStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            shadows: [
-              Shadow(color: Colors.black, blurRadius: 2),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Card(
-      margin: const EdgeInsets.all(16),
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            const Text(
-              'Распределение побед',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 250,
-              child: PieChart(
-                PieChartData(
-                  sectionsSpace: 2,
-                  centerSpaceRadius: 50,
-                  sections: pieSections,
-                  startDegreeOffset: -90,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return _stats.isNotEmpty ? _stats.first : null;
   }
 
-  Widget _buildStatCard(
-      String title, String value, IconData icon, Color color) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: color, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlayerStats() {
-    if (selectedPlayerStats == null) return const SizedBox.shrink();
-
-    final stats = selectedPlayerStats!;
-    final theme = Theme.of(context);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        children: [
-          // Player header
-          Card(
-            margin: const EdgeInsets.all(16),
-            elevation: 4,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  _buildPlayerAvatar(stats, radius: 40),
-                  const SizedBox(height: 16),
-                  Text(
-                    stats.name,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${stats.totalWins} побед • ${stats.totalGames} игр • ${stats.formattedWinPercentage}% побед',
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: Colors.grey[600],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Stats grid
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.2,
-              children: [
-                _buildStatCard(
-                  'Побед',
-                  '${stats.totalWins}',
-                  Icons.emoji_events,
-                  Colors.amber,
-                ),
-                _buildStatCard(
-                  'Игр',
-                  '${stats.totalGames}',
-                  Icons.games,
-                  Colors.blue,
-                ),
-                _buildStatCard(
-                  'Побед/игру',
-                  stats.gamesPerWin.toStringAsFixed(1),
-                  Icons.trending_up,
-                  Colors.green,
-                ),
-                _buildStatCard(
-                  'Последняя игра',
-                  stats.lastActiveMonth,
-                  Icons.calendar_today,
-                  Colors.purple,
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Period selector for the chart
-          _buildPeriodSelector(),
-          
-          // Win rate chart
-          _buildWinRateChart(),
-          
-          // Win distribution chart
-          _buildWinPieChart(),
-          
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
+  // ------------------------------- BUILD -------------------------------
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Статистика игроков'),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: theme.brightness == Brightness.dark ? Colors.white : theme.primaryColor,
-          unselectedLabelColor:
-              theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.6),
-          indicator: BoxDecoration(
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(8),
-              topRight: Radius.circular(8),
-            ),
-            color: theme.primaryColor.withValues(alpha: 0.1),
-          ),
-          indicatorWeight: 3,
-          indicatorSize: TabBarIndicatorSize.tab,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-          tabs: const [
-            Tab(icon: Icon(Icons.person), text: 'Игрок'),
-            Tab(icon: Icon(Icons.leaderboard), text: 'Лидеры'),
-            Tab(icon: Icon(Icons.analytics), text: 'Аналитика'),
-          ],
-          onTap: (index) {
-            _pageController.animateToPage(
-              index,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-            );
-          },
-        ),
-      ),
-      body: _isLoading
+      appBar: AppBar(title: Text(tr('statistics_title'))),
+      body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : allPlayersStats.isEmpty
-              ? const Center(child: Text('Нет данных о статистике игроков'))
+          : _stats.isEmpty
+              ? _emptyState(scheme)
               : Column(
                   children: [
-                    // Player selector
-                    if (selectedPlayerStats != null &&
-                        _tabController.index == 0)
-                      Container(
-                        height: 100,
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: allPlayersStats.length,
-                          itemBuilder: (context, index) {
-                            final player = allPlayersStats[index];
-                            final isSelected =
-                                selectedPlayerStats?.name == player.name;
-
-                            return GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  selectedPlayerStats = player;
-                                });
-                              },
-                              child: Container(
-                                width: 80,
-                                margin:
-                                    const EdgeInsets.symmetric(horizontal: 4),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Stack(
-                                      alignment: Alignment.center,
-                                      children: [
-                                        _buildPlayerAvatar(player, radius: 30),
-                                        if (isSelected)
-                                          Positioned(
-                                            bottom: 0,
-                                            right: 0,
-                                            child: Container(
-                                              padding: const EdgeInsets.all(2),
-                                              decoration: BoxDecoration(
-                                                color: theme.primaryColor,
-                                                shape: BoxShape.circle,
-                                                border: Border.all(
-                                                  color: theme
-                                                      .scaffoldBackgroundColor,
-                                                  width: 2,
-                                                ),
-                                              ),
-                                              child: const Icon(
-                                                Icons.check,
-                                                size: 14,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      player.name
-                                          .split(' ')
-                                          .map((s) => s.isNotEmpty ? s[0] : '')
-                                          .join(''),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontWeight: isSelected
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
-                                        color: isSelected
-                                            ? theme.primaryColor
-                                            : null,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-
-                    // Content
+                    _segments(scheme),
                     Expanded(
-                      child: PageView(
-                        controller: _pageController,
-                        onPageChanged: (index) {
-                          _tabController.animateTo(index);
-                        },
+                      child: IndexedStack(
+                        index: _section,
                         children: [
-                          // Player stats tab
-                          _buildPlayerStats(),
-
-                          // Leaderboard tab
-                          ListView.builder(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: allPlayersStats.length,
-                            itemBuilder: (context, index) {
-                              final player = allPlayersStats[index];
-                              final rank = index + 1;
-
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: ListTile(
-                                  leading: Text(
-                                    '#$rank',
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  title: Text(
-                                    player.name,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w500),
-                                  ),
-                                  subtitle: Text(
-                                    '${player.totalWins} побед • ${player.totalGames} игр • ${player.formattedWinPercentage}% побед',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                  trailing:
-                                      _buildPlayerAvatar(player, radius: 20),
-                                  onTap: () {
-                                    setState(() {
-                                      selectedPlayerStats = player;
-                                      _tabController.animateTo(0);
-                                      _pageController.animateToPage(
-                                        0,
-                                        duration:
-                                            const Duration(milliseconds: 300),
-                                        curve: Curves.easeInOut,
-                                      );
-                                    });
-                                  },
-                                ),
-                              );
-                            },
-                          ),
-
-                          // Analytics tab
-                          SingleChildScrollView(
-                            child: Column(
-                              children: [
-                                _buildWinPieChart(),
-                                _buildWinRateChart(),
-                                const SizedBox(height: 20),
-                              ],
-                            ),
-                          ),
+                          _playerSection(scheme),
+                          _leadersSection(scheme),
+                          _analyticsSection(scheme),
                         ],
                       ),
                     ),
@@ -1041,4 +223,915 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen>
                 ),
     );
   }
+
+  // ----------------------- Сегментированный переключатель -----------------------
+
+  Widget _segments(ColorScheme scheme) {
+    final labels = [tr('tab_player'), tr('tab_leaders'), tr('tab_analytics')];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Row(
+          children: [
+            for (var i = 0; i < labels.length; i++)
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _section = i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    height: 44,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: _section == i
+                          ? scheme.primaryContainer
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Text(
+                      labels[i],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTheme.bodyFont,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        color: _section == i
+                            ? scheme.onPrimaryContainer
+                            : scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ------------------------------- ИГРОК -------------------------------
+
+  Widget _playerSection(ColorScheme scheme) {
+    final stat = _selected;
+    if (stat == null) return _emptyState(scheme);
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        _playerPicker(scheme),
+        const SizedBox(height: 16),
+        _heroCard(stat, scheme),
+        const SizedBox(height: 12),
+        _statTiles(stat, scheme),
+        const SizedBox(height: 16),
+        _dynamicsCard(stat, scheme),
+      ],
+    );
+  }
+
+  Widget _playerPicker(ColorScheme scheme) {
+    return SizedBox(
+      height: 96,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _stats.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        itemBuilder: (context, i) {
+          final s = _stats[i];
+          final sel = s.name == _selected?.name;
+          return GestureDetector(
+            onTap: () => setState(() => _selectedName = s.name),
+            child: SizedBox(
+              width: 72,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: sel ? scheme.primary : Colors.transparent,
+                        width: 3,
+                      ),
+                    ),
+                    child: _avatar(s, sel ? 28 : 25),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    s.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: AppTheme.bodyFont,
+                      fontSize: 12,
+                      fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                      color: sel ? scheme.primary : scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Геро-карточка: крупное кольцо винрейта + имя и «X из Y».
+  Widget _heroCard(_PlayerStat stat, ColorScheme scheme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        children: [
+          SizedBox(
+            width: 184,
+            height: 184,
+            child: CustomPaint(
+              painter: _RingPainter(
+                progress: stat.winRate / 100,
+                track: scheme.surfaceContainerHighest,
+                color: scheme.primary,
+              ),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${stat.winRate.round()}',
+                      style: TextStyle(
+                        fontFamily: AppTheme.displayFont,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 56,
+                        height: 1.0,
+                        letterSpacing: -2,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      '% ${tr('wins_label')}',
+                      style: TextStyle(
+                        fontFamily: AppTheme.bodyFont,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _avatar(stat, 16),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  stat.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTheme.displayFont,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 22,
+                    color: scheme.onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            trf('win_of_total', {'w': stat.wins, 'g': stat.played}),
+            style: TextStyle(
+              fontFamily: AppTheme.bodyFont,
+              fontSize: 14,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statTiles(_PlayerStat stat, ColorScheme scheme) {
+    final tiles = [
+      _TileData(tr('stat_wins'), '${stat.wins}', Icons.emoji_events_rounded,
+          _gold),
+      _TileData(tr('stat_games'), '${stat.played}', Icons.casino_rounded,
+          scheme.primary),
+      _TileData(tr('stat_losses'), '${stat.losses}',
+          Icons.heart_broken_rounded, scheme.error),
+      _TileData(tr('stat_best_streak'), '${stat.streak}',
+          Icons.local_fire_department_rounded, const Color(0xFFFF7043)),
+    ];
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.45,
+      children: [for (final t in tiles) _statTile(t, scheme)],
+    );
+  }
+
+  Widget _statTile(_TileData t, ColorScheme scheme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(t.icon, size: 20, color: t.accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  t.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTheme.bodyFont,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              t.value,
+              style: TextStyle(
+                fontFamily: AppTheme.displayFont,
+                fontWeight: FontWeight.w800,
+                fontSize: 38,
+                height: 1.0,
+                letterSpacing: -1,
+                color: scheme.onSurface,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Карточка «Динамика побед» с переключателем периода и плоскими столбиками.
+  Widget _dynamicsCard(_PlayerStat stat, ColorScheme scheme) {
+    final map = stat.mapFor(_period);
+    final keys = map.keys.toList()..sort();
+    final visible = keys.length > 8 ? keys.sublist(keys.length - 8) : keys;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            tr('wins_dynamics'),
+            style: TextStyle(
+              fontFamily: AppTheme.displayFont,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              color: scheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _periodSelector(scheme),
+          const SizedBox(height: 16),
+          if (visible.isEmpty)
+            _inlineEmpty(tr('not_enough_data'), scheme)
+          else
+            _BarRow(
+              keys: visible,
+              cells: [for (final k in visible) map[k]!],
+              labeler: _periodLabel,
+              barColor: scheme.primary,
+              trackColor: scheme.surfaceContainerHighest,
+              textColor: scheme.onSurface,
+              subColor: scheme.onSurfaceVariant,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _periodSelector(ColorScheme scheme) {
+    final items = [
+      (_Period.day, tr('period_day')),
+      (_Period.month, tr('period_month')),
+      (_Period.year, tr('period_year')),
+    ];
+    return Row(
+      children: [
+        for (final it in items) ...[
+          _periodChip(it.$2, it.$1 == _period, () {
+            setState(() => _period = it.$1);
+          }, scheme),
+          const SizedBox(width: 8),
+        ],
+      ],
+    );
+  }
+
+  Widget _periodChip(
+      String label, bool sel, VoidCallback onTap, ColorScheme scheme) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        decoration: BoxDecoration(
+          color: sel ? scheme.primary : scheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: AppTheme.bodyFont,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: sel ? scheme.onPrimary : scheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _periodLabel(String key) {
+    final p = key.split('-');
+    return switch (_period) {
+      _Period.day => p.length == 3 ? '${p[2]}.${p[1]}' : key,
+      _Period.month => p.length >= 2 ? '${p[1]}.${p[0].substring(2)}' : key,
+      _Period.year => key,
+    };
+  }
+
+  // ------------------------------- ЛИДЕРЫ -------------------------------
+
+  Widget _leadersSection(ColorScheme scheme) {
+    final ranked = _stats.where((s) => s.played > 0).toList();
+    if (ranked.isEmpty) return _inlineCenter(tr('no_stats_data'), scheme);
+
+    final podium = ranked.where((s) => s.wins > 0).take(3).toList();
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: [
+        if (podium.length >= 2) ...[
+          _podium(podium, scheme),
+          const SizedBox(height: 20),
+        ],
+        for (var i = 0; i < ranked.length; i++)
+          _leaderRow(i, ranked[i], scheme),
+      ],
+    );
+  }
+
+  Widget _podium(List<_PlayerStat> top, ColorScheme scheme) {
+    // Порядок на пьедестале: 2 — 1 — 3.
+    final order = <int>[if (top.length > 1) 1, 0, if (top.length > 2) 2];
+    final heights = {0: 104.0, 1: 78.0, 2: 62.0};
+    final medals = {0: _gold, 1: _silver, 2: _bronze};
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 20, 12, 0),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (final rank in order)
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.topCenter,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: _avatar(top[rank], rank == 0 ? 30 : 24),
+                      ),
+                      Positioned(
+                        top: -6,
+                        child: Icon(Icons.emoji_events_rounded,
+                            size: rank == 0 ? 26 : 20, color: medals[rank]),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    top[rank].name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: AppTheme.bodyFont,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    height: heights[rank],
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: medals[rank]!.withValues(alpha: 0.22),
+                      borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(16)),
+                    ),
+                    alignment: Alignment.topCenter,
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(
+                      '${top[rank].wins}',
+                      style: TextStyle(
+                        fontFamily: AppTheme.displayFont,
+                        fontWeight: FontWeight.w800,
+                        fontSize: rank == 0 ? 30 : 24,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _leaderRow(int index, _PlayerStat s, ColorScheme scheme) {
+    final medalColors = [_gold, _silver, _bronze];
+    final isMedal = index < 3 && s.wins > 0;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => setState(() {
+            _selectedName = s.name;
+            _section = 0;
+          }),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 28,
+                  child: isMedal
+                      ? Icon(Icons.emoji_events_rounded,
+                          color: medalColors[index], size: 24)
+                      : Text(
+                          '${index + 1}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: AppTheme.displayFont,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                            color: scheme.outline,
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 10),
+                _avatar(s, 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        s.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: AppTheme.bodyFont,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: scheme.onSurface,
+                        ),
+                      ),
+                      Text(
+                        '${s.played} ${tr('games_label')} · '
+                        '${s.winRate.round()}% ${tr('stat_winrate').toLowerCase()}',
+                        style: TextStyle(
+                          fontFamily: AppTheme.bodyFont,
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${s.wins}',
+                      style: TextStyle(
+                        fontFamily: AppTheme.displayFont,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 22,
+                        color: scheme.primary,
+                      ),
+                    ),
+                    Text(
+                      tr('wins_label'),
+                      style: TextStyle(
+                        fontFamily: AppTheme.bodyFont,
+                        fontSize: 11,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ------------------------------- АНАЛИТИКА -------------------------------
+
+  Widget _analyticsSection(ColorScheme scheme) {
+    final topName = _stats.isNotEmpty && _stats.first.wins > 0
+        ? _stats.first.name
+        : '—';
+    final tiles = [
+      _TileData(tr('total_games'), '$_totalFinished', Icons.casino_rounded,
+          scheme.primary),
+      _TileData(tr('players_count'), '${_stats.length}', Icons.groups_rounded,
+          scheme.tertiary),
+      _TileData(tr('total_rounds'), '$_totalRounds', Icons.repeat_rounded,
+          scheme.secondary),
+      _TileData(tr('top_player'), topName, Icons.workspace_premium_rounded,
+          _gold),
+    ];
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: [
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.45,
+          children: [for (final t in tiles) _statTile(t, scheme)],
+        ),
+        const SizedBox(height: 16),
+        _distributionCard(scheme),
+      ],
+    );
+  }
+
+  Widget _distributionCard(ColorScheme scheme) {
+    final withWins = _stats.where((s) => s.wins > 0).toList();
+    final total = withWins.fold<int>(0, (a, b) => a + b.wins);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            tr('wins_distribution'),
+            style: TextStyle(
+              fontFamily: AppTheme.displayFont,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              color: scheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (total == 0)
+            _inlineEmpty(tr('not_enough_data'), scheme)
+          else ...[
+            // Плоская горизонтальная полоса долей.
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                height: 22,
+                child: Row(
+                  children: [
+                    for (final s in withWins)
+                      Expanded(
+                        flex: s.wins,
+                        child: Container(
+                          color: s.color,
+                          margin: const EdgeInsets.only(right: 2),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            for (final s in withWins)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: s.color,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        s.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: AppTheme.bodyFont,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: scheme.onSurface,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${s.wins} · ${(s.wins / total * 100).round()}%',
+                      style: TextStyle(
+                        fontFamily: AppTheme.bodyFont,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ------------------------------- ОБЩЕЕ -------------------------------
+
+  /// Аватар игрока той же выразительной формой, что и в главном меню.
+  Widget _avatar(_PlayerStat s, double radius) {
+    return ShapedAvatar(
+      name: s.name,
+      color: s.color,
+      imagePath: s.imagePath,
+      size: radius * 2,
+      shape: avatarShape(s.shapeIndex),
+    );
+  }
+
+  Widget _emptyState(ColorScheme scheme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.insights_rounded, size: 80, color: scheme.outlineVariant),
+            const SizedBox(height: 16),
+            Text(
+              tr('statistics_title'),
+              style: TextStyle(
+                fontFamily: AppTheme.displayFont,
+                fontWeight: FontWeight.w700,
+                fontSize: 20,
+                color: scheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              tr('no_stats_data'),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppTheme.bodyFont,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _inlineCenter(String text, ColorScheme scheme) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppTheme.bodyFont,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      );
+
+  Widget _inlineEmpty(String text, ColorScheme scheme) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppTheme.bodyFont,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      );
+}
+
+class _TileData {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color accent;
+  const _TileData(this.label, this.value, this.icon, this.accent);
+}
+
+/// Плоский ряд столбиков: высота = игры (фон), заливка = победы.
+class _BarRow extends StatelessWidget {
+  final List<String> keys;
+  final List<List<int>> cells; // [победы, игры]
+  final String Function(String) labeler;
+  final Color barColor;
+  final Color trackColor;
+  final Color textColor;
+  final Color subColor;
+
+  const _BarRow({
+    required this.keys,
+    required this.cells,
+    required this.labeler,
+    required this.barColor,
+    required this.trackColor,
+    required this.textColor,
+    required this.subColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final maxGames =
+        cells.fold<int>(1, (m, c) => math.max(m, c[1])).toDouble();
+    const maxBar = 120.0;
+
+    return SizedBox(
+      height: maxBar + 40,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (var i = 0; i < keys.length; i++)
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${cells[i][0]}',
+                    style: TextStyle(
+                      fontFamily: AppTheme.displayFont,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  // Столбик: трек (игры) + заливка (победы).
+                  SizedBox(
+                    height: maxBar,
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Container(
+                        width: 18,
+                        height: math.max(6, maxBar * (cells[i][1] / maxGames)),
+                        decoration: BoxDecoration(
+                          color: trackColor,
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        alignment: Alignment.bottomCenter,
+                        child: FractionallySizedBox(
+                          heightFactor: cells[i][1] == 0
+                              ? 0
+                              : (cells[i][0] / cells[i][1]).clamp(0.0, 1.0),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: barColor,
+                              borderRadius: BorderRadius.circular(9),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    labeler(keys[i]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: AppTheme.bodyFont,
+                      fontSize: 10,
+                      color: subColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Плоское кольцо прогресса (винрейт). Толстый штрих со скруглёнными концами.
+class _RingPainter extends CustomPainter {
+  final double progress; // 0..1
+  final Color track;
+  final Color color;
+
+  _RingPainter({
+    required this.progress,
+    required this.track,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const stroke = 18.0;
+    final rect = Offset.zero & size;
+    final center = rect.center;
+    final radius = (math.min(size.width, size.height) - stroke) / 2;
+
+    final trackPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = track;
+    canvas.drawCircle(center, radius, trackPaint);
+
+    if (progress > 0) {
+      final p = progress.clamp(0.0, 1.0);
+      final arcPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke
+        ..strokeCap = StrokeCap.round
+        ..color = color;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -math.pi / 2,
+        2 * math.pi * p,
+        false,
+        arcPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) =>
+      old.progress != progress || old.color != color || old.track != track;
 }

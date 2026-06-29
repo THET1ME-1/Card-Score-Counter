@@ -13,15 +13,16 @@ class AppTheme {
   /// Шрифт основного текста.
   static const String bodyFont = 'Onest';
 
-  /// Бирюзовый seed-цвет, из которого строится вся схема.
-  static const Color seedColor = Color(0xFF00B5C7);
+  /// Бирюзовый seed-цвет по умолчанию, из которого строится вся схема,
+  /// пока пользователь не выбрал свой в настройках.
+  static const Color defaultSeed = Color(0xFF00B5C7);
 
-  static ThemeData get light => _build(Brightness.light);
-  static ThemeData get dark => _build(Brightness.dark);
+  static ThemeData light(Color seed) => _build(Brightness.light, seed);
+  static ThemeData dark(Color seed) => _build(Brightness.dark, seed);
 
-  static ThemeData _build(Brightness brightness) {
+  static ThemeData _build(Brightness brightness, Color seed) {
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: seedColor,
+      seedColor: seed,
       brightness: brightness,
     );
 

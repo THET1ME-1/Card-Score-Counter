@@ -1,15 +1,38 @@
 import 'package:flutter/material.dart';
 
+import 'l10n/strings.dart';
+import 'models/game_profile.dart';
+import 'theme/app_theme.dart';
+import 'widgets/numeric_keypad.dart';
+
 class AddScoresScreen extends StatefulWidget {
   final List<String> players;
   final Function(List<int>) onAddScores;
   final List<int> initialScores;
+
+  /// С какого игрока начинать (активная строка).
+  final int initialActive;
+
+  /// Заголовок экрана (например «Круг 3» при правке). По умолчанию — добавление.
+  final String? roundLabel;
+
+  /// Правило игры — определяет, как вводятся очки: на вылет (КунКен — есть
+  /// «закрывший» круг с 0 и кнопка «Вылет») или свободно (гонка/минимум/ручной —
+  /// просто очки за раунд каждому).
+  final WinRule rule;
+
+  /// Порог очков игры — на него ставит кнопка «Вылет» (по умолчанию 101).
+  final int target;
 
   const AddScoresScreen({
     super.key,
     required this.players,
     required this.onAddScores,
     this.initialScores = const [],
+    this.initialActive = 0,
+    this.roundLabel,
+    this.rule = WinRule.elimination,
+    this.target = 101,
   });
 
   @override
@@ -18,142 +41,222 @@ class AddScoresScreen extends StatefulWidget {
 }
 
 class _AddScoresScreenState extends State<AddScoresScreen> {
-  late List<TextEditingController> _controllers;
-  bool _hasEmptyField = false;
+  late List<String> _values;
+  late int _active;
 
   @override
   void initState() {
     super.initState();
-    _controllers = List.generate(
+    _active = widget.initialActive.clamp(0, widget.players.length - 1);
+    _values = List.generate(
       widget.players.length,
-      (index) => TextEditingController(
-        text: widget.initialScores.isNotEmpty &&
-                index < widget.initialScores.length
-            ? widget.initialScores[index].toString()
-            : '',
-      ),
+      (i) => widget.initialScores.isNotEmpty && i < widget.initialScores.length
+          ? widget.initialScores[i].toString()
+          : '',
     );
+  }
 
-    for (var controller in _controllers) {
-      controller.addListener(_checkIfEmptyFieldExists);
+  /// На вылет (КунКен/101): раунд сохраняется, когда РОВНО ОДИН игрок «закрыл»
+  /// круг без очков (0) — победитель круга, — а у ВСЕХ остальных стоит число
+  /// больше 0 (штрафные очки). В остальных играх очки свободные — сохранять
+  /// можно всегда.
+  bool get _canSave {
+    if (!_isElimination) return true;
+    int zeros = 0;
+    for (final v in _values) {
+      if (v.isEmpty || v == '0') {
+        zeros++;
+      } else {
+        final n = int.tryParse(v);
+        if (n == null || n <= 0) return false;
+      }
     }
+    return zeros == 1;
   }
 
-  void _checkIfEmptyFieldExists() {
-    bool hasEmptyField = _controllers.any((controller) {
-      final text = controller.text;
-      return text.isEmpty || text == '0' || text == '-';
-    });
+  bool get _isElimination => widget.rule == WinRule.elimination;
 
+  void _digit(String d) {
     setState(() {
-      _hasEmptyField = hasEmptyField;
+      final cur = _values[_active];
+      if (cur.isEmpty || cur == '0') {
+        _values[_active] = d;
+      } else if (cur.length < 4) {
+        _values[_active] = cur + d;
+      }
     });
   }
 
-  void _submitScores() {
-    final List<int> scores = _controllers.map((controller) {
-      final text = controller.text;
-      if (text.isEmpty || text == '0' || text == '-') return 0;
-      return int.tryParse(text) ?? 0;
-    }).toList();
+  void _backspace() {
+    setState(() {
+      final cur = _values[_active];
+      if (cur.isNotEmpty) _values[_active] = cur.substring(0, cur.length - 1);
+    });
+  }
 
+  void _clear() => setState(() => _values[_active] = '');
+
+  void _next() {
+    setState(() => _active = (_active + 1) % widget.players.length);
+  }
+
+  void _eliminate(int index) {
+    setState(() {
+      _values[index] = widget.target.toString();
+      _active = index;
+    });
+  }
+
+  void _submit() {
+    final scores = _values.map((v) {
+      if (v.isEmpty || v == '0' || v == '-') return 0;
+      return int.tryParse(v) ?? 0;
+    }).toList();
     widget.onAddScores(scores);
     Navigator.pop(context);
   }
 
-  void _eliminatePlayer(int index) {
-    setState(() {
-      _controllers[index].text = '101';
-    });
-  }
-
-  @override
-  void dispose() {
-    for (var controller in _controllers) {
-      controller.removeListener(_checkIfEmptyFieldExists);
-      controller.dispose();
-    }
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Добавить очки'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Card(
-              color: Theme.of(context)
-                  .colorScheme
-                  .secondaryContainer
-                  .withValues(alpha: 0.5),
-              child: const Padding(
-                padding: EdgeInsets.all(12.0),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, size: 20),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Очки получают проигравшие. Тот, кто закрыл раунд, '
-                        'остаётся с пустым полем или 0.',
-                        style: TextStyle(fontSize: 13),
+      appBar: AppBar(title: Text(widget.roundLabel ?? tr('add_scores'))),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: scheme.secondaryContainer.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline,
+                      size: 20, color: scheme.onSecondaryContainer),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _isElimination
+                          ? tr('add_scores_hint_elim')
+                          : tr('add_scores_hint_points'),
+                      style: TextStyle(
+                        fontFamily: AppTheme.bodyFont,
+                        fontSize: 13,
+                        color: scheme.onSecondaryContainer,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: ListView.builder(
-                itemCount: widget.players.length,
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 2, // Поле для ввода занимает 2/3 ширины
-                          child: TextField(
-                            controller: _controllers[index],
-                            decoration: InputDecoration(
-                              labelText: widget.players[index],
-                            ),
-                            keyboardType: TextInputType.number,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 1, // Кнопка занимает 1/3 ширины
-                          child: SizedBox(
-                            height:
-                                56, // Высота кнопки равна высоте текстового поля
-                            child: FilledButton.tonal(
-                              onPressed: () => _eliminatePlayer(index),
-                              child: const Text('Проиграл'),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              itemCount: widget.players.length,
+              itemBuilder: (context, index) => _playerRow(index, scheme),
             ),
-            SizedBox(
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: _hasEmptyField ? _submitScores : null,
+                onPressed: _canSave ? _submit : null,
                 icon: const Icon(Icons.check),
-                label: const Text('Сохранить раунд'),
+                label: Text(tr('save_round')),
               ),
             ),
-          ],
+          ),
+          SafeArea(
+            top: false,
+            // Заметный нижний отступ — чтобы нижний ряд не попадал в зону
+            // системного жеста «домой».
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(11, 0, 11, 24),
+              child: NumericKeypad(
+                onDigit: _digit,
+                onBackspace: _backspace,
+                onClear: _clear,
+                actionIcon: Icons.keyboard_arrow_down,
+                onAction: widget.players.length > 1 ? _next : null,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _playerRow(int index, ColorScheme scheme) {
+    final isActive = index == _active;
+    final value = _values[index];
+
+    final bg = isActive ? scheme.primaryContainer : scheme.surfaceContainerHigh;
+    final fg = isActive ? scheme.onPrimaryContainer : scheme.onSurface;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => setState(() => _active = index),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: isActive
+                  ? Border.all(color: scheme.primary, width: 2)
+                  : null,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.players[index],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: AppTheme.bodyFont,
+                          fontSize: 13,
+                          color: fg.withValues(alpha: 0.8),
+                        ),
+                      ),
+                      Text(
+                        value.isEmpty ? '0' : value,
+                        style: TextStyle(
+                          fontFamily: AppTheme.displayFont,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 30,
+                          height: 1.1,
+                          color: fg,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_isElimination) ...[
+                  const SizedBox(width: 8),
+                  FilledButton.tonal(
+                    onPressed: () => _eliminate(index),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                    ),
+                    child: Text(tr('bust')),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
