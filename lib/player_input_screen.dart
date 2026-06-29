@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -164,6 +165,158 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
       selectedProfiles.remove(index);
     });
     _saveProfiles();
+  }
+
+  /// Нижняя панель «Порядок хода»: перетаскивание, перемешать, случайный первый.
+  Future<void> _showOrderSheet() async {
+    HapticFeedback.selectionClick();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        final scheme = Theme.of(ctx).colorScheme;
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            void apply(VoidCallback fn) {
+              HapticFeedback.selectionClick();
+              setState(fn);
+              setSheet(() {});
+            }
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                  16, 12, 16, 16 + MediaQuery.of(ctx).viewInsets.bottom),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 14),
+                      decoration: BoxDecoration(
+                        color: scheme.outlineVariant,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    tr('turn_order'),
+                    style: TextStyle(
+                      fontFamily: AppTheme.displayFont,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 20,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.tonalIcon(
+                          onPressed: () => apply(() => selectedProfiles.shuffle()),
+                          icon: const Icon(Icons.shuffle_rounded),
+                          label: Text(tr('shuffle')),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.tonalIcon(
+                          onPressed: () => apply(() {
+                            if (selectedProfiles.length < 2) return;
+                            final i = Random().nextInt(selectedProfiles.length);
+                            final first = selectedProfiles.removeAt(i);
+                            selectedProfiles.insert(0, first);
+                          }),
+                          icon: const Icon(Icons.casino_rounded),
+                          label: Text(tr('random_first')),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Flexible(
+                    child: ReorderableListView(
+                      shrinkWrap: true,
+                      buildDefaultDragHandles: false,
+                      onReorder: (oldI, newI) => apply(() {
+                        if (newI > oldI) newI--;
+                        final it = selectedProfiles.removeAt(oldI);
+                        selectedProfiles.insert(newI, it);
+                      }),
+                      children: [
+                        for (var i = 0; i < selectedProfiles.length; i++)
+                          _orderTile(scheme, i, selectedProfiles[i]),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  FilledButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: Text(tr('done')),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _orderTile(ColorScheme scheme, int position, int profileIndex) {
+    final p = profiles[profileIndex];
+    return Padding(
+      key: ValueKey(profileIndex),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 14,
+              backgroundColor: scheme.primary,
+              child: Text(
+                '${position + 1}',
+                style: TextStyle(
+                  fontFamily: AppTheme.displayFont,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                  color: scheme.onPrimary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            p.getAvatar(radius: 16),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                p.name,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: AppTheme.bodyFont,
+                  fontSize: 15,
+                  color: scheme.onSurface,
+                ),
+              ),
+            ),
+            ReorderableDragStartListener(
+              index: position,
+              child: Icon(Icons.drag_handle_rounded, color: scheme.outline),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   /// Нижняя панель создания/редактирования игрока (выезжает снизу, M3).
@@ -454,6 +607,12 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                     ),
                   ),
                 ),
+                if (count >= 2)
+                  TextButton.icon(
+                    onPressed: _showOrderSheet,
+                    icon: const Icon(Icons.swap_vert_rounded, size: 18),
+                    label: Text(tr('turn_order')),
+                  ),
                 if (count > 0)
                   TextButton.icon(
                     onPressed: _clearSelection,
