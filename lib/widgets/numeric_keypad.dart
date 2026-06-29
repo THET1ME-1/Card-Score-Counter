@@ -37,6 +37,7 @@ class NumericKeypad extends StatelessWidget {
 
     Widget digit(String d) => _KeypadButton(
           onTap: () => onDigit(d),
+          semanticLabel: d,
           background: scheme.surfaceContainerHighest,
           foreground: scheme.onSurface,
           child: Text(
@@ -64,6 +65,8 @@ class NumericKeypad extends StatelessWidget {
               child: _KeypadButton(
                 onTap: onBackspace,
                 onLongPress: onClear,
+                semanticLabel: MaterialLocalizations.of(context)
+                    .keyboardKeyBackspace,
                 background: scheme.surfaceContainerHigh,
                 foreground: scheme.onSurfaceVariant,
                 child: const Icon(Icons.backspace_outlined, size: 28),
@@ -73,6 +76,7 @@ class NumericKeypad extends StatelessWidget {
             Expanded(
               child: _KeypadButton(
                 onTap: onAction,
+                semanticLabel: MaterialLocalizations.of(context).okButtonLabel,
                 background: scheme.primary,
                 foreground: scheme.onPrimary,
                 child: Icon(actionIcon, size: 30),
@@ -91,6 +95,7 @@ class _KeypadButton extends StatelessWidget {
   final Color background;
   final Color foreground;
   final Widget child;
+  final String? semanticLabel;
 
   const _KeypadButton({
     required this.onTap,
@@ -98,12 +103,18 @@ class _KeypadButton extends StatelessWidget {
     required this.background,
     required this.foreground,
     required this.child,
+    this.semanticLabel,
   });
 
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
-    return Padding(
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: semanticLabel,
+      excludeSemantics: true,
+      child: Padding(
       padding: const EdgeInsets.all(5),
       child: SizedBox(
         height: 62,
@@ -126,6 +137,7 @@ class _KeypadButton extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }
@@ -220,14 +232,17 @@ class _ScoreInputSheetState extends State<_ScoreInputSheet> {
                 color: scheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Text(
-                _value,
-                style: TextStyle(
-                  fontFamily: AppTheme.displayFont,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 48,
-                  height: 1.0,
-                  color: scheme.onSurface,
+              child: Semantics(
+                liveRegion: true,
+                child: Text(
+                  _value,
+                  style: TextStyle(
+                    fontFamily: AppTheme.displayFont,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 48,
+                    height: 1.0,
+                    color: scheme.onSurface,
+                  ),
                 ),
               ),
             ),

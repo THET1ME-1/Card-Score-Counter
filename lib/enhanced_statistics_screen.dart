@@ -355,7 +355,11 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
       ),
       child: Column(
         children: [
-          SizedBox(
+          Semantics(
+            container: true,
+            excludeSemantics: true,
+            label: trf('a11y_winrate', {'v': stat.winRate.round()}),
+            child: SizedBox(
             width: 184,
             height: 184,
             child: CustomPaint(
@@ -392,6 +396,7 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
                 ),
               ),
             ),
+          ),
           ),
           const SizedBox(height: 16),
           Row(

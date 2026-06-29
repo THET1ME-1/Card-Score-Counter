@@ -1399,7 +1399,9 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
             _editLatestRound(index);
           }
         },
-        child: Container(
+        child: AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
       padding: EdgeInsets.all(cols == 2 ? 16 : 12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
@@ -1443,15 +1445,27 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
             child: Center(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
-                child: Text(
-                  _rule == WinRule.phases ? '${_phaseDisplay(index)}' : '$total',
-                  style: TextStyle(
-                    fontFamily: AppTheme.displayFont,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 64,
-                    height: 1.0,
-                    letterSpacing: -2,
-                    color: fg,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 280),
+                  transitionBuilder: (child, anim) => ScaleTransition(
+                    scale: Tween<double>(begin: 0.6, end: 1.0).animate(anim),
+                    child: FadeTransition(opacity: anim, child: child),
+                  ),
+                  child: Text(
+                    _rule == WinRule.phases
+                        ? '${_phaseDisplay(index)}'
+                        : '$total',
+                    key: ValueKey(_rule == WinRule.phases
+                        ? 'p${_phaseDisplay(index)}'
+                        : 't$total'),
+                    style: TextStyle(
+                      fontFamily: AppTheme.displayFont,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 64,
+                      height: 1.0,
+                      letterSpacing: -2,
+                      color: fg,
+                    ),
                   ),
                 ),
               ),

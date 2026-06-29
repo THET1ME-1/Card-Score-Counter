@@ -142,6 +142,7 @@ const Map<String, Map<String, String>> _strings = {
   'timer_turn': {'ru': 'Ход', 'en': 'Turn'},
   'pause': {'ru': 'Пауза', 'en': 'Pause'},
   'turn_order': {'ru': 'Порядок хода', 'en': 'Turn order'},
+  'a11y_winrate': {'ru': 'Процент побед: {v}%', 'en': 'Win rate: {v}%'},
   'shuffle': {'ru': 'Перемешать', 'en': 'Shuffle'},
   'random_first': {'ru': 'Случайный первый', 'en': 'Random first'},
   'winner': {'ru': 'Победитель', 'en': 'Winner'},
