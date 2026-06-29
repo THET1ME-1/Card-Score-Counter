@@ -7,6 +7,7 @@ import 'enhanced_statistics_screen.dart';
 import 'l10n/locale_controller.dart';
 import 'l10n/strings.dart';
 import 'player_input_screen.dart';
+import 'services/sound_service.dart';
 import 'settings_screen.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
@@ -21,6 +22,7 @@ Future<void> main() async {
   ]);
   await ThemeController.instance.load();
   await LocaleController.instance.load();
+  await SoundService.instance.load();
   runApp(const CardGameScoreTracker());
 }
 

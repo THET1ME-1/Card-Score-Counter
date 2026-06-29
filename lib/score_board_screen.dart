@@ -13,6 +13,7 @@ import 'l10n/strings.dart';
 import 'models/game_profile.dart';
 import 'models/game_session.dart';
 import 'services/game_repository.dart';
+import 'services/sound_service.dart';
 import 'theme/app_theme.dart';
 
 class ScoreBoardScreen extends StatefulWidget {
@@ -69,6 +70,14 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   /// Бридж, Президент и т.п., где победителя нельзя вычислить по очкам).
   String? _manualWinner;
 
+  /// Звуки взводятся только после первичной инициализации, чтобы при открытии
+  /// уже завершённой партии не проигрывался фанфар победы.
+  bool _sfxArmed = false;
+
+  /// Сработал ли в последнем пересчёте «терминальный» звук (победа/вылет) —
+  /// чтобы поверх него не накладывать звук обычного очка.
+  bool _sfxFired = false;
+
   @override
   void initState() {
     super.initState();
@@ -102,6 +111,8 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
     // прежнего бага считался «на вылет до 101»): выбывшие сбрасываются, если
     // правило не на вылет, а победитель/итоги приводятся к правилу.
     _recomputeStatuses();
+    // С этого момента переходы состояния озвучиваются.
+    _sfxArmed = true;
   }
 
   Future<void> _loadTextSize() async {
@@ -161,6 +172,8 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
 
       // Вылеты/победитель — по правилу игры.
       _recomputeStatuses();
+      // Обычный записанный круг (без победы/вылета) — мягкий звук очка.
+      if (!_sfxFired) SoundService.instance.play(Sfx.point);
 
       // Раунд засчитываем, только если партия не завершилась этим ходом.
       if (!_finished) {
@@ -218,6 +231,9 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   /// Пересобирает вылеты/оставшихся и победителя СТРОГО по очкам и правилу
   /// игры. Используется при ходе, отмене и ручной правке.
   void _recomputeStatuses() {
+    final wasFinished = _finished;
+    final prevEliminated = eliminatedPlayers.toSet();
+    _sfxFired = false;
     remainingPlayers = [];
     eliminatedPlayers = [];
     for (int i = 0; i < widget.players.length; i++) {
@@ -246,6 +262,18 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       if (_winner != null) _repo.adjustWins(_winner!, 1);
       _creditedTo = _winner;
       winCredited = _winner != null;
+    }
+
+    // Звуки по переходам состояния (после инициализации).
+    if (_sfxArmed) {
+      if (_finished && !wasFinished) {
+        SoundService.instance.play(Sfx.win);
+        _sfxFired = true;
+      } else if (!_finished &&
+          eliminatedPlayers.toSet().difference(prevEliminated).isNotEmpty) {
+        SoundService.instance.play(Sfx.eliminate);
+        _sfxFired = true;
+      }
     }
   }
 

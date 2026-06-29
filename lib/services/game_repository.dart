@@ -31,6 +31,7 @@ class GameRepository extends ChangeNotifier {
   static const String _kLanguage = 'languageCode';
   static const String _kTextSize = 'textSize';
   static const String _kIsDescending = 'isDescending';
+  static const String _kSoundEnabled = 'soundEnabled';
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
@@ -280,6 +281,13 @@ class GameRepository extends ChangeNotifier {
 
   Future<void> setDarkTheme(bool value) async =>
       (await _prefs).setBool(_kIsDarkTheme, value);
+
+  /// Звуковые эффекты (победа/вылет/очко). По умолчанию включены.
+  Future<bool> soundEnabled({bool fallback = true}) async =>
+      (await _prefs).getBool(_kSoundEnabled) ?? fallback;
+
+  Future<void> setSoundEnabled(bool value) async =>
+      (await _prefs).setBool(_kSoundEnabled, value);
 
   /// ARGB-значение seed-цвета темы, или null если пользователь не выбирал.
   Future<int?> seedColorValue() async => (await _prefs).getInt(_kSeedColor);

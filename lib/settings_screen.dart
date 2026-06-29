@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import 'l10n/locale_controller.dart';
 import 'l10n/strings.dart';
 import 'services/game_repository.dart';
+import 'services/sound_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 import 'widgets/color_picker_sheet.dart';
@@ -29,6 +30,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   double _textSize = 16.0;
   String _appVersion = '…';
+  bool _soundEnabled = SoundService.instance.enabled;
 
   @override
   void initState() {
@@ -57,6 +59,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _toggleTheme(bool value) {
     _theme.setDark(value);
     setState(() {});
+  }
+
+  void _toggleSound(bool value) {
+    SoundService.instance.setEnabled(value);
+    setState(() => _soundEnabled = value);
+    if (value) SoundService.instance.play(Sfx.point); // короткий пример
   }
 
   void _updateTextSize(double value) {
@@ -261,6 +269,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: _theme.isDark ? tr('on') : tr('off'),
               onTap: () => _toggleTheme(!_theme.isDark),
               trailing: Switch(value: _theme.isDark, onChanged: _toggleTheme),
+            ),
+            _rowDivider(scheme),
+            _row(
+              scheme: scheme,
+              icon: _soundEnabled
+                  ? Icons.volume_up_rounded
+                  : Icons.volume_off_rounded,
+              iconBg: scheme.primaryContainer,
+              iconFg: scheme.onPrimaryContainer,
+              title: tr('sound'),
+              subtitle: _soundEnabled ? tr('on') : tr('off'),
+              onTap: () => _toggleSound(!_soundEnabled),
+              trailing: Switch(value: _soundEnabled, onChanged: _toggleSound),
             ),
             _rowDivider(scheme),
             _row(

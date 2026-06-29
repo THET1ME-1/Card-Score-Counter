@@ -34,6 +34,7 @@ const Map<String, Map<String, String>> _strings = {
   'language_ru': {'ru': 'Русский', 'en': 'Russian'},
   'language_en': {'ru': 'Английский', 'en': 'English'},
   'dark_theme': {'ru': 'Тёмная тема', 'en': 'Dark theme'},
+  'sound': {'ru': 'Звук', 'en': 'Sound'},
   'on': {'ru': 'Включена', 'en': 'On'},
   'off': {'ru': 'Выключена', 'en': 'Off'},
   'theme_color': {'ru': 'Цвет оформления', 'en': 'Theme color'},
