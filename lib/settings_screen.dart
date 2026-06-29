@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'l10n/locale_controller.dart';
 import 'l10n/strings.dart';
@@ -174,6 +177,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Отправляет резервную копию через системный share-sheet — её можно
+  /// сохранить в Google Drive / Dropbox / Mega / Telegram, что установлено.
+  Future<void> _shareBackup() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final json = await _repo.exportData();
+      final dir = await getTemporaryDirectory();
+      final file = await File('${dir.path}/scoremaster_backup.json')
+          .writeAsString(json);
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/json')],
+        subject: 'ScoreMaster backup',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+          SnackBar(content: Text(trf('export_error', {'e': e}))));
+    }
+  }
+
   Future<void> _importData() async {
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -275,6 +298,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: tr('create_backup'),
               subtitle: tr('create_backup_sub'),
               onTap: _exportData,
+              trailing: Icon(Icons.chevron_right_rounded, color: scheme.outline),
+            ),
+            _rowDivider(scheme),
+            _row(
+              scheme: scheme,
+              icon: Icons.cloud_upload_rounded,
+              iconBg: scheme.secondaryContainer,
+              iconFg: scheme.onSecondaryContainer,
+              title: tr('share_backup'),
+              subtitle: tr('share_backup_sub'),
+              onTap: _shareBackup,
               trailing: Icon(Icons.chevron_right_rounded, color: scheme.outline),
             ),
             _rowDivider(scheme),

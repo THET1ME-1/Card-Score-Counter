@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'game_history_screen.dart';
@@ -12,6 +13,12 @@ import 'theme/theme_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Приложение рассчитано на портрет: в ландшафте карточки табло становятся
+  // слишком высокими и цифры не помещаются. Жёстко лочим вертикаль.
+  await SystemChrome.setPreferredOrientations(const [
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
   await ThemeController.instance.load();
   await LocaleController.instance.load();
   runApp(const CardGameScoreTracker());

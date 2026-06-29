@@ -48,6 +48,11 @@ const Map<String, Map<String, String>> _strings = {
     'ru': 'Игроки и история — в файл',
     'en': 'Players and history to a file'
   },
+  'share_backup': {'ru': 'Отправить копию', 'en': 'Send backup'},
+  'share_backup_sub': {
+    'ru': 'В Google Drive, Dropbox, Mega, Telegram…',
+    'en': 'To Google Drive, Dropbox, Mega, Telegram…'
+  },
   'restore_backup': {'ru': 'Восстановить из копии', 'en': 'Restore from backup'},
   'restore_backup_sub': {
     'ru': 'Заменить данные данными из файла',
@@ -130,6 +135,7 @@ const Map<String, Map<String, String>> _strings = {
   'finished_short': {'ru': 'завершена', 'en': 'finished'},
   'rounds_n': {'ru': '{n} раунд(ов)', 'en': '{n} round(s)'},
   'scoreboard': {'ru': 'Табло', 'en': 'Scoreboard'},
+  'share': {'ru': 'Поделиться', 'en': 'Share'},
   'winner': {'ru': 'Победитель', 'en': 'Winner'},
   'eliminated': {'ru': 'Выбыл', 'en': 'Out'},
   'to_out': {'ru': 'до вылета: {n}', 'en': 'to bust: {n}'},

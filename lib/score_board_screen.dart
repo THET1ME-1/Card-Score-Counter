@@ -1,6 +1,12 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'add_scores_screen.dart';
 import 'l10n/strings.dart';
@@ -30,6 +36,9 @@ class ScoreBoardScreen extends StatefulWidget {
 
 class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   final GameRepository _repo = GameRepository.instance;
+
+  /// Граница для рендера табло в картинку при «Поделиться».
+  final GlobalKey _boardKey = GlobalKey();
 
   List<List<dynamic>> scores = [];
   List<String> remainingPlayers = [];
@@ -1123,6 +1132,65 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
 
   // ------------------------------- UI -------------------------------
 
+  /// Метрика игрока для текстового итога (число/фаза/титул по правилу).
+  String _shareMetric(int i) {
+    switch (_rule) {
+      case WinRule.phases:
+        return _phaseOf(i) >= 11
+            ? tr('phase_done')
+            : trf('phase_n', {'n': _phaseDisplay(i)});
+      case WinRule.ranking:
+        return rounds > 0
+            ? '${_currentTotal(i)} · ${_rankTitle(i)}'
+            : '${_currentTotal(i)}';
+      default:
+        return '${_currentTotal(i)}';
+    }
+  }
+
+  /// Текстовый итог партии для шаринга (работает всегда, даже без картинки).
+  String _resultSummaryText() {
+    final game = widget.profile?.displayName ?? tr('scoreboard');
+    final b = StringBuffer()..writeln('🏆 ScoreMaster — $game');
+    if (_finished && _winner != null) {
+      final label = _rule == WinRule.fool ? tr('least_fool') : tr('winner');
+      b.writeln('$label: $_winner');
+    }
+    b.writeln();
+    for (var i = 0; i < widget.players.length; i++) {
+      final name = widget.players[i];
+      final marks = StringBuffer();
+      if (name == _winner) marks.write(' 🏆');
+      if (eliminatedPlayers.contains(name)) marks.write(' ⊘');
+      b.writeln('• $name — ${_shareMetric(i)}$marks');
+    }
+    return b.toString().trimRight();
+  }
+
+  /// «Поделиться»: рендерит табло в PNG и отправляет вместе с текстом.
+  /// Если картинку снять не удалось — делится одним текстом.
+  Future<void> _shareResult() async {
+    final text = _resultSummaryText();
+    try {
+      final boundary =
+          _boardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary != null) {
+        final image = await boundary.toImage(pixelRatio: 3);
+        final data = await image.toByteData(format: ui.ImageByteFormat.png);
+        if (data != null) {
+          final dir = await getTemporaryDirectory();
+          final file = await File('${dir.path}/scoremaster_result.png')
+              .writeAsBytes(data.buffer.asUint8List());
+          await Share.shareXFiles([XFile(file.path)], text: text);
+          return;
+        }
+      }
+    } catch (_) {
+      // Падать на текст — лучше пустого результата.
+    }
+    await Share.share(text);
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -1133,6 +1201,11 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
       appBar: AppBar(
         title: Text(widget.profile?.displayName ?? tr('scoreboard')),
         actions: [
+          IconButton(
+            tooltip: tr('share'),
+            icon: const Icon(Icons.ios_share_rounded),
+            onPressed: _shareResult,
+          ),
           // Игры без авто-победителя (Дурак/Бридж/Президент/Кинг) завершаются
           // вручную: фиксируем итог кнопкой. После — можно сменить/снять.
           if (_rule == WinRule.manual ||
@@ -1156,17 +1229,31 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (isFinished) _winnerBanner(scheme),
-                  GridView.count(
-                    crossAxisCount: cols,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: cols == 2 ? 1.05 : 0.88,
-                    children: List.generate(
-                      widget.players.length,
-                      (i) => _playerCard(i, cols, scheme),
+                  // Обёрнуто в RepaintBoundary с непрозрачным фоном, чтобы при
+                  // «Поделиться» отрендерить именно табло (баннер + карточки).
+                  RepaintBoundary(
+                    key: _boardKey,
+                    child: Container(
+                      color: scheme.surface,
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (isFinished) _winnerBanner(scheme),
+                          GridView.count(
+                            crossAxisCount: cols,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: cols == 2 ? 1.05 : 0.88,
+                            children: List.generate(
+                              widget.players.length,
+                              (i) => _playerCard(i, cols, scheme),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
