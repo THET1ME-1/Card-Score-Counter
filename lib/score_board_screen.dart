@@ -15,6 +15,7 @@ import 'models/game_session.dart';
 import 'services/game_repository.dart';
 import 'services/sound_service.dart';
 import 'theme/app_theme.dart';
+import 'widgets/game_timer.dart';
 
 class ScoreBoardScreen extends StatefulWidget {
   final List<String> players;
@@ -77,6 +78,12 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
   /// Сработал ли в последнем пересчёте «терминальный» звук (победа/вылет) —
   /// чтобы поверх него не накладывать звук обычного очка.
   bool _sfxFired = false;
+
+  /// Показывать ли таймер партии/хода (опционально, скрыт по умолчанию).
+  bool _showTimer = false;
+
+  /// Растёт при каждой передаче хода — сигнал таймеру обнулить таймер хода.
+  int _turnTick = 0;
 
   @override
   void initState() {
@@ -193,6 +200,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
 
   void _advanceToNextPlayer() {
     setState(() {
+      _turnTick++; // сигнал таймеру обнулить «Ход»
       do {
         currentPlayerIndex = (currentPlayerIndex + 1) % widget.players.length;
       } while (eliminatedPlayers.contains(widget.players[currentPlayerIndex]));
@@ -1230,6 +1238,13 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
         title: Text(widget.profile?.displayName ?? tr('scoreboard')),
         actions: [
           IconButton(
+            tooltip: tr('timer'),
+            isSelected: _showTimer,
+            icon: const Icon(Icons.timer_outlined),
+            selectedIcon: const Icon(Icons.timer_rounded),
+            onPressed: () => setState(() => _showTimer = !_showTimer),
+          ),
+          IconButton(
             tooltip: tr('share'),
             icon: const Icon(Icons.ios_share_rounded),
             onPressed: _shareResult,
@@ -1257,6 +1272,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (_showTimer) GameTimer(turnTick: _turnTick),
                   // Обёрнуто в RepaintBoundary с непрозрачным фоном, чтобы при
                   // «Поделиться» отрендерить именно табло (баннер + карточки).
                   RepaintBoundary(
