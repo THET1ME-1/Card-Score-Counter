@@ -7,6 +7,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'achievements_screen.dart';
+
 import 'l10n/locale_controller.dart';
 import 'l10n/strings.dart';
 import 'services/game_repository.dart';
@@ -242,6 +244,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
+          // -------------------------- Достижения --------------------------
+          _sectionHeader(tr('achievements'), scheme.primary),
+          _groupCard(scheme, [
+            _row(
+              scheme: scheme,
+              icon: Icons.emoji_events_rounded,
+              iconBg: const Color(0xFFFFD700).withValues(alpha: 0.18),
+              iconFg: const Color(0xFFB8860B),
+              title: tr('achievements'),
+              subtitle: tr('achievements_sub'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                    builder: (_) => const AchievementsScreen()),
+              ),
+              trailing: Icon(Icons.chevron_right_rounded, color: scheme.outline),
+            ),
+          ]),
+
           // --------------------------- Внешний вид ---------------------------
           _sectionHeader(tr('appearance'), scheme.primary),
           _groupCard(scheme, [

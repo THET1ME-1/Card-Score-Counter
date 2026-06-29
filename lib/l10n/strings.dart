@@ -347,4 +347,63 @@ const Map<String, Map<String, String>> _strings = {
   'game_president': {'ru': 'Президент', 'en': 'President / Scum'},
   'game_pinochle': {'ru': 'Пинокль', 'en': 'Pinochle'},
   'game_euchre': {'ru': 'Юкер', 'en': 'Euchre'},
+
+  // -------------------------- Достижения --------------------------
+  'achievements': {'ru': 'Достижения', 'en': 'Achievements'},
+  'achievements_sub': {'ru': 'Ваши награды', 'en': 'Your trophies'},
+  'achievements_unlocked': {'ru': 'Открыто', 'en': 'Unlocked'},
+  'unlocked': {'ru': 'Открыто', 'en': 'Unlocked'},
+  'ach_first_game_t': {'ru': 'Первый кон', 'en': 'First deal'},
+  'ach_first_game_d': {
+    'ru': 'Сыграть первую партию',
+    'en': 'Play your first game'
+  },
+  'ach_first_win_t': {'ru': 'Первая победа', 'en': 'First win'},
+  'ach_first_win_d': {
+    'ru': 'Завершить партию с победителем',
+    'en': 'Finish a game with a winner'
+  },
+  'ach_games_10_t': {'ru': 'Завсегдатай', 'en': 'Regular'},
+  'ach_games_10_d': {'ru': 'Сыграть 10 партий', 'en': 'Play 10 games'},
+  'ach_games_50_t': {'ru': 'Картёжник', 'en': 'Card shark'},
+  'ach_games_50_d': {'ru': 'Сыграть 50 партий', 'en': 'Play 50 games'},
+  'ach_games_100_t': {'ru': 'Легенда стола', 'en': 'Table legend'},
+  'ach_games_100_d': {'ru': 'Сыграть 100 партий', 'en': 'Play 100 games'},
+  'ach_wins_25_t': {'ru': 'Чемпион', 'en': 'Champion'},
+  'ach_wins_25_d': {'ru': '25 побед суммарно', 'en': '25 wins in total'},
+  'ach_streak_3_t': {'ru': 'В ударе', 'en': 'On a roll'},
+  'ach_streak_3_d': {
+    'ru': '3 победы подряд одним игроком',
+    'en': '3 wins in a row by one player'
+  },
+  'ach_streak_5_t': {'ru': 'Неудержимый', 'en': 'Unstoppable'},
+  'ach_streak_5_d': {
+    'ru': '5 побед подряд одним игроком',
+    'en': '5 wins in a row by one player'
+  },
+  'ach_all_modes_t': {'ru': 'Универсал', 'en': 'All-rounder'},
+  'ach_all_modes_d': {
+    'ru': 'Опробовать все 7 режимов счёта',
+    'en': 'Try all 7 scoring modes'
+  },
+  'ach_variety_10_t': {'ru': 'Знаток игр', 'en': 'Game buff'},
+  'ach_variety_10_d': {
+    'ru': 'Сыграть 10 разных игр',
+    'en': 'Play 10 different games'
+  },
+  'ach_full_table_t': {'ru': 'Полный стол', 'en': 'Full table'},
+  'ach_full_table_d': {
+    'ru': 'Партия на 6 игроков',
+    'en': 'A game with 6 players'
+  },
+  'ach_marathon_t': {'ru': 'Марафон', 'en': 'Marathon'},
+  'ach_marathon_d': {
+    'ru': 'Партия на 20+ кругов',
+    'en': 'A game of 20+ rounds'
+  },
+  'ach_night_owl_t': {'ru': 'Полуночник', 'en': 'Night owl'},
+  'ach_night_owl_d': {
+    'ru': 'Партия после полуночи',
+    'en': 'A game played after midnight'
+  },
 };
