@@ -215,29 +215,21 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.tonalIcon(
-                          onPressed: () => apply(() => selectedProfiles.shuffle()),
-                          icon: const Icon(Icons.shuffle_rounded),
-                          label: Text(tr('shuffle')),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: FilledButton.tonalIcon(
-                          onPressed: () => apply(() {
-                            if (selectedProfiles.length < 2) return;
-                            final i = Random().nextInt(selectedProfiles.length);
-                            final first = selectedProfiles.removeAt(i);
-                            selectedProfiles.insert(0, first);
-                          }),
-                          icon: const Icon(Icons.casino_rounded),
-                          label: Text(tr('random_first')),
-                        ),
-                      ),
-                    ],
+                  FilledButton.tonalIcon(
+                    onPressed: () => apply(() => selectedProfiles.shuffle()),
+                    icon: const Icon(Icons.shuffle_rounded, size: 20),
+                    label: Text(tr('shuffle')),
+                  ),
+                  const SizedBox(height: 8),
+                  FilledButton.tonalIcon(
+                    onPressed: () => apply(() {
+                      if (selectedProfiles.length < 2) return;
+                      final i = Random().nextInt(selectedProfiles.length);
+                      final first = selectedProfiles.removeAt(i);
+                      selectedProfiles.insert(0, first);
+                    }),
+                    icon: const Icon(Icons.casino_rounded, size: 20),
+                    label: Text(tr('random_first')),
                   ),
                   const SizedBox(height: 12),
                   Flexible(
