@@ -509,13 +509,17 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
         duration: const Duration(milliseconds: 260),
         curve: Curves.easeOutCubic,
         child: hasResume
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(flex: 3, child: _gamePickerCard(scheme)),
-                  const SizedBox(width: 10),
-                  Expanded(flex: 2, child: _resumeCard(scheme)),
-                ],
+            // IntrinsicHeight даёт Row ограниченную высоту, иначе stretch в
+            // безграничной по высоте Column роняет билд (экран пустеет).
+            ? IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(flex: 3, child: _gamePickerCard(scheme)),
+                    const SizedBox(width: 10),
+                    Expanded(flex: 2, child: _resumeCard(scheme)),
+                  ],
+                ),
               )
             : _gamePickerCard(scheme),
       ),
