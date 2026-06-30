@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../l10n/strings.dart';
 import '../services/update_service.dart';
 import '../theme/app_theme.dart';
+import 'markdown_lite.dart';
 
 /// Нижнее M3-меню «Доступно обновление»: показывает новую версию и описание,
 /// по кнопке «Обновить» скачивает APK с GitHub (с прогрессом) и запускает
@@ -180,14 +181,10 @@ class _UpdateSheetState extends State<UpdateSheet> {
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: SingleChildScrollView(
-                  child: Text(
-                    info.notes,
-                    style: TextStyle(
-                      fontFamily: AppTheme.bodyFont,
-                      fontSize: 13.5,
-                      height: 1.4,
-                      color: scheme.onSurfaceVariant,
-                    ),
+                  child: MarkdownLite(
+                    text: info.notes,
+                    color: scheme.onSurfaceVariant,
+                    headingColor: scheme.onSurface,
                   ),
                 ),
               ),
@@ -273,25 +270,18 @@ class _UpdateSheetState extends State<UpdateSheet> {
                 icon: const Icon(Icons.download_rounded),
                 label: Text(tr('update_now')),
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton.icon(
-                      onPressed: busy ? null : _openGithub,
-                      icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                      label: Text(tr('update_open_github')),
-                    ),
-                  ),
-                  if (!busy)
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () => Navigator.of(context).maybePop(),
-                        child: Text(tr('update_later')),
-                      ),
-                    ),
-                ],
+              const SizedBox(height: 6),
+              // На всю ширину — чтобы текст «Открыть на GitHub» был в одну строку.
+              TextButton.icon(
+                onPressed: busy ? null : _openGithub,
+                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                label: Text(tr('update_open_github')),
               ),
+              if (!busy)
+                TextButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  child: Text(tr('update_later')),
+                ),
             ],
           ],
         ),
