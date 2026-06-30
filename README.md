@@ -42,3 +42,11 @@ flutter build apk --release        # APK
 flutter build appbundle --release  # AAB
 flutter install                    # установка на подключённое устройство
 ```
+
+## Лицензия
+
+Проект распространяется под лицензией **GNU GPL v3.0** — полный текст в файле
+[LICENSE](LICENSE). Кратко: можно свободно использовать, изучать и изменять, но
+производные версии тоже должны оставаться открытыми под GPL.
+
+Copyright © 2026 THET1ME-1
