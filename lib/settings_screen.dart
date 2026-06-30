@@ -13,6 +13,7 @@ import 'l10n/locale_controller.dart';
 import 'l10n/strings.dart';
 import 'services/game_repository.dart';
 import 'services/sound_service.dart';
+import 'utils/app_version.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 import 'widgets/color_picker_sheet.dart';
@@ -53,14 +54,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadAppVersion() async {
-    try {
-      final info = await PackageInfo.fromPlatform();
-      if (!mounted) return;
-      setState(() => _appVersion = info.version);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _appVersion = '—');
+    // Версия — НАПРЯМУЮ из pubspec.yaml (не хардкод). Если по какой-то причине
+    // не прочиталась — запасной вариант из платформенных метаданных сборки.
+    var version = await appVersionFromPubspec();
+    if (version.isEmpty) {
+      try {
+        version = (await PackageInfo.fromPlatform()).version;
+      } catch (_) {
+        version = '—';
+      }
     }
+    if (!mounted) return;
+    setState(() => _appVersion = version);
   }
 
   void _toggleTheme(bool value) {

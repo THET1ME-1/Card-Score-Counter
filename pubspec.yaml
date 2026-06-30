@@ -33,6 +33,8 @@ flutter:
 
   assets:
     - assets/sounds/
+    # Сам pubspec — чтобы показывать версию приложения прямо из yaml (не хардкод).
+    - pubspec.yaml
 
   fonts:
     - family: Unbounded
