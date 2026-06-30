@@ -12,6 +12,7 @@ import 'score_board_screen.dart';
 import 'services/game_repository.dart';
 import 'theme/app_theme.dart';
 import 'widgets/player_shapes.dart';
+import 'widgets/reveal.dart';
 import 'utils/image_picker_util.dart';
 import 'widgets/color_picker_sheet.dart';
 
@@ -215,21 +216,25 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  FilledButton.tonalIcon(
-                    onPressed: () => apply(() => selectedProfiles.shuffle()),
-                    icon: const Icon(Icons.shuffle_rounded, size: 20),
-                    label: Text(tr('shuffle')),
+                  _orderActionTile(
+                    scheme,
+                    icon: Icons.shuffle_rounded,
+                    title: tr('shuffle'),
+                    subtitle: tr('shuffle_sub'),
+                    onTap: () => apply(() => selectedProfiles.shuffle()),
                   ),
                   const SizedBox(height: 8),
-                  FilledButton.tonalIcon(
-                    onPressed: () => apply(() {
+                  _orderActionTile(
+                    scheme,
+                    icon: Icons.casino_rounded,
+                    title: tr('random_first'),
+                    subtitle: tr('random_first_sub'),
+                    onTap: () => apply(() {
                       if (selectedProfiles.length < 2) return;
                       final i = Random().nextInt(selectedProfiles.length);
                       final first = selectedProfiles.removeAt(i);
                       selectedProfiles.insert(0, first);
                     }),
-                    icon: const Icon(Icons.casino_rounded, size: 20),
-                    label: Text(tr('random_first')),
                   ),
                   const SizedBox(height: 12),
                   Flexible(
@@ -258,6 +263,71 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
           },
         );
       },
+    );
+  }
+
+  /// Крупная кнопка-плитка действия в панели порядка хода: иконка + название +
+  /// поясняющая подпись (чтобы было видно разницу «Перемешать» / «Случайный
+  /// первый»).
+  Widget _orderActionTile(
+    ColorScheme scheme, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: scheme.secondaryContainer,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: scheme.secondary.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 22, color: scheme.onSecondaryContainer),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontFamily: AppTheme.displayFont,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: scheme.onSecondaryContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontFamily: AppTheme.bodyFont,
+                        fontSize: 12.5,
+                        height: 1.2,
+                        color: scheme.onSecondaryContainer
+                            .withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -359,8 +429,14 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
               // +1 карточка — пунктирная «Создать игрока» в той же сетке.
               itemCount: profiles.length + 1,
               itemBuilder: (context, index) {
-                if (index == profiles.length) return _addCard(scheme);
-                return _playerCard(index, scheme);
+                final tile = index == profiles.length
+                    ? _addCard(scheme)
+                    : _playerCard(index, scheme);
+                // Каскадное появление плиток (M3): лёгкий подъём + проявление.
+                return Reveal(
+                  delay: Duration(milliseconds: 45 * index),
+                  child: tile,
+                );
               },
             ),
           ),

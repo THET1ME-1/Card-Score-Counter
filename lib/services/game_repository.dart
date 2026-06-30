@@ -32,6 +32,7 @@ class GameRepository extends ChangeNotifier {
   static const String _kTextSize = 'textSize';
   static const String _kIsDescending = 'isDescending';
   static const String _kSoundEnabled = 'soundEnabled';
+  static const String _kTimerEnabled = 'timerEnabled';
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
@@ -84,6 +85,8 @@ class GameRepository extends ChangeNotifier {
               date: existing.date,
               winCredited: game.winCredited,
               winnerName: game.winnerName,
+              durationMs: game.durationMs,
+              playerTimesMs: game.playerTimesMs,
             )
           : game;
     }
@@ -269,6 +272,8 @@ class GameRepository extends ChangeNotifier {
               date: g.date,
               winCredited: g.winCredited,
               winnerName: g.winnerName == oldName ? newName : g.winnerName,
+              durationMs: g.durationMs,
+              playerTimesMs: g.playerTimesMs,
             ))
         .toList();
     await _saveGames(updated);
@@ -288,6 +293,15 @@ class GameRepository extends ChangeNotifier {
 
   Future<void> setSoundEnabled(bool value) async =>
       (await _prefs).setBool(_kSoundEnabled, value);
+
+  /// Показывать ли таймер партии на табло. По умолчанию включён.
+  Future<bool> timerEnabled({bool fallback = true}) async =>
+      (await _prefs).getBool(_kTimerEnabled) ?? fallback;
+
+  Future<void> setTimerEnabled(bool value) async {
+    await (await _prefs).setBool(_kTimerEnabled, value);
+    notifyListeners();
+  }
 
   /// ARGB-значение seed-цвета темы, или null если пользователь не выбирал.
   Future<int?> seedColorValue() async => (await _prefs).getInt(_kSeedColor);
@@ -316,32 +330,83 @@ class GameRepository extends ChangeNotifier {
 
   // ------------------------ Бэкап / восстановление ------------------------
 
-  /// Сериализует все данные приложения в один JSON-документ для экспорта.
+  /// Сериализует ВСЕ важные данные приложения в один JSON-документ.
+  ///
+  /// Кроме истории игр (в ней уже лежит и время партий, и время по игрокам) и
+  /// профилей игроков сохраняем: имена партий, свои игры, типы партий (какой
+  /// игрой сыграна каждая партия — иначе аналитика «теряет» тип), выбранную
+  /// игру и пользовательские настройки. Так после восстановления всё на месте.
   Future<String> exportData() async {
     final prefs = await _prefs;
-    final data = {
-      'version': 1,
+    final data = <String, dynamic>{
+      'version': 2,
       'exportedAt': DateTime.now().toIso8601String(),
+      // Данные игр и игроков.
       _kGameHistory: prefs.getStringList(_kGameHistory) ?? const <String>[],
       _kProfiles: prefs.getStringList(_kProfiles) ?? const <String>[],
+      _kCustomGames: prefs.getStringList(_kCustomGames) ?? const <String>[],
+      _kGameNames: prefs.getString(_kGameNames),
+      _kGameTypes: prefs.getString(_kGameTypes),
+      _kSelectedGame: prefs.getString(_kSelectedGame),
+      // Настройки.
+      _kIsDarkTheme: prefs.getBool(_kIsDarkTheme),
+      _kSeedColor: prefs.getInt(_kSeedColor),
+      _kLanguage: prefs.getString(_kLanguage),
+      _kTextSize: prefs.getDouble(_kTextSize),
+      _kIsDescending: prefs.getBool(_kIsDescending),
+      _kSoundEnabled: prefs.getBool(_kSoundEnabled),
+      _kTimerEnabled: prefs.getBool(_kTimerEnabled),
     };
     return const JsonEncoder.withIndent('  ').convert(data);
   }
 
-  /// Восстанавливает данные из ранее экспортированного JSON.
+  /// Восстанавливает данные из ранее экспортированного JSON. Поддерживает и
+  /// старый формат (v1: только история и профили), и новый (v2: всё).
   /// Возвращает false, если формат не распознан.
   Future<bool> importData(String jsonString) async {
     try {
       final data = jsonDecode(jsonString) as Map<String, dynamic>;
       final games = data[_kGameHistory];
       final profiles = data[_kProfiles];
+      // Минимально обязательная часть бэкапа — история и профили.
       if (games is! List || profiles is! List) return false;
 
       final prefs = await _prefs;
-      await prefs.setStringList(
-          _kGameHistory, games.map((e) => e.toString()).toList());
-      await prefs.setStringList(
-          _kProfiles, profiles.map((e) => e.toString()).toList());
+
+      Future<void> setStrList(String key, dynamic v) async {
+        if (v is List) {
+          await prefs.setStringList(key, v.map((e) => e.toString()).toList());
+        }
+      }
+
+      await setStrList(_kGameHistory, games);
+      await setStrList(_kProfiles, profiles);
+      await setStrList(_kCustomGames, data[_kCustomGames]);
+
+      // Строковые карты (имена партий, типы) и прочие строки.
+      for (final key in [_kGameNames, _kGameTypes, _kSelectedGame, _kLanguage]) {
+        final v = data[key];
+        if (v is String) await prefs.setString(key, v);
+      }
+      // Числа.
+      if (data[_kSeedColor] is num) {
+        await prefs.setInt(_kSeedColor, (data[_kSeedColor] as num).toInt());
+      }
+      if (data[_kTextSize] is num) {
+        await prefs.setDouble(
+            _kTextSize, (data[_kTextSize] as num).toDouble());
+      }
+      // Флаги.
+      for (final key in [
+        _kIsDarkTheme,
+        _kIsDescending,
+        _kSoundEnabled,
+        _kTimerEnabled
+      ]) {
+        final v = data[key];
+        if (v is bool) await prefs.setBool(key, v);
+      }
+
       notifyListeners();
       return true;
     } catch (_) {

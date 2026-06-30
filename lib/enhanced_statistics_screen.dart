@@ -3,12 +3,17 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'l10n/strings.dart';
+import 'models/game_session.dart';
 import 'services/game_repository.dart';
 import 'theme/app_theme.dart';
+import 'utils/format.dart';
 import 'widgets/player_shapes.dart';
 
 /// Период для графика динамики.
 enum _Period { day, month, year }
+
+/// Режим календаря игр.
+enum _CalMode { week, month, year }
 
 /// Экран статистики — полностью на плоском Material 3 Expressive в духе
 /// главного меню и табло: крупные цифры, скруглённые карточки без теней,
@@ -107,6 +112,14 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
   int _totalFinished = 0;
   int _totalRounds = 0;
 
+  // Календарь игр: игры по дням + режим/якорь периода.
+  final Map<DateTime, List<GameSession>> _byDay = {};
+  final Map<String, String> _typeOfGame = {}; // gameId → profileId
+  final Map<String, String> _typeName = {}; // profileId → имя игры
+  _CalMode _calMode = _CalMode.month;
+  DateTime _calAnchor = DateTime(2026, 1, 1);
+  bool _userTouchedCal = false;
+
   @override
   void initState() {
     super.initState();
@@ -127,6 +140,32 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
   Future<void> _load() async {
     final games = await _repo.loadGames();
     final profiles = await _repo.loadProfiles();
+    final types = await _repo.gameTypes();
+    final allGameProfiles = await _repo.allGames();
+
+    // Календарь: раскладываем игры по дням и запоминаем имена их типов.
+    _byDay.clear();
+    _typeOfGame
+      ..clear()
+      ..addAll(types);
+    _typeName.clear();
+    for (final gp in allGameProfiles) {
+      _typeName[gp.id] = gp.displayName;
+    }
+    for (final g in games) {
+      final key = DateTime(g.date.year, g.date.month, g.date.day);
+      _byDay.putIfAbsent(key, () => []).add(g);
+    }
+    // Пока пользователь сам не листал календарь — держим его на дне последней
+    // сыгранной партии (иначе можно открыть пустой месяц без игр).
+    if (!_userTouchedCal) {
+      if (_byDay.isNotEmpty) {
+        _calAnchor = _byDay.keys.reduce((a, b) => a.isAfter(b) ? a : b);
+      } else {
+        final now = DateTime.now();
+        _calAnchor = DateTime(now.year, now.month, now.day);
+      }
+    }
 
     final byName = <String, _PlayerStat>{};
     _PlayerStat statFor(String name) => byName.putIfAbsent(name, () {
@@ -362,37 +401,45 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
             child: SizedBox(
             width: 184,
             height: 184,
-            child: CustomPaint(
-              painter: _RingPainter(
-                progress: stat.winRate / 100,
-                track: scheme.surfaceContainerHighest,
-                color: scheme.primary,
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '${stat.winRate.round()}',
-                      style: TextStyle(
-                        fontFamily: AppTheme.displayFont,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 56,
-                        height: 1.0,
-                        letterSpacing: -2,
-                        color: scheme.onSurface,
+            child: TweenAnimationBuilder<double>(
+              // Анимируем по ключу игрока, чтобы при смене игрока кольцо
+              // перерисовывалось заново.
+              key: ValueKey(stat.name),
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 900),
+              curve: Curves.easeOutCubic,
+              builder: (_, t, child) => CustomPaint(
+                painter: _RingPainter(
+                  progress: stat.winRate / 100 * t,
+                  track: scheme.surfaceContainerHighest,
+                  color: scheme.primary,
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${(stat.winRate * t).round()}',
+                        style: TextStyle(
+                          fontFamily: AppTheme.displayFont,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 56,
+                          height: 1.0,
+                          letterSpacing: -2,
+                          color: scheme.onSurface,
+                        ),
                       ),
-                    ),
-                    Text(
-                      '% ${tr('wins_label')}',
-                      style: TextStyle(
-                        fontFamily: AppTheme.bodyFont,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: scheme.onSurfaceVariant,
+                      Text(
+                        '% ${tr('wins_label')}',
+                        style: TextStyle(
+                          fontFamily: AppTheme.bodyFont,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -821,8 +868,539 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
           children: [for (final t in tiles) _statTile(t, scheme)],
         ),
         const SizedBox(height: 16),
+        _calendarCard(scheme),
+        const SizedBox(height: 16),
+        _gamesPerDayCard(scheme),
+        const SizedBox(height: 16),
         _distributionCard(scheme),
       ],
+    );
+  }
+
+  // ------------------------------- КАЛЕНДАРЬ -------------------------------
+
+  int _countOn(DateTime day) =>
+      _byDay[DateTime(day.year, day.month, day.day)]?.length ?? 0;
+
+  void _shiftAnchor(int dir) {
+    setState(() {
+      _userTouchedCal = true;
+      switch (_calMode) {
+        case _CalMode.week:
+          _calAnchor = _calAnchor.add(Duration(days: 7 * dir));
+        case _CalMode.month:
+          _calAnchor = DateTime(_calAnchor.year, _calAnchor.month + dir, 1);
+        case _CalMode.year:
+          _calAnchor = DateTime(_calAnchor.year + dir, _calAnchor.month, 1);
+      }
+    });
+  }
+
+  String _calTitle() {
+    switch (_calMode) {
+      case _CalMode.week:
+        final monday =
+            _calAnchor.subtract(Duration(days: _calAnchor.weekday - 1));
+        final sunday = monday.add(const Duration(days: 6));
+        if (monday.month == sunday.month) {
+          return '${monday.day}–${sunday.day} ${monthName(monday.month)}';
+        }
+        return '${monday.day} ${monthShort(monday.month)} – '
+            '${sunday.day} ${monthShort(sunday.month)}';
+      case _CalMode.month:
+        return '${monthName(_calAnchor.month)} ${_calAnchor.year}';
+      case _CalMode.year:
+        return '${_calAnchor.year}';
+    }
+  }
+
+  Widget _calendarCard(ColorScheme scheme) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            tr('calendar'),
+            style: TextStyle(
+              fontFamily: AppTheme.displayFont,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              color: scheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Переключатель режима.
+          Row(
+            children: [
+              for (final m in const [
+                (_CalMode.week, 'cal_week'),
+                (_CalMode.month, 'cal_month'),
+                (_CalMode.year, 'cal_year'),
+              ]) ...[
+                _calModeChip(tr(m.$2), m.$1 == _calMode, () {
+                  setState(() {
+                    _userTouchedCal = true;
+                    _calMode = m.$1;
+                  });
+                }, scheme),
+                const SizedBox(width: 8),
+              ],
+            ],
+          ),
+          const SizedBox(height: 14),
+          // Навигация по периоду.
+          Row(
+            children: [
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                onPressed: () => _shiftAnchor(-1),
+                icon: const Icon(Icons.chevron_left_rounded),
+              ),
+              Expanded(
+                child: Text(
+                  _calTitle(),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: AppTheme.displayFont,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: scheme.onSurface,
+                  ),
+                ),
+              ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                onPressed: () => _shiftAnchor(1),
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Плавная смена периода/режима (M3): fade + лёгкий сдвиг.
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 320),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeIn,
+            transitionBuilder: (child, anim) => FadeTransition(
+              opacity: anim,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.04),
+                  end: Offset.zero,
+                ).animate(anim),
+                child: child,
+              ),
+            ),
+            child: KeyedSubtree(
+              key: ValueKey('${_calMode.name}-${_calAnchor.toIso8601String()}'),
+              child: switch (_calMode) {
+                _CalMode.week => _weekGrid(scheme),
+                _CalMode.month => _monthGrid(scheme),
+                _CalMode.year => _yearGrid(scheme),
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _calModeChip(
+      String label, bool sel, VoidCallback onTap, ColorScheme scheme) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          height: 38,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color:
+                sel ? scheme.primary : scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: AppTheme.bodyFont,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: sel ? scheme.onPrimary : scheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Цвет ячейки дня по числу игр (чем больше, тем насыщеннее).
+  Color _dayColor(int count, int maxCount, ColorScheme scheme) {
+    if (count == 0) return scheme.surfaceContainerHighest;
+    final t = maxCount <= 1 ? 1.0 : (count / maxCount).clamp(0.0, 1.0);
+    return Color.lerp(
+            scheme.primary.withValues(alpha: 0.30), scheme.primary, t) ??
+        scheme.primary;
+  }
+
+  Widget _weekHeader(ColorScheme scheme) {
+    return Row(
+      children: [
+        for (final d in weekdayShort)
+          Expanded(
+            child: Center(
+              child: Text(
+                d,
+                style: TextStyle(
+                  fontFamily: AppTheme.bodyFont,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _dayCell(DateTime day, int maxCount, ColorScheme scheme,
+      {bool dim = false}) {
+    final count = _countOn(day);
+    final color = _dayColor(count, maxCount, scheme);
+    final hasGames = count > 0;
+    final fg = hasGames ? scheme.onPrimary : scheme.onSurfaceVariant;
+    return GestureDetector(
+      onTap: hasGames ? () => _showDayGames(day) : null,
+      child: AspectRatio(
+        aspectRatio: 1,
+        child: Container(
+          margin: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: dim ? color.withValues(alpha: 0.4) : color,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '${day.day}',
+                style: TextStyle(
+                  fontFamily: AppTheme.bodyFont,
+                  fontSize: 13,
+                  fontWeight: hasGames ? FontWeight.w800 : FontWeight.w500,
+                  color: dim ? fg.withValues(alpha: 0.6) : fg,
+                ),
+              ),
+              if (hasGames)
+                Text(
+                  '$count',
+                  style: TextStyle(
+                    fontFamily: AppTheme.displayFont,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: fg.withValues(alpha: 0.9),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _weekGrid(ColorScheme scheme) {
+    final monday = _calAnchor.subtract(Duration(days: _calAnchor.weekday - 1));
+    final days = [for (var i = 0; i < 7; i++) monday.add(Duration(days: i))];
+    final maxCount =
+        days.map(_countOn).fold<int>(1, (m, c) => math.max(m, c));
+    return Column(
+      children: [
+        _weekHeader(scheme),
+        const SizedBox(height: 6),
+        Row(
+          children: [for (final d in days) Expanded(child: _dayCell(d, maxCount, scheme))],
+        ),
+      ],
+    );
+  }
+
+  Widget _monthGrid(ColorScheme scheme) {
+    final first = DateTime(_calAnchor.year, _calAnchor.month, 1);
+    final daysInMonth =
+        DateTime(_calAnchor.year, _calAnchor.month + 1, 0).day;
+    final leadBlanks = first.weekday - 1; // понедельник = 0
+    final cells = <Widget>[];
+    // Максимум за месяц — для насыщенности.
+    var maxCount = 1;
+    for (var d = 1; d <= daysInMonth; d++) {
+      maxCount = math.max(
+          maxCount, _countOn(DateTime(_calAnchor.year, _calAnchor.month, d)));
+    }
+    for (var i = 0; i < leadBlanks; i++) {
+      cells.add(const Expanded(child: SizedBox.shrink()));
+    }
+    for (var d = 1; d <= daysInMonth; d++) {
+      cells.add(Expanded(
+          child: _dayCell(
+              DateTime(_calAnchor.year, _calAnchor.month, d), maxCount, scheme)));
+    }
+    while (cells.length % 7 != 0) {
+      cells.add(const Expanded(child: SizedBox.shrink()));
+    }
+    final rows = <Widget>[];
+    for (var i = 0; i < cells.length; i += 7) {
+      rows.add(Row(children: cells.sublist(i, i + 7)));
+    }
+    return Column(
+      children: [
+        _weekHeader(scheme),
+        const SizedBox(height: 6),
+        ...rows,
+      ],
+    );
+  }
+
+  Widget _yearGrid(ColorScheme scheme) {
+    // Суммы игр по месяцам года.
+    final counts = List<int>.generate(12, (m) {
+      var c = 0;
+      _byDay.forEach((day, games) {
+        if (day.year == _calAnchor.year && day.month == m + 1) {
+          c += games.length;
+        }
+      });
+      return c;
+    });
+    final maxCount = counts.fold<int>(1, (a, b) => math.max(a, b));
+    Widget monthCell(int m) {
+      final count = counts[m];
+      final has = count > 0;
+      final color = _dayColor(count, maxCount, scheme);
+      return GestureDetector(
+        onTap: () => setState(() {
+          _userTouchedCal = true;
+          _calMode = _CalMode.month;
+          _calAnchor = DateTime(_calAnchor.year, m + 1, 1);
+        }),
+        child: Container(
+          margin: const EdgeInsets.all(4),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              Text(
+                monthShort(m + 1),
+                style: TextStyle(
+                  fontFamily: AppTheme.bodyFont,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: has ? scheme.onPrimary : scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '$count',
+                style: TextStyle(
+                  fontFamily: AppTheme.displayFont,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: has
+                      ? scheme.onPrimary
+                      : scheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final rows = <Widget>[];
+    for (var r = 0; r < 4; r++) {
+      rows.add(Row(
+        children: [for (var c = 0; c < 3; c++) Expanded(child: monthCell(r * 3 + c))],
+      ));
+    }
+    return Column(children: rows);
+  }
+
+  /// Нижняя панель со списком игр выбранного дня.
+  Future<void> _showDayGames(DateTime day) async {
+    final scheme = Theme.of(context).colorScheme;
+    final games = List<GameSession>.from(
+        _byDay[DateTime(day.year, day.month, day.day)] ?? const [])
+      ..sort((a, b) => a.date.compareTo(b.date));
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: scheme.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: scheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                trf('games_on', {'d': longDate(day)}),
+                style: TextStyle(
+                  fontFamily: AppTheme.displayFont,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                  color: scheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (games.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(tr('no_games_that_day'),
+                      style: TextStyle(color: scheme.onSurfaceVariant)),
+                )
+              else
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: games.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) => _dayGameRow(games[i], scheme),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _dayGameRow(GameSession g, ColorScheme scheme) {
+    final typeId = _typeOfGame[g.gameId];
+    final typeName = typeId != null ? _typeName[typeId] : null;
+    final winner = g.winner;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: g.isFinished
+                  ? _gold.withValues(alpha: 0.18)
+                  : scheme.surfaceContainerHighest,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              g.isFinished
+                  ? Icons.emoji_events_rounded
+                  : Icons.hourglass_top_rounded,
+              size: 20,
+              color: g.isFinished ? _gold : scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  typeName ?? tr('scoreboard'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTheme.bodyFont,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    if (winner != null) '🏆 $winner',
+                    if (g.durationMs > 0) humanDuration(g.duration),
+                  ].join('  ·  '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTheme.bodyFont,
+                    fontSize: 12,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Простой график «игр по дням» за последние активные дни.
+  Widget _gamesPerDayCard(ColorScheme scheme) {
+    // Последние до 14 дней с играми (по возрастанию даты).
+    final keys = _byDay.keys.toList()..sort();
+    final visible = keys.length > 14 ? keys.sublist(keys.length - 14) : keys;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            tr('games_per_day'),
+            style: TextStyle(
+              fontFamily: AppTheme.displayFont,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              color: scheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (visible.isEmpty)
+            _inlineEmpty(tr('not_enough_data'), scheme)
+          else
+            _DayBars(
+              days: visible,
+              counts: [for (final k in visible) _byDay[k]!.length],
+              barColor: scheme.primary,
+              trackColor: scheme.surfaceContainerHighest,
+              textColor: scheme.onSurface,
+              subColor: scheme.onSurfaceVariant,
+            ),
+        ],
+      ),
     );
   }
 
@@ -1059,14 +1637,21 @@ class _BarRow extends StatelessWidget {
                           borderRadius: BorderRadius.circular(9),
                         ),
                         alignment: Alignment.bottomCenter,
-                        child: FractionallySizedBox(
-                          heightFactor: cells[i][1] == 0
-                              ? 0
-                              : (cells[i][0] / cells[i][1]).clamp(0.0, 1.0),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: barColor,
-                              borderRadius: BorderRadius.circular(9),
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(
+                              begin: 0,
+                              end: cells[i][1] == 0
+                                  ? 0.0
+                                  : (cells[i][0] / cells[i][1]).clamp(0.0, 1.0)),
+                          duration: const Duration(milliseconds: 700),
+                          curve: Curves.easeOutCubic,
+                          builder: (_, hf, __) => FractionallySizedBox(
+                            heightFactor: hf,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: barColor,
+                                borderRadius: BorderRadius.circular(9),
+                              ),
                             ),
                           ),
                         ),
@@ -1081,6 +1666,84 @@ class _BarRow extends StatelessWidget {
                     style: TextStyle(
                       fontFamily: AppTheme.bodyFont,
                       fontSize: 10,
+                      color: subColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Столбики «игр по дням»: высота столбика = число игр в этот день.
+class _DayBars extends StatelessWidget {
+  final List<DateTime> days;
+  final List<int> counts;
+  final Color barColor;
+  final Color trackColor;
+  final Color textColor;
+  final Color subColor;
+
+  const _DayBars({
+    required this.days,
+    required this.counts,
+    required this.barColor,
+    required this.trackColor,
+    required this.textColor,
+    required this.subColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final maxC = counts.fold<int>(1, (m, c) => math.max(m, c)).toDouble();
+    const maxBar = 110.0;
+    String two(int v) => v.toString().padLeft(2, '0');
+
+    return SizedBox(
+      height: maxBar + 40,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (var i = 0; i < days.length; i++)
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${counts[i]}',
+                    style: TextStyle(
+                      fontFamily: AppTheme.displayFont,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(
+                        begin: 0, end: math.max(6, maxBar * (counts[i] / maxC))),
+                    duration: Duration(milliseconds: 500 + i * 30),
+                    curve: Curves.easeOutCubic,
+                    builder: (_, h, __) => Container(
+                      width: 14,
+                      height: h,
+                      decoration: BoxDecoration(
+                        color: barColor,
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${days[i].day}.${two(days[i].month)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: AppTheme.bodyFont,
+                      fontSize: 9.5,
                       color: subColor,
                     ),
                   ),

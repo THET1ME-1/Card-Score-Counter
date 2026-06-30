@@ -30,6 +30,15 @@ class GameSession {
   /// оставшимся игрокам (см. [winner]).
   final String? winnerName;
 
+  /// Общее время партии в миллисекундах. Считается всегда, пока открыто табло,
+  /// независимо от того, показан ли таймер. 0 для партий, сыгранных до
+  /// добавления учёта времени.
+  final int durationMs;
+
+  /// Время (мс), которое каждый игрок суммарно «держал ход» — параллельно
+  /// [players] по индексу. Пустой список = время по игрокам не записано.
+  final List<int> playerTimesMs;
+
   const GameSession({
     required this.gameId,
     required this.players,
@@ -42,7 +51,15 @@ class GameSession {
     required this.date,
     this.winCredited = false,
     this.winnerName,
+    this.durationMs = 0,
+    this.playerTimesMs = const <int>[],
   });
+
+  /// Общая длительность партии как [Duration].
+  Duration get duration => Duration(milliseconds: durationMs);
+
+  /// Записано ли время этой партии (есть ненулевая длительность).
+  bool get hasTiming => durationMs > 0;
 
   /// Победитель партии (или null, если не завершена).
   ///
@@ -83,6 +100,11 @@ class GameSession {
           : DateTime.now(),
       winCredited: json['winCredited'] as bool? ?? false,
       winnerName: json['winnerName']?.toString(),
+      durationMs: (json['durationMs'] as num?)?.toInt() ?? 0,
+      playerTimesMs: (json['playerTimesMs'] as List?)
+              ?.map((e) => (e as num?)?.toInt() ?? 0)
+              .toList() ??
+          const <int>[],
     );
   }
 
@@ -98,5 +120,7 @@ class GameSession {
         'date': date.toIso8601String(),
         'winCredited': winCredited,
         'winnerName': winnerName,
+        'durationMs': durationMs,
+        'playerTimesMs': playerTimesMs,
       };
 }

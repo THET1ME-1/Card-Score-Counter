@@ -1,90 +1,30 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../l10n/strings.dart';
 import '../theme/app_theme.dart';
+import '../utils/format.dart';
 
-/// Опциональный таймер партии и текущего хода для табло.
+/// Панель таймера партии/хода для табло — чисто отображение.
 ///
-/// «Партия» считает общее время; «Ход» сбрасывается каждый раз, когда меняется
-/// [turnTick] (передаётся табло при передаче хода) — удобно для блица/Дурака.
-class GameTimer extends StatefulWidget {
-  final int turnTick;
-  const GameTimer({super.key, required this.turnTick});
+/// Само время считает и хранит экран табло (чтобы длительность партии
+/// сохранялась в историю независимо от того, показана панель или нет). Виджет
+/// получает готовые значения и колбэки паузы/сброса и перерисовывается, когда
+/// табло обновляет состояние раз в секунду.
+class GameTimer extends StatelessWidget {
+  final Duration matchElapsed;
+  final Duration turnElapsed;
+  final bool running;
+  final VoidCallback onToggle;
+  final VoidCallback onReset;
 
-  @override
-  State<GameTimer> createState() => _GameTimerState();
-}
-
-class _GameTimerState extends State<GameTimer> {
-  final Stopwatch _game = Stopwatch();
-  final Stopwatch _turn = Stopwatch();
-  Timer? _ticker;
-  bool _running = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _game.start();
-    _turn.start();
-    _startTicker();
-  }
-
-  void _startTicker() {
-    _ticker?.cancel();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void didUpdateWidget(covariant GameTimer old) {
-    super.didUpdateWidget(old);
-    // Передан ход — обнуляем таймер хода (общий таймер продолжает идти).
-    if (widget.turnTick != old.turnTick) {
-      _turn
-        ..reset()
-        ..stop();
-      if (_running) _turn.start();
-    }
-  }
-
-  @override
-  void dispose() {
-    _ticker?.cancel();
-    super.dispose();
-  }
-
-  void _toggle() {
-    setState(() {
-      if (_running) {
-        _game.stop();
-        _turn.stop();
-        _ticker?.cancel();
-      } else {
-        _game.start();
-        _turn.start();
-        _startTicker();
-      }
-      _running = !_running;
-    });
-  }
-
-  void _reset() {
-    setState(() {
-      _game.reset();
-      _turn.reset();
-    });
-  }
-
-  String _fmt(Duration d) {
-    final h = d.inHours;
-    final m = d.inMinutes % 60;
-    final s = d.inSeconds % 60;
-    two(int v) => v.toString().padLeft(2, '0');
-    return h > 0 ? '$h:${two(m)}:${two(s)}' : '${two(m)}:${two(s)}';
-  }
+  const GameTimer({
+    super.key,
+    required this.matchElapsed,
+    required this.turnElapsed,
+    required this.running,
+    required this.onToggle,
+    required this.onReset,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -98,25 +38,24 @@ class _GameTimerState extends State<GameTimer> {
       ),
       child: Row(
         children: [
-          _slot(scheme, tr('timer_match'), _fmt(_game.elapsed), true),
+          _slot(scheme, tr('timer_match'), clockDuration(matchElapsed), true),
           Container(
             width: 1,
             height: 34,
             margin: const EdgeInsets.symmetric(horizontal: 14),
             color: scheme.outlineVariant,
           ),
-          _slot(scheme, tr('timer_turn'), _fmt(_turn.elapsed), false),
+          _slot(scheme, tr('timer_turn'), clockDuration(turnElapsed), false),
           const Spacer(),
           IconButton(
-            tooltip: _running ? tr('pause') : tr('resume'),
-            onPressed: _toggle,
-            icon: Icon(_running
-                ? Icons.pause_rounded
-                : Icons.play_arrow_rounded),
+            tooltip: running ? tr('pause') : tr('resume_timer'),
+            onPressed: onToggle,
+            icon: Icon(
+                running ? Icons.pause_rounded : Icons.play_arrow_rounded),
           ),
           IconButton(
             tooltip: tr('reset'),
-            onPressed: _reset,
+            onPressed: onReset,
             icon: const Icon(Icons.replay_rounded),
           ),
         ],

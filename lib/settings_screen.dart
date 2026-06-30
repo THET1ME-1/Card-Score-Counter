@@ -33,6 +33,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   double _textSize = 16.0;
   String _appVersion = '…';
   bool _soundEnabled = SoundService.instance.enabled;
+  bool _timerEnabled = true;
 
   @override
   void initState() {
@@ -43,8 +44,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadPreferences() async {
     final size = await _repo.textSize();
+    final timer = await _repo.timerEnabled();
     if (!mounted) return;
-    setState(() => _textSize = size);
+    setState(() {
+      _textSize = size;
+      _timerEnabled = timer;
+    });
   }
 
   Future<void> _loadAppVersion() async {
@@ -67,6 +72,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     SoundService.instance.setEnabled(value);
     setState(() => _soundEnabled = value);
     if (value) SoundService.instance.play(Sfx.point); // короткий пример
+  }
+
+  void _toggleTimer(bool value) {
+    setState(() => _timerEnabled = value);
+    _repo.setTimerEnabled(value);
   }
 
   void _updateTextSize(double value) {
@@ -224,6 +234,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return;
       }
       final ok = await _repo.importData(utf8.decode(bytes));
+      if (ok) {
+        // Применяем восстановленные настройки на лету (без перезапуска).
+        await _theme.load();
+        await LocaleController.instance.load();
+        await SoundService.instance.load();
+        await _loadPreferences();
+        if (mounted) {
+          setState(() => _soundEnabled = SoundService.instance.enabled);
+        }
+      }
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(
         content: Text(ok ? tr('import_done') : tr('import_bad_format')),
@@ -302,6 +322,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: _soundEnabled ? tr('on') : tr('off'),
               onTap: () => _toggleSound(!_soundEnabled),
               trailing: Switch(value: _soundEnabled, onChanged: _toggleSound),
+            ),
+            _rowDivider(scheme),
+            _row(
+              scheme: scheme,
+              icon: _timerEnabled
+                  ? Icons.timer_rounded
+                  : Icons.timer_off_rounded,
+              iconBg: scheme.primaryContainer,
+              iconFg: scheme.onPrimaryContainer,
+              title: tr('timer_setting'),
+              subtitle: tr('timer_setting_sub'),
+              onTap: () => _toggleTimer(!_timerEnabled),
+              trailing: Switch(value: _timerEnabled, onChanged: _toggleTimer),
             ),
             _rowDivider(scheme),
             _row(

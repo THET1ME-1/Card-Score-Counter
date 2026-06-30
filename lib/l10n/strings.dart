@@ -143,13 +143,21 @@ const Map<String, Map<String, String>> _strings = {
   'pause': {'ru': 'Пауза', 'en': 'Pause'},
   'turn_order': {'ru': 'Порядок хода', 'en': 'Turn order'},
   'a11y_winrate': {'ru': 'Процент побед: {v}%', 'en': 'Win rate: {v}%'},
-  'shuffle': {'ru': 'Перемешать', 'en': 'Shuffle'},
+  'shuffle': {'ru': 'Перемешать всех', 'en': 'Shuffle all'},
+  'shuffle_sub': {
+    'ru': 'Случайный порядок для всех игроков',
+    'en': 'Randomize the whole order'
+  },
   'random_first': {'ru': 'Случайный первый', 'en': 'Random first'},
+  'random_first_sub': {
+    'ru': 'Меняется только кто ходит первым, остальные на местах',
+    'en': 'Only the first player changes, the rest keep their order'
+  },
   'winner': {'ru': 'Победитель', 'en': 'Winner'},
   'eliminated': {'ru': 'Выбыл', 'en': 'Out'},
-  'to_out': {'ru': 'до вылета: {n}', 'en': 'to bust: {n}'},
-  'to_win': {'ru': 'до победы: {n}', 'en': 'to win: {n}'},
-  'to_end': {'ru': 'до конца: {n}', 'en': 'to end: {n}'},
+  'to_out': {'ru': 'До вылета: {n}', 'en': 'To bust: {n}'},
+  'to_win': {'ru': 'До победы: {n}', 'en': 'To win: {n}'},
+  'to_end': {'ru': 'До конца: {n}', 'en': 'To end: {n}'},
 
   // ----------------------- Игры -----------------------
   'games': {'ru': 'Игры', 'en': 'Games'},
@@ -414,4 +422,56 @@ const Map<String, Map<String, String>> _strings = {
     'ru': 'Партия после полуночи',
     'en': 'A game played after midnight'
   },
+
+  // ----------------------- Таймер / время партии -----------------------
+  'timer_setting': {'ru': 'Таймер партии', 'en': 'Game timer'},
+  'timer_setting_sub': {
+    'ru': 'Показывать время партии на табло',
+    'en': 'Show game time on the scoreboard'
+  },
+  'resume_timer': {'ru': 'Продолжить', 'en': 'Resume'},
+
+  // ----------------------- Аналитика партии -----------------------
+  'game_analytics': {'ru': 'Аналитика партии', 'en': 'Game analytics'},
+  'duration': {'ru': 'Длительность', 'en': 'Duration'},
+  'game_duration': {'ru': 'Партия шла', 'en': 'Game lasted'},
+  'avg_per_round': {'ru': 'В среднем на круг', 'en': 'Avg per round'},
+  'rounds_played': {'ru': 'Сыграно кругов', 'en': 'Rounds played'},
+  'turn_time_by_player': {'ru': 'Время по игрокам', 'en': 'Time by player'},
+  'time_share': {'ru': 'Доля времени', 'en': 'Time share'},
+  'no_time_data': {
+    'ru': 'Время этой партии не записано',
+    'en': 'No time recorded for this game'
+  },
+  'no_time_data_hint': {
+    'ru': 'Время считается с обновления. Сыграйте новую партию — здесь появятся графики.',
+    'en': 'Timing was added in an update. Play a new game to see charts here.'
+  },
+  'vs_average': {'ru': 'Сравнение с другими', 'en': 'Compared to others'},
+  'vs_average_sub': {
+    'ru': 'Длительность относительно других партий «{game}»',
+    'en': 'Duration vs other "{game}" games'
+  },
+  'longer_by': {'ru': 'дольше среднего на {p}%', 'en': '{p}% longer than average'},
+  'shorter_by': {'ru': 'короче среднего на {p}%', 'en': '{p}% shorter than average'},
+  'about_average': {'ru': 'примерно как в среднем', 'en': 'about average'},
+  'avg_duration': {'ru': 'Средняя', 'en': 'Average'},
+  'this_game': {'ru': 'Эта партия', 'en': 'This game'},
+  'analytics_open': {'ru': 'Открыть', 'en': 'Open'},
+  'analytics_resume': {'ru': 'Продолжить партию', 'en': 'Resume game'},
+  'fastest_player': {'ru': 'Быстрее всех', 'en': 'Fastest'},
+  'slowest_player': {'ru': 'Дольше всех думал', 'en': 'Slowest'},
+  'avg_turn_overall': {'ru': 'Средний ход', 'en': 'Avg turn'},
+  'players_label': {'ru': 'Игроков', 'en': 'Players'},
+
+  // ----------------------- Календарь -----------------------
+  'calendar': {'ru': 'Календарь игр', 'en': 'Games calendar'},
+  'cal_week': {'ru': 'Неделя', 'en': 'Week'},
+  'cal_month': {'ru': 'Месяц', 'en': 'Month'},
+  'cal_year': {'ru': 'Год', 'en': 'Year'},
+  'games_per_day': {'ru': 'Игр по дням', 'en': 'Games per day'},
+  'games_on': {'ru': 'Игры за {d}', 'en': 'Games on {d}'},
+  'no_games_that_day': {'ru': 'В этот день игр не было', 'en': 'No games that day'},
+  'games_count_n': {'ru': '{n} игр', 'en': '{n} games'},
+  'total_time_played': {'ru': 'Всего за игрой', 'en': 'Total time played'},
 };

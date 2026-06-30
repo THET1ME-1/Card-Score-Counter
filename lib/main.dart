@@ -5,7 +5,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'game_history_screen.dart';
 import 'enhanced_statistics_screen.dart';
 import 'l10n/locale_controller.dart';
-import 'l10n/strings.dart';
 import 'player_input_screen.dart';
 import 'services/sound_service.dart';
 import 'settings_screen.dart';
@@ -95,34 +94,115 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _screenFor(_selectedIndex),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: _CircleNavBar(
         selectedIndex: _selectedIndex,
-        onDestinationSelected: _onItemTapped,
-        // Только иконки, без подписей — компактно и по-M3. Контур → заливка
-        // при выборе (rounded-вариант M3-иконок).
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-        destinations: <NavigationDestination>[
-          NavigationDestination(
-            icon: const Icon(Icons.groups_outlined, size: 28),
-            selectedIcon: const Icon(Icons.groups_rounded, size: 28),
-            label: tr('nav_menu'),
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.history_rounded, size: 28),
-            selectedIcon: const Icon(Icons.history_rounded, size: 28),
-            label: tr('nav_history'),
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.leaderboard_outlined, size: 28),
-            selectedIcon: const Icon(Icons.leaderboard_rounded, size: 28),
-            label: tr('nav_stats'),
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.settings_outlined, size: 28),
-            selectedIcon: const Icon(Icons.settings_rounded, size: 28),
-            label: tr('nav_settings'),
-          ),
+        onTap: _onItemTapped,
+        items: const [
+          _NavItem(Icons.groups_outlined, Icons.groups_rounded),
+          _NavItem(Icons.history_outlined, Icons.history_rounded),
+          _NavItem(Icons.leaderboard_outlined, Icons.leaderboard_rounded),
+          _NavItem(Icons.settings_outlined, Icons.settings_rounded),
         ],
+      ),
+    );
+  }
+}
+
+/// Описание пункта нижней навигации: иконка-контур и иконка-заливка.
+class _NavItem {
+  final IconData icon;
+  final IconData selectedIcon;
+  const _NavItem(this.icon, this.selectedIcon);
+}
+
+/// Нижняя навигация в духе M3, но индикатор активного пункта — РОВНЫЙ КРУГ
+/// (а не вытянутая «таблетка»). Круг плавно «переезжает» и пульсирует при
+/// смене вкладки, иконка контур→заливка.
+class _CircleNavBar extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onTap;
+  final List<_NavItem> items;
+
+  const _CircleNavBar({
+    required this.selectedIndex,
+    required this.onTap,
+    required this.items,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surfaceContainer,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 72,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              for (var i = 0; i < items.length; i++)
+                Expanded(
+                  child: _CircleNavButton(
+                    item: items[i],
+                    selected: i == selectedIndex,
+                    onTap: () => onTap(i),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CircleNavButton extends StatelessWidget {
+  final _NavItem item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CircleNavButton({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    const double d = 54;
+    return InkResponse(
+      onTap: onTap,
+      radius: 40,
+      containedInkWell: true,
+      customBorder: const CircleBorder(),
+      child: Center(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          width: d,
+          height: d,
+          decoration: BoxDecoration(
+            color: selected ? scheme.primaryContainer : Colors.transparent,
+            shape: BoxShape.circle,
+          ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            transitionBuilder: (child, anim) => ScaleTransition(
+              scale: Tween<double>(begin: 0.7, end: 1).animate(anim),
+              child: FadeTransition(opacity: anim, child: child),
+            ),
+            child: Icon(
+              selected ? item.selectedIcon : item.icon,
+              key: ValueKey(selected),
+              size: 28,
+              color: selected
+                  ? scheme.onPrimaryContainer
+                  : scheme.onSurfaceVariant,
+            ),
+          ),
+        ),
       ),
     );
   }

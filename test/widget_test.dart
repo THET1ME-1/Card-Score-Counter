@@ -14,7 +14,9 @@ void main() {
     await tester.pumpWidget(const CardGameScoreTracker());
     await tester.pump(const Duration(milliseconds: 100));
 
-    // Нижняя навигация (4 вкладки) присутствует — приложение собралось.
-    expect(find.byType(NavigationBar), findsOneWidget);
+    // Нижняя навигация присутствует: активная вкладка «Меню» (заливка) и
+    // другие вкладки (контур) — приложение собралось.
+    expect(find.byIcon(Icons.groups_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
   });
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'game_detail_screen.dart';
 import 'l10n/strings.dart';
 import 'models/game_profile.dart';
 import 'models/game_session.dart';
@@ -87,6 +88,20 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
           // Без профиля табло считало бы любую продолженную партию по правилу
           // «вылет до 101». Восстанавливаем тип игры по тегу истории.
           profile: _gameOf(game),
+        ),
+      ),
+    ).then((_) => _load());
+  }
+
+  /// Открывает экран полной аналитики по партии (время, графики, доли).
+  void _openDetail(GameSession game, String title) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => GameDetailScreen(
+          game: game,
+          profile: _gameOf(game),
+          title: title,
         ),
       ),
     ).then((_) => _load());
@@ -233,7 +248,7 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
         borderRadius: BorderRadius.circular(28),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: () => _resume(game),
+          onTap: () => _openDetail(game, title),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 8, 16),
             child: Column(
@@ -335,39 +350,127 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
 
   Widget _menu(GameSession game, String title) {
     final scheme = Theme.of(context).colorScheme;
-    return PopupMenuButton<String>(
+    return IconButton(
       icon: Icon(Icons.more_vert_rounded, color: scheme.onSurfaceVariant),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      onSelected: (value) {
-        switch (value) {
-          case 'open':
-            _resume(game);
-          case 'rename':
-            _rename(game, title);
-          case 'delete':
-            _confirmDelete(game);
-        }
-      },
-      itemBuilder: (context) => [
-        _menuItem('open', Icons.play_arrow_rounded,
-            game.isFinished ? tr('open') : tr('resume'), scheme.onSurface),
-        _menuItem(
-            'rename', Icons.edit_rounded, tr('rename'), scheme.onSurface),
-        _menuItem('delete', Icons.delete_rounded, tr('delete'), scheme.error),
-      ],
+      tooltip: tr('settings_title'),
+      onPressed: () => _showGameMenu(game, title),
     );
   }
 
-  PopupMenuItem<String> _menuItem(
-      String value, IconData icon, String label, Color color) {
-    return PopupMenuItem<String>(
-      value: value,
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: color),
-          const SizedBox(width: 12),
-          Text(label, style: TextStyle(color: color)),
-        ],
+  /// Контекстное меню партии — нижняя M3-панель в едином стиле приложения
+  /// (как «Порядок хода», «Кто победил?» и т.п.): шапка с названием, крупные
+  /// плитки действий.
+  Future<void> _showGameMenu(GameSession game, String title) async {
+    final scheme = Theme.of(context).colorScheme;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: scheme.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: scheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Icon(
+                    game.isFinished
+                        ? Icons.emoji_events_rounded
+                        : Icons.hourglass_top_rounded,
+                    color: game.isFinished ? _gold : scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTheme.displayFont,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 19,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _sheetItem(scheme, 'stats', Icons.insights_rounded,
+                  tr('game_analytics'), scheme.onSurface),
+              const SizedBox(height: 8),
+              _sheetItem(scheme, 'open', Icons.play_arrow_rounded,
+                  game.isFinished ? tr('open') : tr('resume'),
+                  scheme.onSurface),
+              const SizedBox(height: 8),
+              _sheetItem(scheme, 'rename', Icons.edit_rounded, tr('rename'),
+                  scheme.onSurface),
+              const SizedBox(height: 8),
+              _sheetItem(scheme, 'delete', Icons.delete_rounded, tr('delete'),
+                  scheme.error,
+                  danger: true),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case 'stats':
+        _openDetail(game, title);
+      case 'open':
+        _resume(game);
+      case 'rename':
+        _rename(game, title);
+      case 'delete':
+        _confirmDelete(game);
+    }
+  }
+
+  Widget _sheetItem(ColorScheme scheme, String value, IconData icon,
+      String label, Color color,
+      {bool danger = false}) {
+    return Material(
+      color: danger
+          ? scheme.errorContainer.withValues(alpha: 0.5)
+          : scheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.pop(context, value),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Icon(icon, size: 22, color: color),
+              const SizedBox(width: 14),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: AppTheme.bodyFont,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
