@@ -134,13 +134,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            for (final lang in const [('ru', 'Русский'), ('en', 'English')])
+            for (final lang in LocaleController.languages)
               ListTile(
-                title: Text(lang.$2),
-                trailing: current == lang.$1
+                title: Text(lang.nativeName),
+                trailing: current == lang.code
                     ? Icon(Icons.check_rounded, color: scheme.primary)
                     : null,
-                onTap: () => Navigator.pop(context, lang.$1),
+                onTap: () => Navigator.pop(context, lang.code),
               ),
             const SizedBox(height: 8),
           ],
@@ -318,9 +318,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               iconBg: scheme.primaryContainer,
               iconFg: scheme.onPrimaryContainer,
               title: tr('language'),
-              subtitle: LocaleController.instance.code == 'en'
-                  ? 'English'
-                  : 'Русский',
+              subtitle: LocaleController.languages
+                  .firstWhere((l) => l.code == LocaleController.instance.code,
+                      orElse: () => LocaleController.languages.first)
+                  .nativeName,
               onTap: _pickLanguage,
               trailing: Icon(Icons.chevron_right_rounded, color: scheme.outline),
             ),

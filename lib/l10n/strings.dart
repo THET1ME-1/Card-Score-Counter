@@ -1,12 +1,19 @@
 import 'locale_controller.dart';
+import 'translations.dart';
 
-/// Перевод строки по ключу на текущий язык. Если ключа нет — возвращает сам
-/// ключ (видно, что строку забыли добавить).
+/// Перевод строки по ключу на текущий язык.
+///
+/// Базовые ru/en лежат в [_strings]; остальные языки — в [kTranslations]
+/// (translations.dart). Если перевода на выбранный язык нет — откатываемся на
+/// английский, затем на русский, затем на сам ключ.
 String tr(String key) {
   final code = LocaleController.instance.code;
+  // Доп. языки (de/fr/es/it/pt…) — отдельные карты.
+  final extra = kTranslations[code]?[key];
+  if (extra != null && extra.isNotEmpty) return extra;
   final entry = _strings[key];
   if (entry == null) return key;
-  return entry[code] ?? entry['ru'] ?? key;
+  return entry[code] ?? entry['en'] ?? entry['ru'] ?? key;
 }
 
 /// Перевод с подстановкой `{name}` → значение.
