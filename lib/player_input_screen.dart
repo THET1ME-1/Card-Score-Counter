@@ -10,6 +10,7 @@ import 'l10n/strings.dart';
 import 'models/game_profile.dart';
 import 'models/game_session.dart';
 import 'player_profile.dart';
+import 'models/player_company.dart';
 import 'score_board_screen.dart';
 import 'volleyball_screen.dart';
 import 'widgets/table_tools_sheet.dart';
@@ -36,6 +37,12 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
   List<int> selectedProfiles = [];
   GameProfile? _game;
 
+  // Режим папок (компании). _openCompanyId: null — список папок,
+  // 'all' — все игроки, иначе id открытой компании.
+  bool _foldersMode = false;
+  List<PlayerCompany> _companies = [];
+  String? _openCompanyId;
+
   /// Последняя незавершённая партия (для подсказки «Продолжить»), и её игра.
   GameSession? _resumeGame;
   GameProfile? _resumeProfile;
@@ -47,6 +54,39 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
     _loadProfiles();
     _loadGame();
     _loadResume();
+    _loadCompanies();
+  }
+
+  Future<void> _loadCompanies() async {
+    final mode = await _repo.playerFoldersEnabled();
+    final companies = await _repo.loadCompanies();
+    if (!mounted) return;
+    setState(() {
+      _foldersMode = mode;
+      _companies = companies;
+      if (!mode) _openCompanyId = null;
+    });
+  }
+
+  /// Имена участников открытой компании (или null — показываем всех).
+  List<String>? get _openMembers {
+    if (!_foldersMode || _openCompanyId == null || _openCompanyId == 'all') {
+      return null;
+    }
+    final idx = _companies.indexWhere((c) => c.id == _openCompanyId);
+    return idx == -1 ? const <String>[] : _companies[idx].members;
+  }
+
+  /// Индексы профилей, видимых в текущем виде (все или участники компании).
+  List<int> _visibleProfileIndices() {
+    final members = _openMembers;
+    if (members == null) {
+      return [for (var i = 0; i < profiles.length; i++) i];
+    }
+    return [
+      for (var i = 0; i < profiles.length; i++)
+        if (members.contains(profiles[i].name)) i,
+    ];
   }
 
   /// Ищет самую свежую незавершённую (и не пустую, и не скрытую) партию.
@@ -151,6 +191,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
         ..addAll(remapped);
     });
     _loadResume();
+    _loadCompanies();
   }
 
   Future<void> _saveProfiles() async {
@@ -195,6 +236,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
     // Имя — это ключ игрока в истории, поэтому переименовываем во всех играх.
     if (name != oldName) {
       await _repo.renamePlayerInGames(oldName, name);
+      await _repo.renamePlayerInCompanies(oldName, name);
     }
   }
 
@@ -244,11 +286,13 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
   }
 
   void _deleteProfile(int index) {
+    final name = index >= 0 && index < profiles.length ? profiles[index].name : null;
     setState(() {
       profiles.removeAt(index);
       selectedProfiles.remove(index);
     });
     _saveProfiles();
+    if (name != null) _repo.removePlayerFromCompanies(name);
   }
 
   /// Нижняя панель «Порядок хода»: перетаскивание, перемешать, случайный первый.
@@ -488,6 +532,15 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
     } else {
       await _addProfile(result.name, result.color,
           imagePath: result.imagePath);
+      // Если создаём игрока внутри компании — сразу добавляем его туда.
+      final cid = _openCompanyId;
+      if (_foldersMode && cid != null && cid != 'all') {
+        final idx = _companies.indexWhere((c) => c.id == cid);
+        if (idx != -1) {
+          final members = [..._companies[idx].members, result.name];
+          await _repo.setCompanyMembers(cid, members);
+        }
+      }
     }
   }
 
@@ -495,10 +548,20 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
+    // На верхнем уровне папок (список компаний) нет выбора игроков —
+    // нижнюю панель «Начать игру» прячем.
+    final foldersList = _foldersMode && _openCompanyId == null;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(tr('who_plays')),
         actions: [
+          IconButton(
+            tooltip: _foldersMode ? tr('mode_folders') : tr('mode_single'),
+            icon: Icon(
+                _foldersMode ? Icons.folder_rounded : Icons.person_rounded),
+            onPressed: _toggleFoldersMode,
+          ),
           IconButton(
             tooltip: tr('who_first'),
             icon: const Icon(Icons.casino_rounded),
@@ -510,32 +573,68 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
         children: [
           _gameSelector(scheme),
           if (_resumeGame != null) _resumeBanner(scheme),
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 0.9,
-              ),
-              // +1 карточка — пунктирная «Создать игрока» в той же сетке.
-              itemCount: profiles.length + 1,
-              itemBuilder: (context, index) {
-                final tile = index == profiles.length
-                    ? _addCard(scheme)
-                    : _playerCard(index, scheme);
-                // Каскадное появление плиток (M3): лёгкий подъём + проявление.
-                return Reveal(
-                  delay: Duration(milliseconds: 45 * index),
-                  child: tile,
-                );
-              },
-            ),
-          ),
-          _bottomBar(scheme),
+          if (_foldersMode && _openCompanyId != null) _folderHeader(scheme),
+          Expanded(child: _grid(scheme)),
+          if (!foldersList) _bottomBar(scheme),
         ],
       ),
+    );
+  }
+
+  void _toggleFoldersMode() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _foldersMode = !_foldersMode;
+      _openCompanyId = null;
+    });
+    _repo.setPlayerFoldersEnabled(_foldersMode);
+  }
+
+  /// Сетка: либо папки (верхний уровень), либо игроки (все/участники компании).
+  Widget _grid(ColorScheme scheme) {
+    const delegate = SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 2,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 0.9,
+    );
+    const pad = EdgeInsets.fromLTRB(16, 12, 16, 8);
+
+    if (_foldersMode && _openCompanyId == null) {
+      final items = <Widget>[
+        _allFolderCard(scheme),
+        for (final c in _companies) _companyFolderCard(c, scheme),
+        _createCompanyCard(scheme),
+      ];
+      return GridView.builder(
+        padding: pad,
+        gridDelegate: delegate,
+        itemCount: items.length,
+        itemBuilder: (_, i) =>
+            Reveal(delay: Duration(milliseconds: 45 * i), child: items[i]),
+      );
+    }
+
+    final indices = _visibleProfileIndices();
+    final inCompany =
+        _foldersMode && _openCompanyId != null && _openCompanyId != 'all';
+    return GridView.builder(
+      padding: pad,
+      gridDelegate: delegate,
+      itemCount: indices.length + 1,
+      itemBuilder: (context, i) {
+        final tile = i == indices.length
+            ? (inCompany
+                ? _addCard(scheme,
+                    onTap: () => _manageMembers(_openCompanyId!),
+                    label: tr('manage_members'),
+                    icon: Icons.group_add_rounded)
+                : _addCard(scheme,
+                    onTap: () => _showPlayerEditor(),
+                    label: tr('create_player')))
+            : _playerCard(indices[i], scheme);
+        return Reveal(delay: Duration(milliseconds: 45 * i), child: tile);
+      },
     );
   }
 
@@ -775,9 +874,14 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
   }
 
   /// Пятая карточка-«плюс» с пунктиром — вписана в ту же сетку.
-  Widget _addCard(ColorScheme scheme) {
+  Widget _addCard(
+    ColorScheme scheme, {
+    VoidCallback? onTap,
+    String? label,
+    IconData icon = Icons.add,
+  }) {
     return GestureDetector(
-      onTap: () => _showPlayerEditor(),
+      onTap: onTap ?? () => _showPlayerEditor(),
       child: CustomPaint(
         painter: _DashedBorderPainter(color: scheme.outline),
         child: Container(
@@ -794,12 +898,12 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                     color: scheme.surfaceContainerHighest,
                     shape: _addShape,
                   ),
-                  child: Icon(Icons.add,
+                  child: Icon(icon,
                       size: 36, color: scheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  tr('create_player'),
+                  label ?? tr('create_player'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: AppTheme.bodyFont,
@@ -812,6 +916,334 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // ----------------------------- Папки (компании) -----------------------------
+
+  /// Шапка внутри открытой папки: «назад», название, кнопка управления.
+  Widget _folderHeader(ColorScheme scheme) {
+    final isAll = _openCompanyId == 'all';
+    final idx = _companies.indexWhere((c) => c.id == _openCompanyId);
+    final name = isAll
+        ? tr('all_players')
+        : (idx == -1 ? '' : _companies[idx].name);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 12, 0),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back_rounded),
+            tooltip: tr('companies'),
+            onPressed: () => setState(() => _openCompanyId = null),
+          ),
+          Icon(isAll ? Icons.groups_rounded : Icons.folder_rounded,
+              color: scheme.primary, size: 22),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: AppTheme.displayFont,
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+                color: scheme.onSurface,
+              ),
+            ),
+          ),
+          if (!isAll && idx != -1)
+            IconButton(
+              icon: const Icon(Icons.more_horiz_rounded),
+              tooltip: tr('settings_title'),
+              onPressed: () => _companyMenu(_companies[idx]),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _folderTile(
+    ColorScheme scheme, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color bg,
+    required Color fg,
+    required VoidCallback onTap,
+    VoidCallback? onLongPress,
+  }) {
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(24),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 52, color: fg),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: AppTheme.displayFont,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                  color: fg,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontFamily: AppTheme.bodyFont,
+                  fontSize: 12,
+                  color: fg.withValues(alpha: 0.8),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _allFolderCard(ColorScheme scheme) => _folderTile(
+        scheme,
+        icon: Icons.groups_rounded,
+        title: tr('all_players'),
+        subtitle: trf('members_n', {'n': profiles.length}),
+        bg: scheme.secondaryContainer,
+        fg: scheme.onSecondaryContainer,
+        onTap: () => setState(() => _openCompanyId = 'all'),
+      );
+
+  Widget _companyFolderCard(PlayerCompany c, ColorScheme scheme) {
+    // Считаем только реально существующих игроков.
+    final names = profiles.map((p) => p.name).toSet();
+    final count = c.members.where(names.contains).length;
+    return _folderTile(
+      scheme,
+      icon: Icons.folder_rounded,
+      title: c.name,
+      subtitle: trf('members_n', {'n': count}),
+      bg: scheme.surfaceContainerHigh,
+      fg: scheme.onSurface,
+      onTap: () => setState(() => _openCompanyId = c.id),
+      onLongPress: () => _companyMenu(c),
+    );
+  }
+
+  Widget _createCompanyCard(ColorScheme scheme) => _addCard(
+        scheme,
+        onTap: _createCompany,
+        label: tr('create_company'),
+        icon: Icons.create_new_folder_rounded,
+      );
+
+  Future<void> _createCompany() async {
+    final name = await _askName(tr('create_company'), '');
+    if (name == null || name.trim().isEmpty) return;
+    final company = await _repo.addCompany(name.trim());
+    await _loadCompanies();
+    if (!mounted) return;
+    setState(() => _openCompanyId = company.id);
+  }
+
+  /// Меню компании: переименовать / удалить.
+  Future<void> _companyMenu(PlayerCompany c) async {
+    final scheme = Theme.of(context).colorScheme;
+    await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: scheme.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.drive_file_rename_outline_rounded),
+              title: Text(tr('rename')),
+              onTap: () => Navigator.pop(ctx, 'rename'),
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_rounded, color: scheme.error),
+              title: Text(tr('delete'),
+                  style: TextStyle(color: scheme.error)),
+              onTap: () => Navigator.pop(ctx, 'delete'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    ).then((action) async {
+      if (action == 'rename') {
+        final name = await _askName(tr('rename'), c.name);
+        if (name != null && name.trim().isNotEmpty) {
+          await _repo.renameCompany(c.id, name.trim());
+          await _loadCompanies();
+        }
+      } else if (action == 'delete') {
+        await _repo.deleteCompany(c.id);
+        if (mounted && _openCompanyId == c.id) {
+          setState(() => _openCompanyId = null);
+        }
+        await _loadCompanies();
+      }
+    });
+  }
+
+  /// Управление составом компании: чекбоксы по всем игрокам + создать нового.
+  Future<void> _manageMembers(String companyId) async {
+    final scheme = Theme.of(context).colorScheme;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: scheme.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) {
+          final idx = _companies.indexWhere((c) => c.id == companyId);
+          if (idx == -1) return const SizedBox.shrink();
+          final members = _companies[idx].members.toSet();
+          return DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.7,
+            maxChildSize: 0.92,
+            builder: (ctx, scrollCtrl) => Column(
+              children: [
+                const SizedBox(height: 12),
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: scheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 12, 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          tr('manage_members'),
+                          style: TextStyle(
+                            fontFamily: AppTheme.displayFont,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 18,
+                            color: scheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () async {
+                          await _showPlayerEditor();
+                          if (mounted) setSheet(() {});
+                        },
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: Text(tr('create_player')),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: profiles.isEmpty
+                      ? Center(
+                          child: Text(
+                            tr('create_players_first'),
+                            style: TextStyle(
+                              fontFamily: AppTheme.bodyFont,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          controller: scrollCtrl,
+                          itemCount: profiles.length,
+                          itemBuilder: (_, i) {
+                            final p = profiles[i];
+                            final checked = members.contains(p.name);
+                            return CheckboxListTile(
+                              value: checked,
+                              title: Text(p.name),
+                              secondary: CircleAvatar(
+                                backgroundColor: p.color,
+                                radius: 14,
+                              ),
+                              onChanged: (v) async {
+                                if (v == true) {
+                                  members.add(p.name);
+                                } else {
+                                  members.remove(p.name);
+                                }
+                                await _repo.setCompanyMembers(
+                                    companyId, members.toList());
+                                await _loadCompanies();
+                                setSheet(() {});
+                              },
+                            );
+                          },
+                        ),
+                ),
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text(tr('done')),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  /// Простой ввод названия (диалог) — для компаний.
+  Future<String?> _askName(String title, String initial) {
+    final controller = TextEditingController(text: initial);
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: InputDecoration(labelText: tr('name_label')),
+          onSubmitted: (v) => Navigator.pop(ctx, v),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: Text(tr('cancel'))),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, controller.text),
+              child: Text(tr('save'))),
+        ],
       ),
     );
   }

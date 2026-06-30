@@ -543,6 +543,18 @@ const Map<String, Map<String, String>> _strings = {
     'ru': 'Добавлять комментарий к сыгранной партии',
     'en': 'Add a comment to a played game'
   },
+  'feature_folders': {'ru': 'Папки игроков', 'en': 'Player folders'},
+  'feature_folders_sub': {
+    'ru': 'Компании: группы игроков (игрок может быть в нескольких)',
+    'en': 'Companies: groups of players (a player can be in several)'
+  },
+  'mode_folders': {'ru': 'Режим: папки', 'en': 'Mode: folders'},
+  'mode_single': {'ru': 'Режим: по одному', 'en': 'Mode: single'},
+  'all_players': {'ru': 'Все', 'en': 'All'},
+  'companies': {'ru': 'Компании', 'en': 'Companies'},
+  'create_company': {'ru': 'Создать компанию', 'en': 'New company'},
+  'manage_members': {'ru': 'Состав', 'en': 'Members'},
+  'members_n': {'ru': '{n} чел.', 'en': '{n} players'},
   'note': {'ru': 'Заметка', 'en': 'Note'},
   'add_note': {'ru': 'Добавить заметку', 'en': 'Add a note'},
   'note_hint': {'ru': 'Что запомнилось…', 'en': 'What happened…'},

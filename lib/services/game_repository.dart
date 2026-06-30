@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/game_profile.dart';
 import '../models/game_session.dart';
+import '../models/player_company.dart';
 import '../models/volleyball_match.dart';
 import '../player_profile.dart';
 
@@ -40,6 +41,8 @@ class GameRepository extends ChangeNotifier {
   static const String _kVolleyballActive = 'volleyballActive';
   static const String _kGameNotes = 'gameNotes';
   static const String _kFeatureNotes = 'featureNotes';
+  static const String _kCompanies = 'companies';
+  static const String _kPlayerFolders = 'playerFolders';
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
@@ -332,6 +335,98 @@ class GameRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ------------------------- Компании (папки) игроков -------------------------
+  // Папка = именованный набор имён игроков. Один игрок может быть в нескольких
+  // папках. Хранится отдельным JSON-списком.
+
+  Future<bool> playerFoldersEnabled({bool fallback = false}) async =>
+      (await _prefs).getBool(_kPlayerFolders) ?? fallback;
+
+  Future<void> setPlayerFoldersEnabled(bool value) async {
+    await (await _prefs).setBool(_kPlayerFolders, value);
+    notifyListeners();
+  }
+
+  Future<List<PlayerCompany>> loadCompanies() async {
+    final raw = (await _prefs).getStringList(_kCompanies) ?? const <String>[];
+    final out = <PlayerCompany>[];
+    for (final e in raw) {
+      try {
+        out.add(PlayerCompany.fromJson(jsonDecode(e)));
+      } catch (_) {}
+    }
+    return out;
+  }
+
+  Future<void> saveCompanies(List<PlayerCompany> companies) async {
+    await (await _prefs).setStringList(
+      _kCompanies,
+      companies.map((c) => jsonEncode(c.toJson())).toList(),
+    );
+    notifyListeners();
+  }
+
+  Future<PlayerCompany> addCompany(String name) async {
+    final companies = await loadCompanies();
+    final company = PlayerCompany(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      name: name.trim(),
+      members: [],
+    );
+    companies.add(company);
+    await saveCompanies(companies);
+    return company;
+  }
+
+  Future<void> renameCompany(String id, String name) async {
+    final companies = await loadCompanies();
+    final idx = companies.indexWhere((c) => c.id == id);
+    if (idx == -1) return;
+    companies[idx].name = name.trim();
+    await saveCompanies(companies);
+  }
+
+  Future<void> deleteCompany(String id) async {
+    final companies = await loadCompanies()
+      ..removeWhere((c) => c.id == id);
+    await saveCompanies(companies);
+  }
+
+  /// Полностью задаёт состав компании (для экрана управления участниками).
+  Future<void> setCompanyMembers(String id, List<String> members) async {
+    final companies = await loadCompanies();
+    final idx = companies.indexWhere((c) => c.id == id);
+    if (idx == -1) return;
+    companies[idx].members = members.toSet().toList();
+    await saveCompanies(companies);
+  }
+
+  /// Игрок переименован — обновляем его имя во всех папках.
+  Future<void> renamePlayerInCompanies(String oldName, String newName) async {
+    final companies = await loadCompanies();
+    var changed = false;
+    for (final c in companies) {
+      for (var i = 0; i < c.members.length; i++) {
+        if (c.members[i] == oldName) {
+          c.members[i] = newName;
+          changed = true;
+        }
+      }
+      c.members = c.members.toSet().toList();
+    }
+    if (changed) await saveCompanies(companies);
+  }
+
+  /// Игрок удалён — убираем его из всех папок.
+  Future<void> removePlayerFromCompanies(String name) async {
+    final companies = await loadCompanies();
+    var changed = false;
+    for (final c in companies) {
+      if (c.members.remove(name)) changed = true;
+    }
+    if (changed) await saveCompanies(companies);
+  }
+
   /// Изменяет счётчик побед игрока на [delta] (с защитой от ухода ниже нуля).
   Future<void> adjustWins(String playerName, int delta) async {
     final profiles = await loadProfiles();
@@ -474,6 +569,7 @@ class GameRepository extends ChangeNotifier {
       _kGameHistory: prefs.getStringList(_kGameHistory) ?? const <String>[],
       _kProfiles: prefs.getStringList(_kProfiles) ?? const <String>[],
       _kCustomGames: prefs.getStringList(_kCustomGames) ?? const <String>[],
+      _kCompanies: prefs.getStringList(_kCompanies) ?? const <String>[],
       _kGameNames: prefs.getString(_kGameNames),
       _kGameNotes: prefs.getString(_kGameNotes),
       _kGameTypes: prefs.getString(_kGameTypes),
@@ -489,6 +585,7 @@ class GameRepository extends ChangeNotifier {
       _kDynamicColor: prefs.getBool(_kDynamicColor),
       _kAmoled: prefs.getBool(_kAmoled),
       _kFeatureNotes: prefs.getBool(_kFeatureNotes),
+      _kPlayerFolders: prefs.getBool(_kPlayerFolders),
     };
     return const JsonEncoder.withIndent('  ').convert(data);
   }
@@ -515,6 +612,7 @@ class GameRepository extends ChangeNotifier {
       await setStrList(_kGameHistory, games);
       await setStrList(_kProfiles, profiles);
       await setStrList(_kCustomGames, data[_kCustomGames]);
+      await setStrList(_kCompanies, data[_kCompanies]);
 
       // Строковые карты (имена/заметки партий, типы) и прочие строки.
       for (final key in [
@@ -543,7 +641,8 @@ class GameRepository extends ChangeNotifier {
         _kTimerEnabled,
         _kDynamicColor,
         _kAmoled,
-        _kFeatureNotes
+        _kFeatureNotes,
+        _kPlayerFolders
       ]) {
         final v = data[key];
         if (v is bool) await prefs.setBool(key, v);

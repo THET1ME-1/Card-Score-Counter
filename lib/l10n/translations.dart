@@ -365,6 +365,15 @@ const Map<String, String> _de = {
   "note": "Notiz",
   "add_note": "Notiz hinzufügen",
   "note_hint": "Was war los…",
+  "feature_folders": "Spieler-Ordner",
+  "feature_folders_sub": "Gruppen: ein Spieler kann in mehreren sein",
+  "mode_folders": "Modus: Ordner",
+  "mode_single": "Modus: einzeln",
+  "all_players": "Alle",
+  "companies": "Gruppen",
+  "create_company": "Gruppe erstellen",
+  "manage_members": "Mitglieder",
+  "members_n": "{n} Spieler",
 };
 
 // ------------------------------- Français -------------------------------
@@ -721,6 +730,15 @@ const Map<String, String> _fr = {
   "note": "Note",
   "add_note": "Ajouter une note",
   "note_hint": "Ce qui s'est passé…",
+  "feature_folders": "Dossiers de joueurs",
+  "feature_folders_sub": "Groupes : un joueur peut être dans plusieurs",
+  "mode_folders": "Mode : dossiers",
+  "mode_single": "Mode : un par un",
+  "all_players": "Tous",
+  "companies": "Groupes",
+  "create_company": "Créer un groupe",
+  "manage_members": "Membres",
+  "members_n": "{n} joueurs",
 };
 
 // ------------------------------- Español -------------------------------
@@ -1075,6 +1093,15 @@ const Map<String, String> _es = {
   "note": "Nota",
   "add_note": "Añadir nota",
   "note_hint": "Qué pasó…",
+  "feature_folders": "Carpetas de jugadores",
+  "feature_folders_sub": "Grupos: un jugador puede estar en varios",
+  "mode_folders": "Modo: carpetas",
+  "mode_single": "Modo: uno a uno",
+  "all_players": "Todos",
+  "companies": "Grupos",
+  "create_company": "Crear grupo",
+  "manage_members": "Miembros",
+  "members_n": "{n} jugadores",
 };
 
 // ------------------------------- Italiano -------------------------------
@@ -1430,6 +1457,15 @@ const Map<String, String> _it = {
   "note": "Nota",
   "add_note": "Aggiungi nota",
   "note_hint": "Cosa è successo…",
+  "feature_folders": "Cartelle giocatori",
+  "feature_folders_sub": "Gruppi: un giocatore può stare in più cartelle",
+  "mode_folders": "Modalità: cartelle",
+  "mode_single": "Modalità: singolo",
+  "all_players": "Tutti",
+  "companies": "Gruppi",
+  "create_company": "Crea gruppo",
+  "manage_members": "Membri",
+  "members_n": "{n} giocatori",
 };
 
 // ------------------------------- Português -------------------------------
@@ -1782,4 +1818,13 @@ const Map<String, String> _pt = {
   "note": "Nota",
   "add_note": "Adicionar nota",
   "note_hint": "O que aconteceu…",
+  "feature_folders": "Pastas de jogadores",
+  "feature_folders_sub": "Grupos: um jogador pode estar em vários",
+  "mode_folders": "Modo: pastas",
+  "mode_single": "Modo: um a um",
+  "all_players": "Todos",
+  "companies": "Grupos",
+  "create_company": "Criar grupo",
+  "manage_members": "Membros",
+  "members_n": "{n} jogadores",
 };

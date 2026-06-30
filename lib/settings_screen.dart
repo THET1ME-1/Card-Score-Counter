@@ -39,6 +39,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _soundEnabled = SoundService.instance.enabled;
   bool _timerEnabled = true;
   bool _featureNotes = false;
+  bool _featureFolders = false;
 
   @override
   void initState() {
@@ -51,11 +52,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final size = await _repo.textSize();
     final timer = await _repo.timerEnabled();
     final notes = await _repo.featureNotesEnabled();
+    final folders = await _repo.playerFoldersEnabled();
     if (!mounted) return;
     setState(() {
       _textSize = size;
       _timerEnabled = timer;
       _featureNotes = notes;
+      _featureFolders = folders;
     });
   }
 
@@ -93,6 +96,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _toggleFeatureNotes(bool value) {
     setState(() => _featureNotes = value);
     _repo.setFeatureNotesEnabled(value);
+  }
+
+  void _toggleFeatureFolders(bool value) {
+    setState(() => _featureFolders = value);
+    _repo.setPlayerFoldersEnabled(value);
   }
 
   void _toggleDynamic(bool value) {
@@ -558,6 +566,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               trailing: Switch(
                 value: _featureNotes,
                 onChanged: _toggleFeatureNotes,
+              ),
+            ),
+            _rowDivider(scheme),
+            _row(
+              scheme: scheme,
+              icon: Icons.folder_rounded,
+              iconBg: scheme.primaryContainer,
+              iconFg: scheme.onPrimaryContainer,
+              title: tr('feature_folders'),
+              subtitle: tr('feature_folders_sub'),
+              onTap: () => _toggleFeatureFolders(!_featureFolders),
+              trailing: Switch(
+                value: _featureFolders,
+                onChanged: _toggleFeatureFolders,
               ),
             ),
           ]),
