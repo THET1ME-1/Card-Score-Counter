@@ -11,6 +11,7 @@ import 'models/game_profile.dart';
 import 'models/game_session.dart';
 import 'player_profile.dart';
 import 'score_board_screen.dart';
+import 'volleyball_screen.dart';
 import 'services/game_repository.dart';
 import 'theme/app_theme.dart';
 import 'widgets/player_shapes.dart';
@@ -101,6 +102,16 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
   Future<void> _changeGame() async {
     final id = await showGamePicker(context);
     if (id == null) return;
+    // Волейбол — отдельное табло без выбора игроков: открываем сразу.
+    final picked = await _repo.gameById(id);
+    if (picked?.winRule == WinRule.volleyball) {
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const VolleyballScreen()),
+      );
+      return;
+    }
     await _repo.setSelectedGameId(id);
     await _loadGame();
   }

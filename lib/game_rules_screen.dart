@@ -60,6 +60,7 @@ class _GameRulesScreenState extends State<GameRulesScreen> {
       WinRule.fool => tr('rule_fool'),
       WinRule.ranking => tr('rule_ranking'),
       WinRule.phases => tr('rule_phases'),
+      WinRule.volleyball => tr('rule_volleyball'),
     };
     if (g.target != null && g.target! > 0) {
       return '$base · ${trf('to_target', {'n': g.target!})}';

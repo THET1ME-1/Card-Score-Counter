@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/game_profile.dart';
 import '../models/game_session.dart';
+import '../models/volleyball_match.dart';
 import '../player_profile.dart';
 
 /// Единый слой доступа к данным приложения поверх [SharedPreferences].
@@ -35,6 +36,7 @@ class GameRepository extends ChangeNotifier {
   static const String _kTimerEnabled = 'timerEnabled';
   static const String _kResumeDismissed = 'resumeDismissed';
   static const String _kDynamicColor = 'dynamicColor';
+  static const String _kVolleyballActive = 'volleyballActive';
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
@@ -203,6 +205,56 @@ class GameRepository extends ChangeNotifier {
     final games = await loadGames();
     games.removeWhere((g) => g.isEmpty);
     await _saveGames(games);
+  }
+
+  // --------------------------- Волейбол ---------------------------
+
+  /// Текущий незавершённый волейбольный матч (или null).
+  Future<VolleyballMatch?> loadActiveVolleyball() async {
+    final raw = (await _prefs).getString(_kVolleyballActive);
+    if (raw == null) return null;
+    try {
+      return VolleyballMatch.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveActiveVolleyball(VolleyballMatch m) async {
+    await (await _prefs)
+        .setString(_kVolleyballActive, jsonEncode(m.toJson()));
+  }
+
+  Future<void> clearActiveVolleyball() async {
+    await (await _prefs).remove(_kVolleyballActive);
+  }
+
+  /// Сохраняет завершённый матч в историю как [GameSession] (две «команды»,
+  /// очки по сетам), отмеченную типом «Волейбол».
+  Future<void> saveVolleyballToHistory(
+      VolleyballMatch m, VbState state) async {
+    if (state.completedSets.isEmpty) return;
+    final scores = <List<dynamic>>[
+      [for (final s in state.completedSets) s[0]],
+      [for (final s in state.completedSets) s[1]],
+    ];
+    final session = GameSession(
+      gameId: m.id,
+      players: m.teamNames,
+      scores: scores,
+      rounds: state.completedSets.length,
+      remainingPlayers: m.teamNames,
+      eliminatedPlayers: const [],
+      dividerIndices: const [],
+      currentPlayerIndex: 0,
+      date: m.date,
+      winCredited: false,
+      winnerName: state.winner == null ? null : m.teamNames[state.winner!],
+      durationMs: 0,
+      playerTimesMs: const [],
+    );
+    await upsertGame(session, preserveDate: false);
+    await setGameType(m.id, 'volleyball');
   }
 
   Future<void> clearGames() async {

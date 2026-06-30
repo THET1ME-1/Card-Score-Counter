@@ -525,7 +525,12 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
       case 'stats':
         _openDetail(game, title);
       case 'open':
-        _resume(game);
+        // Волейбол не открывается в обычном табло — показываем аналитику.
+        if (_gameOf(game)?.winRule == WinRule.volleyball) {
+          _openDetail(game, title);
+        } else {
+          _resume(game);
+        }
       case 'rename':
         _rename(game, title);
       case 'delete':

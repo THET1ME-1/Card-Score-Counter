@@ -32,6 +32,10 @@ enum WinRule {
   /// Не очки, а ФАЗЫ 1→10: каждый кон отмечают, кто прошёл свою фазу (тогда
   /// +1 фаза). Кто первым прошёл фазу 10 — победитель. Пример: Phase 10.
   phases,
+
+  /// Волейбол: своё умное табло двух команд (очки/сеты), отдельный экран.
+  /// Выбор игроков не нужен. Пример: волейбол.
+  volleyball,
 }
 
 /// Профиль игры — набор правил подсчёта. Бывает встроенный (пресет) или
@@ -250,5 +254,14 @@ const List<GameProfile> kBuiltInGames = [
     target: 10,
     rulesUrlRu: 'https://en.wikipedia.org/wiki/Euchre',
     rulesUrlEn: 'https://en.wikipedia.org/wiki/Euchre',
+  ),
+  // Волейбол — отдельное умное табло (после всех карточных игр).
+  GameProfile(
+    id: 'volleyball',
+    nameKey: 'game_volleyball',
+    name: 'Волейбол',
+    winRule: WinRule.volleyball,
+    rulesUrlRu: 'https://ru.wikipedia.org/wiki/Волейбол',
+    rulesUrlEn: 'https://en.wikipedia.org/wiki/Volleyball',
   ),
 ];

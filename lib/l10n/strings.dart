@@ -203,6 +203,10 @@ const Map<String, Map<String, String>> _strings = {
     'ru': 'Фазы 1→10: кто первым прошёл 10-ю',
     'en': 'Phases 1→10: first to finish phase 10'
   },
+  'rule_volleyball': {
+    'ru': 'Умное табло: очки и сеты двух команд',
+    'en': 'Smart scoreboard: points & sets for two teams'
+  },
   'no_target': {'ru': 'без порога', 'en': 'no target'},
   'to_target': {'ru': 'до {n}', 'en': 'to {n}'},
   'game_label': {'ru': 'Игра: {name}', 'en': 'Game: {name}'},
@@ -236,6 +240,10 @@ const Map<String, Map<String, String>> _strings = {
   'play_round_first': {
     'ru': 'Сыграйте хотя бы один кон',
     'en': 'Play at least one hand'
+  },
+  'revive_blocked': {
+    'ru': '«{name}» уже выбыл, дальше играли без него — вернуть задним числом нельзя',
+    'en': '"{name}" is already out and play went on without them — can\'t revive retroactively'
   },
   'times_fool': {'ru': 'в дураках: {n}', 'en': 'fool: {n}'},
   'least_fool': {'ru': 'Меньше всех в дураках', 'en': 'Fewest losses'},
@@ -370,6 +378,7 @@ const Map<String, Map<String, String>> _strings = {
   'game_president': {'ru': 'Президент', 'en': 'President / Scum'},
   'game_pinochle': {'ru': 'Пинокль', 'en': 'Pinochle'},
   'game_euchre': {'ru': 'Юкер', 'en': 'Euchre'},
+  'game_volleyball': {'ru': 'Волейбол', 'en': 'Volleyball'},
 
   // -------------------------- Достижения --------------------------
   'achievements': {'ru': 'Достижения', 'en': 'Achievements'},
@@ -481,6 +490,33 @@ const Map<String, Map<String, String>> _strings = {
   'no_games_that_day': {'ru': 'В этот день игр не было', 'en': 'No games that day'},
   'games_count_n': {'ru': '{n} игр', 'en': '{n} games'},
   'total_time_played': {'ru': 'Всего за игрой', 'en': 'Total time played'},
+
+  // ----------------------- Волейбол -----------------------
+  'vb_home': {'ru': 'Хозяева', 'en': 'Home'},
+  'vb_guest': {'ru': 'Гости', 'en': 'Guest'},
+  'vb_sets': {'ru': 'Сеты', 'en': 'Sets'},
+  'vb_swap': {'ru': 'Сменить стороны', 'en': 'Swap sides'},
+  'vb_new_match': {'ru': 'Новый матч', 'en': 'New match'},
+  'vb_end_set': {'ru': 'Завершить сет', 'en': 'End set'},
+  'vb_finish_match': {'ru': 'Завершить матч', 'en': 'Finish match'},
+  'vb_format': {'ru': 'Формат', 'en': 'Format'},
+  'vb_format_standard': {'ru': 'Стандарт · до 3 сетов', 'en': 'Standard · best of 5'},
+  'vb_format_short': {'ru': 'Короткий · до 2 сетов', 'en': 'Short · best of 3'},
+  'vb_format_free': {'ru': 'Свободный', 'en': 'Free'},
+  'vb_points': {'ru': 'Очков в сете', 'en': 'Points per set'},
+  'vb_tiebreak': {'ru': 'Решающий сет', 'en': 'Deciding set'},
+  'vb_set_n': {'ru': 'Сет {n}', 'en': 'Set {n}'},
+  'vb_current_set': {'ru': 'Текущий сет', 'en': 'Current set'},
+  'vb_timeline': {'ru': 'Таймлайн', 'en': 'Timeline'},
+  'vb_config': {'ru': 'Настройки матча', 'en': 'Match settings'},
+  'vb_reset_q': {'ru': 'Начать новый матч?', 'en': 'Start a new match?'},
+  'vb_reset_body': {
+    'ru': 'Текущий счёт будет сброшен.',
+    'en': 'The current score will be reset.'
+  },
+  'vb_match_point': {'ru': 'Матчбол', 'en': 'Match point'},
+  'vb_set_point': {'ru': 'Сетбол', 'en': 'Set point'},
+  'vb_tap_hint': {'ru': 'Тап по половине — очко команде', 'en': 'Tap a side to add a point'},
 
   // ----------------------- Очные встречи -----------------------
   'head_to_head': {'ru': 'Очные встречи', 'en': 'Head-to-head'},

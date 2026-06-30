@@ -151,7 +151,10 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
                 child: cards[i],
               ),
             ),
-      bottomNavigationBar: _resumeBar(scheme),
+      // У волейбола нет обычного табло — кнопку «продолжить/открыть» прячем.
+      bottomNavigationBar: widget.profile?.winRule == WinRule.volleyball
+          ? null
+          : _resumeBar(scheme),
     );
   }
 

@@ -492,6 +492,9 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
           if (_phaseOf(i) >= 11) return widget.players[i];
         }
         return null;
+      case WinRule.volleyball:
+        // Волейбол использует своё табло, сюда не попадает.
+        return null;
     }
   }
 
@@ -1121,6 +1124,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
       // Phase 10: «фаза N/10» или «Готово!» при прохождении 10-й.
       WinRule.phases =>
         _phaseOf(index) >= 11 ? tr('phase_done') : trf('phase_n', {'n': _phaseDisplay(index)}),
+      WinRule.volleyball => '',
     };
   }
 
@@ -1183,6 +1187,26 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
           rule: _rule,
           target: _target,
           onAddScores: (newDeltas) {
+            // ГАРД (101 и др. «на вылет»): нельзя задним числом вернуть уже
+            // выбывшего игрока под порог, если дальше круги играли без него —
+            // иначе его пустые клетки превратятся в «взял круг».
+            if (_rule == WinRule.elimination) {
+              for (int k = 0; k < participants.length; k++) {
+                final i = participants[k];
+                final name = widget.players[i];
+                final newTotalHere = _totalBefore(i, r) + newDeltas[k];
+                final wasOut = eliminatedPlayers.contains(name);
+                final hasLaterSkips = [
+                  for (int j = r + 1; j < scores[i].length; j++) scores[i][j]
+                ].any((c) => c is! int);
+                if (wasOut && newTotalHere < _target && hasLaterSkips) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(trf('revive_blocked', {'name': name}))),
+                  );
+                  return; // не применяем правку
+                }
+              }
+            }
             setState(() {
               for (int k = 0; k < participants.length; k++) {
                 final i = participants[k];

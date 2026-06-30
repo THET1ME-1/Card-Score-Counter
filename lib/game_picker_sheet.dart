@@ -110,11 +110,11 @@ class _GamePickerSheetState extends State<_GamePickerSheet> {
                   for (final g in kBuiltInGames) _gameTile(g, scheme),
                   for (final g in _custom) _gameTile(g, scheme, custom: true),
                   const SizedBox(height: 8),
-                  OutlinedButton.icon(
+                  FilledButton.icon(
                     onPressed: () => _createOrEdit(),
                     icon: const Icon(Icons.add_rounded),
                     label: Text(tr('add_game')),
-                    style: OutlinedButton.styleFrom(
+                    style: FilledButton.styleFrom(
                       minimumSize: const Size.fromHeight(52),
                       shape: const StadiumBorder(),
                     ),
@@ -206,6 +206,7 @@ class _GamePickerSheetState extends State<_GamePickerSheet> {
       WinRule.fool => tr('rule_fool'),
       WinRule.ranking => tr('rule_ranking'),
       WinRule.phases => tr('rule_phases'),
+      WinRule.volleyball => tr('rule_volleyball'),
     };
     if (g.target != null && g.target! > 0) {
       return '$r · ${trf('to_target', {'n': g.target!})}';
@@ -323,7 +324,10 @@ class _GameEditorSheetState extends State<_GameEditorSheet> {
                 ),
               ),
               const SizedBox(height: 8),
-              for (final r in WinRule.values) _ruleTile(r, scheme),
+              // Волейбол — особый встроенный режим со своим табло, в качестве
+              // правила для своей игры не предлагаем.
+              for (final r in WinRule.values)
+                if (r != WinRule.volleyball) _ruleTile(r, scheme),
               if (_rule != WinRule.manual &&
                   _rule != WinRule.fool &&
                   _rule != WinRule.ranking &&
@@ -382,6 +386,7 @@ class _GameEditorSheetState extends State<_GameEditorSheet> {
       WinRule.fool => tr('rule_fool'),
       WinRule.ranking => tr('rule_ranking'),
       WinRule.phases => tr('rule_phases'),
+      WinRule.volleyball => tr('rule_volleyball'),
     };
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),

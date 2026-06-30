@@ -46,9 +46,11 @@ List<Achievement> computeAchievements({
   final usedGames = <String>{};
   for (final g in played) {
     final pid = gameTypes[g.gameId];
-    usedRules.add(pid != null
+    final rule = pid != null
         ? (ruleById[pid] ?? WinRule.elimination)
-        : WinRule.elimination);
+        : WinRule.elimination;
+    // Волейбол — особый режим со своим табло, в «все 7 режимов» не входит.
+    if (rule != WinRule.volleyball) usedRules.add(rule);
     usedGames.add(pid ?? 'default_101');
   }
 

@@ -201,6 +201,9 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
     // По возрастанию даты — для корректного подсчёта серии.
     final sorted = [...games]..sort((a, b) => a.date.compareTo(b.date));
     for (final g in sorted) {
+      // Волейбол — командный счёт, в статистику игроков не идёт (иначе
+      // «Хозяева»/«Гости» попадут в лидеров).
+      if (types[g.gameId] == 'volleyball') continue;
       rounds += g.rounds;
       if (!g.isFinished) continue;
       finished++;
