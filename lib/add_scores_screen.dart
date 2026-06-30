@@ -4,6 +4,7 @@ import 'l10n/strings.dart';
 import 'models/game_profile.dart';
 import 'theme/app_theme.dart';
 import 'widgets/numeric_keypad.dart';
+import 'widgets/pressable.dart';
 
 class AddScoresScreen extends StatefulWidget {
   final List<String> players;
@@ -162,12 +163,14 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _canSave ? _submit : null,
-                icon: const Icon(Icons.check),
-                label: Text(tr('save_round')),
+            child: PressableScale(
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _canSave ? _submit : null,
+                  icon: const Icon(Icons.check),
+                  label: Text(tr('save_round')),
+                ),
               ),
             ),
           ),

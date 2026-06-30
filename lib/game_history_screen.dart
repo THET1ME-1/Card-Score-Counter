@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'game_detail_screen.dart';
 import 'l10n/strings.dart';
@@ -74,6 +75,7 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
   GameProfile? _gameOf(GameSession g) => _gamesById[_types[g.gameId]];
 
   Future<void> _toggleSort() async {
+    HapticFeedback.selectionClick();
     await _repo.setDescending(!_isDescending);
     await _load();
   }
@@ -530,7 +532,10 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
       borderRadius: BorderRadius.circular(20),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => setState(() => _filter = active ? null : typeId),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() => _filter = active ? null : typeId);
+        },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
           child: Row(

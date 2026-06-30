@@ -16,7 +16,10 @@ import 'models/game_session.dart';
 import 'services/game_repository.dart';
 import 'services/sound_service.dart';
 import 'theme/app_theme.dart';
+import 'widgets/count_up_number.dart';
+import 'widgets/flash_highlight.dart';
 import 'widgets/game_timer.dart';
+import 'widgets/pressable.dart';
 
 class ScoreBoardScreen extends StatefulWidget {
   final List<String> players;
@@ -108,6 +111,10 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
   Timer? _ticker;
   int _persistTick = 0;
 
+  /// Счётчик «вспышек» по игрокам — растёт, когда игрок набрал очки в этом
+  /// ходу (подсвечивает его карточку). Параллельно [widget.players].
+  late List<int> _flashCounts;
+
   /// Засчитывать ли время по игрокам — только в режимах с передачей хода.
   /// В «Дураке»/«Президенте»/Phase 10 хода как такового нет.
   bool get _creditsTurns =>
@@ -151,6 +158,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
     // Время по игрокам приводим к длине списка игроков (на случай старых данных).
     _playerMs = List<int>.generate(
         widget.players.length, (i) => i < _playerMs.length ? _playerMs[i] : 0);
+    _flashCounts = List<int>.filled(widget.players.length, 0);
     _clockOwner =
         currentPlayerIndex.clamp(0, widget.players.length - 1).toInt();
     // Кто уже получил победу за эту партию (для сверки начислений).
@@ -285,9 +293,17 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
     await _repo.upsertGame(_session());
   }
 
+  /// Подсветить («вспыхнуть») карточки игроков, которые набрали очки.
+  void _flash(Iterable<int> who) {
+    for (final i in who) {
+      if (i >= 0 && i < _flashCounts.length) _flashCounts[i]++;
+    }
+  }
+
   void addScores(List<int> roundScores) {
     setState(() {
       int remainingIndex = 0;
+      final scored = <int>[];
 
       for (int i = 0; i < widget.players.length; i++) {
         if (eliminatedPlayers.contains(widget.players[i])) {
@@ -306,9 +322,11 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
             }
           }
           scores[i].add(lastValidScore + roundScores[remainingIndex]);
+          scored.add(i);
         }
         remainingIndex++;
       }
+      _flash(scored);
 
       // Вылеты/победитель — по правилу игры.
       _recomputeStatuses();
@@ -350,6 +368,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
 
   void undoLastRound() {
     if (!canUndo) return;
+    HapticFeedback.lightImpact();
     setState(() {
       final wasFinished = _finished;
 
@@ -496,6 +515,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
         if (passed.contains(i) && p < 11) p += 1;
         scores[i].add(p);
       }
+      _flash(passed);
       rounds++;
       _recomputeStatuses();
       if (!_finished) {
@@ -649,11 +669,14 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
   void _addRankingRound(List<int> order) {
     setState(() {
       final n = widget.players.length;
+      final scored = <int>[];
       for (int pos = 0; pos < order.length; pos++) {
         final i = order[pos];
         final gain = n - 1 - pos; // 1-е место → n-1, последнее → 0
         scores[i].add(_currentTotal(i) + gain);
+        if (gain > 0) scored.add(i);
       }
+      _flash(scored);
       rounds++;
       _recomputeStatuses();
       _persist();
@@ -849,6 +872,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
           scores[i].add('—');
         }
       }
+      _flash([loserIndex]);
       rounds++;
       _recomputeStatuses();
       _persist();
@@ -1539,10 +1563,11 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
       fg = scheme.onSurface;
     }
 
-    return Material(
-      color: bg,
+    return FlashHighlight(
+      trigger: index < _flashCounts.length ? _flashCounts[index] : 0,
+      baseColor: bg,
+      flashColor: scheme.primary,
       borderRadius: BorderRadius.circular(28),
-      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
           HapticFeedback.selectionClick();
@@ -1602,27 +1627,17 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
             child: Center(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 280),
-                  transitionBuilder: (child, anim) => ScaleTransition(
-                    scale: Tween<double>(begin: 0.6, end: 1.0).animate(anim),
-                    child: FadeTransition(opacity: anim, child: child),
-                  ),
-                  child: Text(
-                    _rule == WinRule.phases
-                        ? '${_phaseDisplay(index)}'
-                        : '$total',
-                    key: ValueKey(_rule == WinRule.phases
-                        ? 'p${_phaseDisplay(index)}'
-                        : 't$total'),
-                    style: TextStyle(
-                      fontFamily: AppTheme.displayFont,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 64,
-                      height: 1.0,
-                      letterSpacing: -2,
-                      color: fg,
-                    ),
+                child: CountUpNumber(
+                  value: _rule == WinRule.phases
+                      ? _phaseDisplay(index)
+                      : total,
+                  style: TextStyle(
+                    fontFamily: AppTheme.displayFont,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 64,
+                    height: 1.0,
+                    letterSpacing: -2,
+                    color: fg,
                   ),
                 ),
               ),
@@ -1913,6 +1928,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
       primary = FilledButton.icon(
         onPressed: remainingPlayers.length > 1
             ? () {
+                HapticFeedback.lightImpact();
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -1959,19 +1975,22 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(width: double.infinity, child: primary),
+            PressableScale(
+                child: SizedBox(width: double.infinity, child: primary)),
             const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
-                  child: FilledButton.tonalIcon(
-                    onPressed: canUndo ? undoLastRound : null,
-                    icon: const Icon(Icons.undo),
-                    label: Text(tr('undo')),
+                  child: PressableScale(
+                    child: FilledButton.tonalIcon(
+                      onPressed: canUndo ? undoLastRound : null,
+                      icon: const Icon(Icons.undo),
+                      label: Text(tr('undo')),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
-                Expanded(child: secondary),
+                Expanded(child: PressableScale(child: secondary)),
               ],
             ),
           ],

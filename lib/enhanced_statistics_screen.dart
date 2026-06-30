@@ -288,7 +288,10 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
             for (var i = 0; i < labels.length; i++)
               Expanded(
                 child: GestureDetector(
-                  onTap: () => setState(() => _section = i),
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _section = i);
+                  },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
                     curve: Curves.easeOut,
@@ -735,7 +738,10 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
           final s = _stats[i];
           final sel = s.name == _selected?.name;
           return GestureDetector(
-            onTap: () => setState(() => _selectedName = s.name),
+            onTap: () {
+              HapticFeedback.selectionClick();
+              setState(() => _selectedName = s.name);
+            },
             child: SizedBox(
               width: 72,
               child: Column(
@@ -996,6 +1002,7 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
       children: [
         for (final it in items) ...[
           _periodChip(it.$2, it.$1 == _period, () {
+            HapticFeedback.selectionClick();
             setState(() => _period = it.$1);
           }, scheme),
           const SizedBox(width: 8),
@@ -1273,6 +1280,7 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
       _byDay[DateTime(day.year, day.month, day.day)]?.length ?? 0;
 
   void _shiftAnchor(int dir) {
+    HapticFeedback.selectionClick();
     setState(() {
       _userTouchedCal = true;
       switch (_calMode) {
@@ -1333,6 +1341,7 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
                 (_CalMode.year, 'cal_year'),
               ]) ...[
                 _calModeChip(tr(m.$2), m.$1 == _calMode, () {
+                  HapticFeedback.selectionClick();
                   setState(() {
                     _userTouchedCal = true;
                     _calMode = m.$1;
@@ -1465,7 +1474,12 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
     final hasGames = count > 0;
     final fg = hasGames ? scheme.onPrimary : scheme.onSurfaceVariant;
     return GestureDetector(
-      onTap: hasGames ? () => _showDayGames(day) : null,
+      onTap: hasGames
+          ? () {
+              HapticFeedback.selectionClick();
+              _showDayGames(day);
+            }
+          : null,
       child: AspectRatio(
         aspectRatio: 1,
         child: Container(

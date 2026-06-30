@@ -14,6 +14,7 @@ import 'score_board_screen.dart';
 import 'services/game_repository.dart';
 import 'theme/app_theme.dart';
 import 'widgets/player_shapes.dart';
+import 'widgets/pressable.dart';
 import 'widgets/reveal.dart';
 import 'utils/image_picker_util.dart';
 import 'widgets/color_picker_sheet.dart';
@@ -200,6 +201,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
   }
 
   void _startGame() {
+    HapticFeedback.mediumImpact();
     final selectedPlayerNames =
         selectedProfiles.map((index) => profiles[index].name).toList();
     Navigator.push(
@@ -831,13 +833,15 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
               ],
             ),
             const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: ready ? _startGame : null,
-                icon: Icon(
-                    ready ? Icons.play_arrow_rounded : Icons.group_add),
-                label: Text(buttonLabel),
+            PressableScale(
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: ready ? _startGame : null,
+                  icon: Icon(
+                      ready ? Icons.play_arrow_rounded : Icons.group_add),
+                  label: Text(buttonLabel),
+                ),
               ),
             ),
           ],

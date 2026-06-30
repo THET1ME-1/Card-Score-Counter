@@ -141,6 +141,14 @@ class AppTheme {
         ),
       ),
       dividerTheme: const DividerThemeData(thickness: 1),
+      // Плавные M3-переходы между экранами (shared-axis: проявление + сдвиг)
+      // вместо стандартного слайда — навигация ощущается дороже.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: _SharedAxisPageTransitionsBuilder(),
+          TargetPlatform.iOS: _SharedAxisPageTransitionsBuilder(),
+        },
+      ),
     );
   }
 
@@ -179,6 +187,53 @@ class AppTheme {
       labelLarge: body(base.labelLarge),
       labelMedium: body(base.labelMedium),
       labelSmall: body(base.labelSmall),
+    );
+  }
+}
+
+/// Переход «shared-axis X» в духе Material 3: входящий экран чуть выезжает
+/// справа и проявляется, уходящий — сдвигается влево и гаснет.
+class _SharedAxisPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _SharedAxisPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    const shift = 0.05; // доля ширины
+
+    final inSlide = Tween<Offset>(
+      begin: const Offset(shift, 0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+    final inFade = CurvedAnimation(
+      parent: animation,
+      curve: const Interval(0.15, 1, curve: Curves.easeOut),
+    );
+
+    final outSlide = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(-shift, 0),
+    ).animate(
+        CurvedAnimation(parent: secondaryAnimation, curve: Curves.easeInCubic));
+    final outFade = Tween<double>(begin: 1, end: 0).animate(CurvedAnimation(
+      parent: secondaryAnimation,
+      curve: const Interval(0, 0.85, curve: Curves.easeIn),
+    ));
+
+    return SlideTransition(
+      position: outSlide,
+      child: FadeTransition(
+        opacity: outFade,
+        child: SlideTransition(
+          position: inSlide,
+          child: FadeTransition(opacity: inFade, child: child),
+        ),
+      ),
     );
   }
 }
