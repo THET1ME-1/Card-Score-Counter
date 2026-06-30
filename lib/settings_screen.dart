@@ -3,11 +3,13 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'achievements_screen.dart';
+import 'lock_screen.dart';
 
 import 'l10n/locale_controller.dart';
 import 'l10n/strings.dart';
@@ -42,6 +44,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _featureFolders = false;
   bool _featureKassa = false;
   bool _featureTeams = false;
+  bool _lockEnabled = false;
+  bool _lockBiometric = false;
 
   @override
   void initState() {
@@ -57,6 +61,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final folders = await _repo.playerFoldersEnabled();
     final kassa = await _repo.featureKassaEnabled();
     final teams = await _repo.featureTeamsEnabled();
+    final lock = await _repo.lockEnabled();
+    final bio = await _repo.lockBiometric();
     if (!mounted) return;
     setState(() {
       _textSize = size;
@@ -65,7 +71,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _featureFolders = folders;
       _featureKassa = kassa;
       _featureTeams = teams;
+      _lockEnabled = lock;
+      _lockBiometric = bio;
     });
+  }
+
+  Future<void> _toggleLock(bool value) async {
+    if (value) {
+      // Включение — сначала задаём PIN.
+      final pin = await Navigator.push<String>(
+        context,
+        MaterialPageRoute(builder: (_) => const PinSetupScreen()),
+      );
+      if (pin == null) return; // отменили
+      await _repo.setLockPin(pin);
+      await _repo.setLockEnabled(true);
+      if (mounted) setState(() => _lockEnabled = true);
+    } else {
+      await _repo.clearLock();
+      if (mounted) {
+        setState(() {
+          _lockEnabled = false;
+          _lockBiometric = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _changePin() async {
+    final pin = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => const PinSetupScreen()),
+    );
+    if (pin == null) return;
+    await _repo.setLockPin(pin);
+  }
+
+  Future<void> _toggleBiometric(bool value) async {
+    if (value) {
+      // Проверяем, что устройство поддерживает биометрию.
+      try {
+        final auth = LocalAuthentication();
+        final ok = await auth.isDeviceSupported() &&
+            await auth.canCheckBiometrics;
+        if (!ok) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(tr('lock_biometric'))));
+          }
+          return;
+        }
+      } catch (_) {}
+    }
+    await _repo.setLockBiometric(value);
+    if (mounted) setState(() => _lockBiometric = value);
   }
 
   Future<void> _loadAppVersion() async {
@@ -428,6 +487,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Экспорт истории партий в CSV (для Excel/Google Таблиц).
+  Future<void> _exportCsv() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final games = await _repo.loadGames();
+      final types = await _repo.gameTypes();
+      final all = await _repo.allGames();
+      final nameOf = {for (final g in all) g.id: g.displayName};
+      games.sort((a, b) => b.date.compareTo(a.date));
+
+      String esc(String v) {
+        if (v.contains(',') || v.contains('"') || v.contains('\n')) {
+          return '"${v.replaceAll('"', '""')}"';
+        }
+        return v;
+      }
+
+      String two(int v) => v.toString().padLeft(2, '0');
+      String fmtDate(DateTime d) =>
+          '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
+      String dur(int ms) {
+        if (ms <= 0) return '';
+        final s = ms ~/ 1000;
+        return '${two(s ~/ 60)}:${two(s % 60)}';
+      }
+
+      final header = [
+        tr('csv_date'),
+        tr('csv_game'),
+        tr('players_label'),
+        tr('winner'),
+        tr('csv_rounds'),
+        tr('duration'),
+      ];
+      final rows = <String>[header.map(esc).join(',')];
+      for (final g in games) {
+        rows.add([
+          fmtDate(g.date),
+          nameOf[types[g.gameId]] ?? '',
+          g.players.join(' / '),
+          g.winner ?? '',
+          '${g.rounds}',
+          dur(g.durationMs),
+        ].map(esc).join(','));
+      }
+      // BOM — чтобы Excel правильно открыл кириллицу в UTF-8.
+      final csv = '﻿${rows.join('\r\n')}';
+      final dir = await getTemporaryDirectory();
+      final file = await File('${dir.path}/scoremaster_stats.csv')
+          .writeAsString(csv);
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'text/csv')],
+        subject: 'ScoreMaster stats',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+          SnackBar(content: Text(trf('export_error', {'e': e}))));
+    }
+  }
+
   Future<void> _importData() async {
     final messenger = ScaffoldMessenger.of(context);
     try {
@@ -681,6 +801,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ]),
 
+          // --------------------------- Безопасность ---------------------------
+          _sectionHeader(tr('security'), scheme.primary),
+          _groupCard(scheme, [
+            _row(
+              scheme: scheme,
+              icon: Icons.lock_rounded,
+              iconBg: scheme.primaryContainer,
+              iconFg: scheme.onPrimaryContainer,
+              title: tr('feature_lock'),
+              subtitle: tr('feature_lock_sub'),
+              onTap: () => _toggleLock(!_lockEnabled),
+              trailing: Switch(value: _lockEnabled, onChanged: _toggleLock),
+            ),
+            if (_lockEnabled) ...[
+              _rowDivider(scheme),
+              _row(
+                scheme: scheme,
+                icon: Icons.pin_rounded,
+                iconBg: scheme.primaryContainer,
+                iconFg: scheme.onPrimaryContainer,
+                title: tr('lock_change_pin'),
+                subtitle: '••••',
+                onTap: _changePin,
+                trailing:
+                    Icon(Icons.chevron_right_rounded, color: scheme.outline),
+              ),
+              _rowDivider(scheme),
+              _row(
+                scheme: scheme,
+                icon: Icons.fingerprint_rounded,
+                iconBg: scheme.primaryContainer,
+                iconFg: scheme.onPrimaryContainer,
+                title: tr('lock_biometric'),
+                subtitle: _lockBiometric ? tr('on') : tr('off'),
+                onTap: () => _toggleBiometric(!_lockBiometric),
+                trailing: Switch(
+                    value: _lockBiometric, onChanged: _toggleBiometric),
+              ),
+            ],
+          ]),
+
           // ----------------------------- Данные -----------------------------
           _sectionHeader(tr('data'), scheme.primary),
           _groupCard(scheme, [
@@ -703,6 +864,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: tr('share_backup'),
               subtitle: tr('share_backup_sub'),
               onTap: _shareBackup,
+              trailing: Icon(Icons.chevron_right_rounded, color: scheme.outline),
+            ),
+            _rowDivider(scheme),
+            _row(
+              scheme: scheme,
+              icon: Icons.table_chart_rounded,
+              iconBg: scheme.secondaryContainer,
+              iconFg: scheme.onSecondaryContainer,
+              title: tr('export_csv'),
+              subtitle: tr('export_csv_sub'),
+              onTap: _exportCsv,
               trailing: Icon(Icons.chevron_right_rounded, color: scheme.outline),
             ),
             _rowDivider(scheme),

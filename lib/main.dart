@@ -8,6 +8,7 @@ import 'game_history_screen.dart';
 import 'enhanced_statistics_screen.dart';
 import 'l10n/locale_controller.dart';
 import 'l10n/strings.dart';
+import 'lock_screen.dart';
 import 'player_input_screen.dart';
 import 'score_board_screen.dart';
 import 'services/game_repository.dart';
@@ -70,11 +71,69 @@ class CardGameScoreTracker extends StatelessWidget {
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
-            home: const MainScreen(),
+            home: const _LockGate(),
           );
         },
       ),
     );
+  }
+}
+
+/// Гейт замка приложения: пока не разблокировано (если замок включён) —
+/// показывает [LockScreen], иначе главный экран. Перезапирается при возврате
+/// из фона.
+class _LockGate extends StatefulWidget {
+  const _LockGate();
+
+  @override
+  State<_LockGate> createState() => _LockGateState();
+}
+
+class _LockGateState extends State<_LockGate> with WidgetsBindingObserver {
+  bool _ready = false;
+  bool _locked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _check();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  Future<void> _check() async {
+    final enabled = await GameRepository.instance.lockEnabled();
+    if (!mounted) return;
+    setState(() {
+      _locked = enabled;
+      _ready = true;
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // При возврате из фона снова запираем (если замок включён и не заперт).
+    if (state == AppLifecycleState.resumed && !_locked) {
+      GameRepository.instance.lockEnabled().then((enabled) {
+        if (mounted && enabled) setState(() => _locked = true);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_ready) {
+      return const Scaffold(body: SizedBox.shrink());
+    }
+    if (_locked) {
+      return LockScreen(onUnlocked: () => setState(() => _locked = false));
+    }
+    return const MainScreen();
   }
 }
 

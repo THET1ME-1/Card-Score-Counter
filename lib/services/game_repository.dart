@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -46,6 +47,9 @@ class GameRepository extends ChangeNotifier {
   static const String _kPlayerFolders = 'playerFolders';
   static const String _kFeatureKassa = 'featureKassa';
   static const String _kFeatureTeams = 'featureTeams';
+  static const String _kLockEnabled = 'lockEnabled';
+  static const String _kLockPin = 'lockPin';
+  static const String _kLockBiometric = 'lockBiometric';
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
@@ -202,6 +206,49 @@ class GameRepository extends ChangeNotifier {
 
   Future<void> setFeatureTeamsEnabled(bool value) async {
     await (await _prefs).setBool(_kFeatureTeams, value);
+    notifyListeners();
+  }
+
+  // ----------------------------- Замок приложения -----------------------------
+  // PIN храним как SHA-256, а не открытым текстом. В бэкап замок НЕ включаем.
+
+  Future<bool> lockEnabled() async =>
+      (await _prefs).getBool(_kLockEnabled) ?? false;
+
+  Future<void> setLockEnabled(bool value) async {
+    await (await _prefs).setBool(_kLockEnabled, value);
+    notifyListeners();
+  }
+
+  String _hashPin(String pin) =>
+      sha256.convert(utf8.encode('sm:$pin')).toString();
+
+  Future<void> setLockPin(String pin) async {
+    await (await _prefs).setString(_kLockPin, _hashPin(pin));
+  }
+
+  Future<bool> hasLockPin() async =>
+      ((await _prefs).getString(_kLockPin) ?? '').isNotEmpty;
+
+  Future<bool> verifyPin(String pin) async {
+    final stored = (await _prefs).getString(_kLockPin);
+    return stored != null && stored == _hashPin(pin);
+  }
+
+  Future<bool> lockBiometric() async =>
+      (await _prefs).getBool(_kLockBiometric) ?? false;
+
+  Future<void> setLockBiometric(bool value) async {
+    await (await _prefs).setBool(_kLockBiometric, value);
+    notifyListeners();
+  }
+
+  /// Полностью снять замок (выключить + стереть PIN и биометрию).
+  Future<void> clearLock() async {
+    final prefs = await _prefs;
+    await prefs.remove(_kLockEnabled);
+    await prefs.remove(_kLockPin);
+    await prefs.remove(_kLockBiometric);
     notifyListeners();
   }
 

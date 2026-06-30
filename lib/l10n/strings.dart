@@ -598,6 +598,33 @@ const Map<String, Map<String, String>> _strings = {
   },
   'favorite_game': {'ru': 'Любимая игра', 'en': 'Favorite game'},
   'recent_form': {'ru': 'Форма последних партий', 'en': 'Recent form'},
+  'security': {'ru': 'Безопасность', 'en': 'Security'},
+  'feature_lock': {'ru': 'Замок приложения', 'en': 'App lock'},
+  'feature_lock_sub': {
+    'ru': 'PIN или отпечаток на входе',
+    'en': 'PIN or fingerprint on launch'
+  },
+  'lock_title': {'ru': 'Введите PIN', 'en': 'Enter PIN'},
+  'lock_wrong': {'ru': 'Неверный PIN', 'en': 'Wrong PIN'},
+  'lock_create': {'ru': 'Придумайте PIN', 'en': 'Create a PIN'},
+  'lock_confirm': {'ru': 'Повторите PIN', 'en': 'Repeat PIN'},
+  'lock_mismatch': {'ru': 'PIN не совпал', 'en': 'PINs don’t match'},
+  'lock_biometric_reason': {
+    'ru': 'Разблокируйте приложение',
+    'en': 'Unlock the app'
+  },
+  'lock_change_pin': {'ru': 'Изменить PIN', 'en': 'Change PIN'},
+  'lock_biometric': {'ru': 'Отпечаток / лицо', 'en': 'Fingerprint / face'},
+  'export_csv': {'ru': 'Экспорт в CSV', 'en': 'Export to CSV'},
+  'export_csv_sub': {
+    'ru': 'Таблица истории партий (Excel/Таблицы)',
+    'en': 'Game history table (Excel/Sheets)'
+  },
+  'csv_date': {'ru': 'Дата', 'en': 'Date'},
+  'csv_game': {'ru': 'Игра', 'en': 'Game'},
+  'csv_rounds': {'ru': 'Кругов', 'en': 'Rounds'},
+  'game_type_stats': {'ru': 'Статистика по игре', 'en': 'Game stats'},
+  'last_played': {'ru': 'Последняя игра', 'en': 'Last played'},
   'race_chart': {'ru': 'Гонка по раундам', 'en': 'Round-by-round race'},
   'play_heatmap': {'ru': 'Когда играем', 'en': 'When we play'},
   'records': {'ru': 'Рекорды', 'en': 'Records'},

@@ -2,6 +2,8 @@
     <!-- Загрузка обновления с GitHub и его установка (авто-обновление). -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Замок приложения по отпечатку/лицу (local_auth). -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <application
         android:label="ScoreMaster"
         android:name="${applicationName}"

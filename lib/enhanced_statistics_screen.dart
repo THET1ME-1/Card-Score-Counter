@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'game_type_stats_screen.dart';
 import 'l10n/strings.dart';
 import 'models/game_session.dart';
 import 'services/game_repository.dart';
@@ -1651,7 +1652,8 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
         }
       });
       if (best != null) {
-        rows.add(_KingRow(_typeName[type] ?? tr('scoreboard'), best!, bestN));
+        rows.add(_KingRow(
+            type, _typeName[type] ?? tr('scoreboard'), best!, bestN));
       }
     });
     rows.sort((a, b) => b.wins.compareTo(a.wins));
@@ -1666,12 +1668,23 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
     return _panel(scheme, tr('game_type_kings'), [
       for (var i = 0; i < rows.length; i++) ...[
         if (i > 0) _thinDivider(scheme),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Row(
-            children: [
-              Icon(Icons.workspace_premium_rounded, size: 20, color: _gold),
-              const SizedBox(width: 12),
+        InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => GameTypeStatsScreen(
+                typeId: rows[i].type,
+                typeName: rows[i].gameName,
+              ),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              children: [
+                Icon(Icons.workspace_premium_rounded, size: 20, color: _gold),
+                const SizedBox(width: 12),
               Expanded(
                 child: Text(rows[i].gameName,
                     maxLines: 1,
@@ -1709,7 +1722,11 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
                     fontSize: 16,
                     color: scheme.primary,
                   )),
-            ],
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right_rounded,
+                  size: 18, color: scheme.outline),
+              ],
+            ),
           ),
         ),
       ],
@@ -2598,12 +2615,13 @@ class _RecordRow {
   const _RecordRow(this.icon, this.label, this.value, this.sub);
 }
 
-/// Король игрового типа: имя игры, лучший игрок и число его побед в ней.
+/// Король игрового типа: id и имя игры, лучший игрок и число его побед в ней.
 class _KingRow {
+  final String type;
   final String gameName;
   final String player;
   final int wins;
-  const _KingRow(this.gameName, this.player, this.wins);
+  const _KingRow(this.type, this.gameName, this.player, this.wins);
 }
 
 /// Очная статистика против соперника: его профиль + счёт «мои : его» побед

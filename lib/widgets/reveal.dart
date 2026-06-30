@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
@@ -34,13 +36,17 @@ class _RevealState extends State<Reveal> with SingleTickerProviderStateMixin {
     end: Offset.zero,
   ).animate(CurvedAnimation(parent: _c, curve: AppTheme.emphasizedDecelerate));
 
+  Timer? _delayTimer;
+
   @override
   void initState() {
     super.initState();
     if (widget.delay == Duration.zero) {
       _c.forward();
     } else {
-      Future.delayed(widget.delay, () {
+      // Таймер храним и отменяем в dispose, чтобы не «течь» при быстром
+      // уходе с экрана (и не ронять виджет-тесты).
+      _delayTimer = Timer(widget.delay, () {
         if (mounted) _c.forward();
       });
     }
@@ -48,6 +54,7 @@ class _RevealState extends State<Reveal> with SingleTickerProviderStateMixin {
 
   @override
   void dispose() {
+    _delayTimer?.cancel();
     _c.dispose();
     super.dispose();
   }
