@@ -19,6 +19,7 @@ import 'theme/app_theme.dart';
 import 'widgets/count_up_number.dart';
 import 'widgets/dice_roll.dart';
 import 'widgets/flash_highlight.dart';
+import 'widgets/kassa_sheet.dart';
 import 'widgets/game_timer.dart';
 import 'widgets/pressable.dart';
 
@@ -122,6 +123,21 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
   int _diceSides = 20;
   int _diceSeed = 0;
 
+  /// Функция «Касса» — показывать кнопку расчёта денег в шапке.
+  bool _kassaEnabled = false;
+
+  /// Командный режим: имя игрока → индекс команды (0..3). Пусто — без команд.
+  bool _teamsEnabled = false;
+  final Map<String, int> _teamOf = {};
+  int _teamCount = 2;
+
+  static const List<Color> _teamColors = [
+    Color(0xFF3FA34D),
+    Color(0xFF3B6FE0),
+    Color(0xFFFF8F00),
+    Color(0xFF8E24AA),
+  ];
+
   /// Засчитывать ли время по игрокам — только в режимах с передачей хода.
   /// В «Дураке»/«Президенте»/Phase 10 хода как такового нет.
   bool get _creditsTurns =>
@@ -190,8 +206,254 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
 
   Future<void> _loadTimerPref() async {
     final enabled = await _repo.timerEnabled();
+    final kassa = await _repo.featureKassaEnabled();
+    final teams = await _repo.featureTeamsEnabled();
     if (!mounted) return;
-    setState(() => _showTimer = enabled);
+    setState(() {
+      _showTimer = enabled;
+      _kassaEnabled = kassa;
+      _teamsEnabled = teams;
+    });
+  }
+
+  // ----------------------------- Команды -----------------------------
+
+  /// Сумма очков команды [t] (сложение текущих итогов её игроков).
+  int _teamTotal(int t) {
+    var sum = 0;
+    for (var i = 0; i < widget.players.length; i++) {
+      if (_teamOf[widget.players[i]] == t) sum += _currentTotal(i);
+    }
+    return sum;
+  }
+
+  bool _teamHasMembers(int t) =>
+      widget.players.any((p) => _teamOf[p] == t);
+
+  /// Команды реально настроены (хотя бы две непустые).
+  bool get _teamsActive {
+    if (!_teamsEnabled || _teamOf.isEmpty) return false;
+    var nonEmpty = 0;
+    for (var t = 0; t < _teamCount; t++) {
+      if (_teamHasMembers(t)) nonEmpty++;
+    }
+    return nonEmpty >= 2;
+  }
+
+  /// Ведущая команда по правилу (меньше — лучше для «на вылет»/«до порога»).
+  int? _leadingTeam() {
+    final totals = <int, int>{};
+    for (var t = 0; t < _teamCount; t++) {
+      if (_teamHasMembers(t)) totals[t] = _teamTotal(t);
+    }
+    if (totals.isEmpty) return null;
+    final lowerWins =
+        _rule == WinRule.elimination || _rule == WinRule.lowestAtCap;
+    int? best;
+    int? bestVal;
+    totals.forEach((t, v) {
+      if (bestVal == null ||
+          (lowerWins ? v < bestVal! : v > bestVal!)) {
+        bestVal = v;
+        best = t;
+      }
+    });
+    return best;
+  }
+
+  Future<void> _openTeamsConfig() async {
+    final scheme = Theme.of(context).colorScheme;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: scheme.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: scheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  tr('teams'),
+                  style: TextStyle(
+                    fontFamily: AppTheme.displayFont,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 19,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Число команд.
+                Row(
+                  children: [
+                    Text(
+                      tr('teams_count'),
+                      style: TextStyle(
+                        fontFamily: AppTheme.bodyFont,
+                        fontSize: 14,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                    const Spacer(),
+                    for (var n = 2; n <= 4; n++)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: ChoiceChip(
+                          label: Text('$n'),
+                          selected: _teamCount == n,
+                          onSelected: (_) {
+                            setState(() {
+                              _teamCount = n;
+                              // Игроков из исчезнувших команд — сбрасываем.
+                              _teamOf.removeWhere((k, v) => v >= n);
+                            });
+                            setSheet(() {});
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        for (final p in widget.players)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 5),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    p,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.bodyFont,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 15,
+                                      color: scheme.onSurface,
+                                    ),
+                                  ),
+                                ),
+                                Wrap(
+                                  spacing: 6,
+                                  children: [
+                                    for (var t = 0; t < _teamCount; t++)
+                                      GestureDetector(
+                                        onTap: () {
+                                          setState(() => _teamOf[p] = t);
+                                          setSheet(() {});
+                                        },
+                                        child: Container(
+                                          width: 30,
+                                          height: 30,
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            color: _teamColors[t],
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: _teamOf[p] == t
+                                                  ? scheme.onSurface
+                                                  : Colors.transparent,
+                                              width: 3,
+                                            ),
+                                          ),
+                                          child: _teamOf[p] == t
+                                              ? const Icon(Icons.check_rounded,
+                                                  size: 16, color: Colors.white)
+                                              : null,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(tr('done')),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  Widget _teamsStrip(ColorScheme scheme) {
+    final leader = _leadingTeam();
+    final teams = [for (var t = 0; t < _teamCount; t++) if (_teamHasMembers(t)) t];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          for (final t in teams)
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: _teamColors[t].withValues(alpha: leader == t ? 0.9 : 0.16),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _teamColors[t], width: 1.5),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      trf('team_n', {'n': t + 1}),
+                      style: TextStyle(
+                        fontFamily: AppTheme.bodyFont,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        color: leader == t ? Colors.white : scheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${_teamTotal(t)}',
+                      style: TextStyle(
+                        fontFamily: AppTheme.displayFont,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 22,
+                        color: leader == t ? Colors.white : scheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   // -------------------------- Часы партии --------------------------
@@ -1569,6 +1831,20 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
             selectedIcon: const Icon(Icons.timer_rounded),
             onPressed: () => setState(() => _showTimer = !_showTimer),
           ),
+          if (_teamsEnabled)
+            IconButton(
+              tooltip: tr('teams'),
+              isSelected: _teamsActive,
+              icon: const Icon(Icons.groups_2_outlined),
+              selectedIcon: const Icon(Icons.groups_2_rounded),
+              onPressed: _openTeamsConfig,
+            ),
+          if (_kassaEnabled)
+            IconButton(
+              tooltip: tr('kassa'),
+              icon: const Icon(Icons.payments_outlined),
+              onPressed: () => KassaSheet.show(context, widget.players),
+            ),
           IconButton(
             tooltip: tr('share'),
             icon: const Icon(Icons.ios_share_rounded),
@@ -1617,6 +1893,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           if (isFinished) _winnerBanner(scheme),
+                          if (_teamsActive) _teamsStrip(scheme),
                           GridView.count(
                             crossAxisCount: cols,
                             shrinkWrap: true,
@@ -1756,6 +2033,18 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
         children: [
           Row(
             children: [
+              // Точка команды (в командном режиме).
+              if (_teamsActive && _teamOf[player] != null) ...[
+                Container(
+                  width: 12,
+                  height: 12,
+                  margin: const EdgeInsets.only(right: 6),
+                  decoration: BoxDecoration(
+                    color: _teamColors[_teamOf[player]!],
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
               Expanded(
                 child: AutoSizeText(
                   player,

@@ -548,6 +548,26 @@ const Map<String, Map<String, String>> _strings = {
     'ru': 'Компании: группы игроков (игрок может быть в нескольких)',
     'en': 'Companies: groups of players (a player can be in several)'
   },
+  'feature_kassa': {'ru': 'Касса (деньги)', 'en': 'Kitty (money)'},
+  'feature_kassa_sub': {
+    'ru': 'Считать, кто кому сколько должен',
+    'en': 'Work out who owes whom'
+  },
+  'kassa': {'ru': 'Касса', 'en': 'Kitty'},
+  'kassa_hint': {
+    'ru': 'Итог каждого: + выиграл, − проиграл',
+    'en': 'Each player’s result: + won, − lost'
+  },
+  'kassa_balance': {'ru': 'Баланс', 'en': 'Balance'},
+  'kassa_settled': {'ru': 'Все в расчёте 👍', 'en': 'All settled 👍'},
+  'teams': {'ru': 'Команды', 'en': 'Teams'},
+  'teams_count': {'ru': 'Команд', 'en': 'Teams'},
+  'team_n': {'ru': 'Команда {n}', 'en': 'Team {n}'},
+  'feature_teams': {'ru': 'Командный режим', 'en': 'Team mode'},
+  'feature_teams_sub': {
+    'ru': 'Игроки в команды, общий счёт команды',
+    'en': 'Players in teams, combined team score'
+  },
   'mode_folders': {'ru': 'Режим: папки', 'en': 'Mode: folders'},
   'mode_single': {'ru': 'Режим: по одному', 'en': 'Mode: single'},
   'all_players': {'ru': 'Все', 'en': 'All'},

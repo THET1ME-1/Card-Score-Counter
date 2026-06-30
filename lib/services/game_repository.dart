@@ -43,6 +43,8 @@ class GameRepository extends ChangeNotifier {
   static const String _kFeatureNotes = 'featureNotes';
   static const String _kCompanies = 'companies';
   static const String _kPlayerFolders = 'playerFolders';
+  static const String _kFeatureKassa = 'featureKassa';
+  static const String _kFeatureTeams = 'featureTeams';
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
@@ -181,6 +183,24 @@ class GameRepository extends ChangeNotifier {
 
   Future<void> setFeatureNotesEnabled(bool value) async {
     await (await _prefs).setBool(_kFeatureNotes, value);
+    notifyListeners();
+  }
+
+  /// Функция «Касса» (деньги) включена.
+  Future<bool> featureKassaEnabled({bool fallback = false}) async =>
+      (await _prefs).getBool(_kFeatureKassa) ?? fallback;
+
+  Future<void> setFeatureKassaEnabled(bool value) async {
+    await (await _prefs).setBool(_kFeatureKassa, value);
+    notifyListeners();
+  }
+
+  /// Функция «Командный режим» включена.
+  Future<bool> featureTeamsEnabled({bool fallback = false}) async =>
+      (await _prefs).getBool(_kFeatureTeams) ?? fallback;
+
+  Future<void> setFeatureTeamsEnabled(bool value) async {
+    await (await _prefs).setBool(_kFeatureTeams, value);
     notifyListeners();
   }
 
@@ -586,6 +606,8 @@ class GameRepository extends ChangeNotifier {
       _kAmoled: prefs.getBool(_kAmoled),
       _kFeatureNotes: prefs.getBool(_kFeatureNotes),
       _kPlayerFolders: prefs.getBool(_kPlayerFolders),
+      _kFeatureKassa: prefs.getBool(_kFeatureKassa),
+      _kFeatureTeams: prefs.getBool(_kFeatureTeams),
     };
     return const JsonEncoder.withIndent('  ').convert(data);
   }
@@ -642,7 +664,9 @@ class GameRepository extends ChangeNotifier {
         _kDynamicColor,
         _kAmoled,
         _kFeatureNotes,
-        _kPlayerFolders
+        _kPlayerFolders,
+        _kFeatureKassa,
+        _kFeatureTeams
       ]) {
         final v = data[key];
         if (v is bool) await prefs.setBool(key, v);

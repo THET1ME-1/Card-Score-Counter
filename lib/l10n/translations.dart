@@ -374,6 +374,17 @@ const Map<String, String> _de = {
   "create_company": "Gruppe erstellen",
   "manage_members": "Mitglieder",
   "members_n": "{n} Spieler",
+  "feature_kassa": "Kasse (Geld)",
+  "feature_kassa_sub": "Berechnen, wer wem was schuldet",
+  "kassa": "Kasse",
+  "kassa_hint": "Ergebnis jedes Spielers: + gewonnen, − verloren",
+  "kassa_balance": "Saldo",
+  "kassa_settled": "Alles beglichen 👍",
+  "feature_teams": "Team-Modus",
+  "feature_teams_sub": "Spieler in Teams, gemeinsamer Punktestand",
+  "teams": "Teams",
+  "teams_count": "Teams",
+  "team_n": "Team {n}",
 };
 
 // ------------------------------- Français -------------------------------
@@ -739,6 +750,17 @@ const Map<String, String> _fr = {
   "create_company": "Créer un groupe",
   "manage_members": "Membres",
   "members_n": "{n} joueurs",
+  "feature_kassa": "Cagnotte (argent)",
+  "feature_kassa_sub": "Calculer qui doit combien à qui",
+  "kassa": "Cagnotte",
+  "kassa_hint": "Résultat de chacun : + gagné, − perdu",
+  "kassa_balance": "Solde",
+  "kassa_settled": "Tout est réglé 👍",
+  "feature_teams": "Mode équipes",
+  "feature_teams_sub": "Joueurs en équipes, score commun",
+  "teams": "Équipes",
+  "teams_count": "Équipes",
+  "team_n": "Équipe {n}",
 };
 
 // ------------------------------- Español -------------------------------
@@ -1102,6 +1124,17 @@ const Map<String, String> _es = {
   "create_company": "Crear grupo",
   "manage_members": "Miembros",
   "members_n": "{n} jugadores",
+  "feature_kassa": "Bote (dinero)",
+  "feature_kassa_sub": "Calcular quién debe a quién",
+  "kassa": "Bote",
+  "kassa_hint": "Resultado de cada uno: + ganó, − perdió",
+  "kassa_balance": "Saldo",
+  "kassa_settled": "Todo saldado 👍",
+  "feature_teams": "Modo equipos",
+  "feature_teams_sub": "Jugadores en equipos, marcador común",
+  "teams": "Equipos",
+  "teams_count": "Equipos",
+  "team_n": "Equipo {n}",
 };
 
 // ------------------------------- Italiano -------------------------------
@@ -1466,6 +1499,17 @@ const Map<String, String> _it = {
   "create_company": "Crea gruppo",
   "manage_members": "Membri",
   "members_n": "{n} giocatori",
+  "feature_kassa": "Cassa (soldi)",
+  "feature_kassa_sub": "Calcolare chi deve cosa a chi",
+  "kassa": "Cassa",
+  "kassa_hint": "Risultato di ognuno: + vinto, − perso",
+  "kassa_balance": "Saldo",
+  "kassa_settled": "Tutto saldato 👍",
+  "feature_teams": "Modalità squadre",
+  "feature_teams_sub": "Giocatori in squadre, punteggio comune",
+  "teams": "Squadre",
+  "teams_count": "Squadre",
+  "team_n": "Squadra {n}",
 };
 
 // ------------------------------- Português -------------------------------
@@ -1827,4 +1871,15 @@ const Map<String, String> _pt = {
   "create_company": "Criar grupo",
   "manage_members": "Membros",
   "members_n": "{n} jogadores",
+  "feature_kassa": "Bolo (dinheiro)",
+  "feature_kassa_sub": "Calcular quem deve quanto a quem",
+  "kassa": "Bolo",
+  "kassa_hint": "Resultado de cada um: + ganhou, − perdeu",
+  "kassa_balance": "Saldo",
+  "kassa_settled": "Tudo acertado 👍",
+  "feature_teams": "Modo equipas",
+  "feature_teams_sub": "Jogadores em equipas, pontuação conjunta",
+  "teams": "Equipas",
+  "teams_count": "Equipas",
+  "team_n": "Equipa {n}",
 };

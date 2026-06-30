@@ -40,6 +40,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _timerEnabled = true;
   bool _featureNotes = false;
   bool _featureFolders = false;
+  bool _featureKassa = false;
+  bool _featureTeams = false;
 
   @override
   void initState() {
@@ -53,12 +55,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final timer = await _repo.timerEnabled();
     final notes = await _repo.featureNotesEnabled();
     final folders = await _repo.playerFoldersEnabled();
+    final kassa = await _repo.featureKassaEnabled();
+    final teams = await _repo.featureTeamsEnabled();
     if (!mounted) return;
     setState(() {
       _textSize = size;
       _timerEnabled = timer;
       _featureNotes = notes;
       _featureFolders = folders;
+      _featureKassa = kassa;
+      _featureTeams = teams;
     });
   }
 
@@ -101,6 +107,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _toggleFeatureFolders(bool value) {
     setState(() => _featureFolders = value);
     _repo.setPlayerFoldersEnabled(value);
+  }
+
+  void _toggleFeatureKassa(bool value) {
+    setState(() => _featureKassa = value);
+    _repo.setFeatureKassaEnabled(value);
+  }
+
+  void _toggleFeatureTeams(bool value) {
+    setState(() => _featureTeams = value);
+    _repo.setFeatureTeamsEnabled(value);
   }
 
   void _toggleDynamic(bool value) {
@@ -580,6 +596,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
               trailing: Switch(
                 value: _featureFolders,
                 onChanged: _toggleFeatureFolders,
+              ),
+            ),
+            _rowDivider(scheme),
+            _row(
+              scheme: scheme,
+              icon: Icons.payments_rounded,
+              iconBg: scheme.primaryContainer,
+              iconFg: scheme.onPrimaryContainer,
+              title: tr('feature_kassa'),
+              subtitle: tr('feature_kassa_sub'),
+              onTap: () => _toggleFeatureKassa(!_featureKassa),
+              trailing: Switch(
+                value: _featureKassa,
+                onChanged: _toggleFeatureKassa,
+              ),
+            ),
+            _rowDivider(scheme),
+            _row(
+              scheme: scheme,
+              icon: Icons.groups_2_rounded,
+              iconBg: scheme.primaryContainer,
+              iconFg: scheme.onPrimaryContainer,
+              title: tr('feature_teams'),
+              subtitle: tr('feature_teams_sub'),
+              onTap: () => _toggleFeatureTeams(!_featureTeams),
+              trailing: Switch(
+                value: _featureTeams,
+                onChanged: _toggleFeatureTeams,
               ),
             ),
           ]),
