@@ -41,15 +41,20 @@ class CardGameScoreTracker extends StatelessWidget {
       builder: (context, _) => DynamicColorBuilder(
         builder: (lightDynamic, darkDynamic) {
           // Material You: если включено и система отдала схему (Android 12+) —
-          // строим тему из неё, иначе из выбранного seed-цвета.
+          // берём акцент обоев как seed и генерируем полную M3-схему
+          // (ColorScheme.fromSeed). Так корректно строятся тональные
+          // поверхности (surfaceContainer*), иначе фоны блоков «исчезали»,
+          // потому что surface и surfaceContainerHigh динамической схемы
+          // совпадали.
           final useDyn = theme.useDynamicColor &&
               lightDynamic != null &&
               darkDynamic != null;
+          final dynSeed = lightDynamic?.primary ?? theme.seedColor;
           final lightTheme = useDyn
-              ? AppTheme.fromScheme(lightDynamic.harmonized())
+              ? AppTheme.light(dynSeed)
               : AppTheme.light(theme.seedColor);
           final darkTheme = useDyn
-              ? AppTheme.fromScheme(darkDynamic.harmonized())
+              ? AppTheme.dark(dynSeed)
               : AppTheme.dark(theme.seedColor);
           return MaterialApp(
             title: 'ScoreMaster',
