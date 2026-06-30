@@ -474,4 +474,16 @@ const Map<String, Map<String, String>> _strings = {
   'no_games_that_day': {'ru': 'В этот день игр не было', 'en': 'No games that day'},
   'games_count_n': {'ru': '{n} игр', 'en': '{n} games'},
   'total_time_played': {'ru': 'Всего за игрой', 'en': 'Total time played'},
+
+  // ----------------------- Очные встречи -----------------------
+  'head_to_head': {'ru': 'Очные встречи', 'en': 'Head-to-head'},
+  'h2h_shared': {'ru': '{n} совместных', 'en': '{n} together'},
+  'h2h_no_rivals': {
+    'ru': 'Пока не с кем сравниться — сыграйте партию с другим игроком.',
+    'en': 'No rivals yet — play a game with another player.'
+  },
+  'h2h_no_personal': {'ru': 'без личных побед', 'en': 'no personal wins'},
+  'h2h_lead_me': {'ru': 'перевес {name}', 'en': '{name} leads'},
+  'h2h_even': {'ru': 'поровну', 'en': 'even'},
+  'h2h_other_won': {'ru': 'победил другой', 'en': 'someone else won'},
 };

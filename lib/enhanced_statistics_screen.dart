@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'l10n/strings.dart';
 import 'models/game_session.dart';
@@ -8,6 +9,7 @@ import 'services/game_repository.dart';
 import 'theme/app_theme.dart';
 import 'utils/format.dart';
 import 'widgets/player_shapes.dart';
+import 'widgets/reveal.dart';
 
 /// Период для графика динамики.
 enum _Period { day, month, year }
@@ -112,6 +114,9 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
   int _totalFinished = 0;
   int _totalRounds = 0;
 
+  /// Завершённые партии (с победителем) — для очных встреч.
+  List<GameSession> _finishedGames = [];
+
   // Календарь игр: игры по дням + режим/якорь периода.
   final Map<DateTime, List<GameSession>> _byDay = {};
   final Map<String, String> _typeOfGame = {}; // gameId → profileId
@@ -192,12 +197,14 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
 
     var finished = 0;
     var rounds = 0;
+    final finishedGames = <GameSession>[];
     // По возрастанию даты — для корректного подсчёта серии.
     final sorted = [...games]..sort((a, b) => a.date.compareTo(b.date));
     for (final g in sorted) {
       rounds += g.rounds;
       if (!g.isFinished) continue;
       finished++;
+      finishedGames.add(g);
       final winner = g.winner;
       for (final player in g.players) {
         statFor(player).record(g.date, player == winner);
@@ -217,6 +224,7 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
     if (!mounted) return;
     setState(() {
       _stats = list;
+      _finishedGames = finishedGames;
       _totalFinished = finished;
       _totalRounds = rounds;
       _selectedName = list.any((s) => s.name == _selectedName)
@@ -330,8 +338,390 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
         _statTiles(stat, scheme),
         const SizedBox(height: 16),
         _dynamicsCard(stat, scheme),
+        const SizedBox(height: 16),
+        Reveal(child: _headToHeadCard(stat, scheme)),
       ],
     );
+  }
+
+  // --------------------------- ОЧНЫЕ ВСТРЕЧИ ---------------------------
+
+  /// Очная статистика выбранного игрока против каждого соперника: в скольких
+  /// совместных завершённых партиях победил каждый из двоих.
+  List<_H2H> _headToHead(String me) {
+    final out = <_H2H>[];
+    for (final s in _stats) {
+      if (s.name == me) continue;
+      var my = 0, their = 0, shared = 0;
+      for (final g in _finishedGames) {
+        if (g.players.contains(me) && g.players.contains(s.name)) {
+          shared++;
+          if (g.winner == me) {
+            my++;
+          } else if (g.winner == s.name) {
+            their++;
+          }
+        }
+      }
+      if (shared > 0) out.add(_H2H(s, my, their, shared));
+    }
+    out.sort((a, b) {
+      final byShared = b.shared.compareTo(a.shared);
+      if (byShared != 0) return byShared;
+      return (b.my - b.their).compareTo(a.my - a.their);
+    });
+    return out;
+  }
+
+  Widget _headToHeadCard(_PlayerStat me, ColorScheme scheme) {
+    final rivals = _headToHead(me.name);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.sports_kabaddi_rounded,
+                  size: 20, color: scheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                tr('head_to_head'),
+                style: TextStyle(
+                  fontFamily: AppTheme.displayFont,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                  color: scheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (rivals.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                tr('h2h_no_rivals'),
+                style: TextStyle(
+                  fontFamily: AppTheme.bodyFont,
+                  fontSize: 13,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            )
+          else
+            for (final h in rivals) _h2hRow(me.name, h, scheme),
+        ],
+      ),
+    );
+  }
+
+  Widget _h2hRow(String me, _H2H h, ColorScheme scheme) {
+    final oppColor = h.opp.color;
+    final total = h.my + h.their;
+    final leadColor = h.my > h.their
+        ? scheme.primary
+        : h.their > h.my
+            ? oppColor
+            : scheme.onSurfaceVariant;
+    final caption = total == 0
+        ? trf('h2h_shared', {'n': h.shared})
+        : h.my == h.their
+            ? '${trf('h2h_shared', {'n': h.shared})}  ·  ${tr('h2h_even')}'
+            : '${trf('h2h_shared', {'n': h.shared})}  ·  '
+                '${trf('h2h_lead_me', {'name': h.my > h.their ? me : h.opp.name})}';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            _showPairGames(me, h.opp);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            child: Row(
+              children: [
+                _avatar(h.opp, 18),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              h.opp.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: AppTheme.bodyFont,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: scheme.onSurface,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${h.my} : ${h.their}',
+                            style: TextStyle(
+                              fontFamily: AppTheme.displayFont,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 18,
+                              color: leadColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      _h2hBar(h.my, h.their, oppColor, scheme),
+                      const SizedBox(height: 4),
+                      Text(
+                        caption,
+                        style: TextStyle(
+                          fontFamily: AppTheme.bodyFont,
+                          fontSize: 11.5,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(Icons.chevron_right_rounded,
+                    size: 20, color: scheme.outline),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Полоса перевеса: слева доля побед игрока (primary), остальное — соперник.
+  Widget _h2hBar(int my, int their, Color oppColor, ColorScheme scheme) {
+    final total = my + their;
+    final frac = total == 0 ? 0.0 : my / total;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: SizedBox(
+        height: 10,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Container(
+                color: total == 0
+                    ? scheme.surfaceContainerHighest
+                    : oppColor,
+              ),
+            ),
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: frac),
+              duration: const Duration(milliseconds: 700),
+              curve: Curves.easeOutCubic,
+              builder: (_, w, __) => FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: w,
+                child: Container(color: scheme.primary),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Нижняя панель: все совместные завершённые партии пары (кто победил).
+  Future<void> _showPairGames(String me, _PlayerStat opp) async {
+    final scheme = Theme.of(context).colorScheme;
+    final games = _finishedGames
+        .where((g) => g.players.contains(me) && g.players.contains(opp.name))
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    var my = 0, their = 0;
+    for (final g in games) {
+      if (g.winner == me) my++;
+      if (g.winner == opp.name) their++;
+    }
+    final meStat = _statByName(me);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: scheme.surfaceContainer,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: scheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Крупное «X : Y» с аватарами обоих.
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (meStat != null) _avatar(meStat, 22),
+                  const SizedBox(width: 12),
+                  Text(
+                    '$my : $their',
+                    style: TextStyle(
+                      fontFamily: AppTheme.displayFont,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 34,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _avatar(opp, 22),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '$me  ·  ${opp.name}',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppTheme.bodyFont,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: games.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (_, i) => _pairGameRow(games[i], me, opp, scheme),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _pairGameRow(
+      GameSession g, String me, _PlayerStat opp, ColorScheme scheme) {
+    final typeId = _typeOfGame[g.gameId];
+    final typeName = typeId != null ? _typeName[typeId] : null;
+    final winner = g.winner;
+    final iWon = winner == me;
+    final oppWon = winner == opp.name;
+    final accent = iWon
+        ? scheme.primary
+        : oppWon
+            ? opp.color
+            : scheme.surfaceContainerHighest;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 34,
+            decoration: BoxDecoration(
+              color: accent,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  typeName ?? tr('scoreboard'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTheme.bodyFont,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  dateTimeShort(g.date),
+                  style: TextStyle(
+                    fontFamily: AppTheme.bodyFont,
+                    fontSize: 12,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                winner == null
+                    ? Icons.remove_rounded
+                    : Icons.emoji_events_rounded,
+                size: 16,
+                color: iWon
+                    ? scheme.primary
+                    : oppWon
+                        ? opp.color
+                        : scheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                winner ?? tr('h2h_other_won'),
+                style: TextStyle(
+                  fontFamily: AppTheme.bodyFont,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: iWon
+                      ? scheme.primary
+                      : oppWon
+                          ? opp.color
+                          : scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  _PlayerStat? _statByName(String name) {
+    for (final s in _stats) {
+      if (s.name == name) return s;
+    }
+    return null;
   }
 
   Widget _playerPicker(ColorScheme scheme) {
@@ -1576,6 +1966,16 @@ class _TileData {
   final IconData icon;
   final Color accent;
   const _TileData(this.label, this.value, this.icon, this.accent);
+}
+
+/// Очная статистика против соперника: его профиль + счёт «мои : его» побед
+/// в [shared] совместных завершённых партиях.
+class _H2H {
+  final _PlayerStat opp;
+  final int my;
+  final int their;
+  final int shared;
+  const _H2H(this.opp, this.my, this.their, this.shared);
 }
 
 /// Плоский ряд столбиков: высота = игры (фон), заливка = победы.
