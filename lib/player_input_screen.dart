@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -509,15 +510,17 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
         duration: const Duration(milliseconds: 260),
         curve: Curves.easeOutCubic,
         child: hasResume
-            // IntrinsicHeight даёт Row ограниченную высоту, иначе stretch в
-            // безграничной по высоте Column роняет билд (экран пустеет).
-            ? IntrinsicHeight(
+            // Фиксированная высота даёт Row ограниченную высоту по вертикали —
+            // тогда stretch не роняет билд (как было с IntrinsicHeight, который
+            // вдобавок несовместим с AutoSizeText/LayoutBuilder).
+            ? SizedBox(
+                height: 66,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(flex: 3, child: _gamePickerCard(scheme)),
+                    Expanded(flex: 6, child: _gamePickerCard(scheme)),
                     const SizedBox(width: 10),
-                    Expanded(flex: 2, child: _resumeCard(scheme)),
+                    Expanded(flex: 5, child: _resumeCard(scheme)),
                   ],
                 ),
               )
@@ -543,6 +546,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       tr('games'),
@@ -553,9 +557,10 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                             scheme.onSecondaryContainer.withValues(alpha: 0.8),
                       ),
                     ),
-                    Text(
+                    AutoSizeText(
                       _game?.displayName ?? tr('game_g101'),
                       maxLines: 1,
+                      minFontSize: 11,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: AppTheme.displayFont,
@@ -567,6 +572,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
                   ],
                 ),
               ),
+              const SizedBox(width: 6),
               Icon(Icons.unfold_more_rounded,
                   color: scheme.onSecondaryContainer),
             ],
@@ -577,82 +583,80 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
   }
 
   /// Правая часть — «Продолжить» незавершённую партию (с крестиком «скрыть»).
+  /// Тесная по ширине: тексты ужимаются (AutoSizeText), крестик — в строке
+  /// заголовка (не налезает на текст).
   Widget _resumeCard(ColorScheme scheme) {
     final game = _resumeGame!;
     final roundCount = game.scores.isEmpty ? 0 : game.scores.first.length;
-    final sub = [
-      if (_resumeProfile != null) _resumeProfile!.displayName,
-      trf('rounds_n', {'n': roundCount}),
-    ].join(' · ');
+    final sub = _resumeProfile?.displayName ?? trf('rounds_n', {'n': roundCount});
 
     return Material(
       color: scheme.primaryContainer,
       borderRadius: BorderRadius.circular(20),
       clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          InkWell(
-            onTap: _resume,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-              child: Row(
-                children: [
-                  Icon(Icons.play_circle_rounded,
-                      color: scheme.onPrimaryContainer),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+      child: InkWell(
+        onTap: _resume,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+          child: Row(
+            children: [
+              Icon(Icons.play_circle_rounded,
+                  size: 26, color: scheme.onPrimaryContainer),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
                       children: [
-                        Text(
-                          tr('resume'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: AppTheme.displayFont,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                            color: scheme.onPrimaryContainer,
+                        Expanded(
+                          child: AutoSizeText(
+                            tr('resume'),
+                            maxLines: 1,
+                            minFontSize: 11,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: AppTheme.displayFont,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              color: scheme.onPrimaryContainer,
+                            ),
                           ),
                         ),
-                        Text(
-                          sub,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: AppTheme.bodyFont,
-                            fontSize: 11.5,
-                            color: scheme.onPrimaryContainer
-                                .withValues(alpha: 0.8),
+                        // Крестик «скрыть подсказку для этой партии» — в строке.
+                        InkWell(
+                          onTap: _dismissResume,
+                          customBorder: const CircleBorder(),
+                          child: Padding(
+                            padding: const EdgeInsets.all(3),
+                            child: Icon(Icons.close_rounded,
+                                size: 17,
+                                color: scheme.onPrimaryContainer
+                                    .withValues(alpha: 0.7)),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Крестик «скрыть подсказку для этой партии».
-          Positioned(
-            top: 0,
-            right: 0,
-            child: Material(
-              color: Colors.transparent,
-              shape: const CircleBorder(),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: _dismissResume,
-                child: Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: Icon(Icons.close_rounded,
-                      size: 16,
-                      color: scheme.onPrimaryContainer.withValues(alpha: 0.7)),
+                    AutoSizeText(
+                      sub,
+                      maxLines: 1,
+                      minFontSize: 9,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTheme.bodyFont,
+                        fontSize: 11.5,
+                        color:
+                            scheme.onPrimaryContainer.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
