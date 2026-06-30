@@ -385,6 +385,13 @@ const Map<String, String> _de = {
   "teams": "Teams",
   "teams_count": "Teams",
   "team_n": "Team {n}",
+  "theme_mode": "Thema",
+  "theme_light": "Hell",
+  "theme_dark": "Dunkel",
+  "theme_system": "System",
+  "theme_auto": "Auto (nach Zeit)",
+  "race_chart": "Rennen pro Runde",
+  "play_heatmap": "Wann wir spielen",
 };
 
 // ------------------------------- Français -------------------------------
@@ -761,6 +768,13 @@ const Map<String, String> _fr = {
   "teams": "Équipes",
   "teams_count": "Équipes",
   "team_n": "Équipe {n}",
+  "theme_mode": "Thème",
+  "theme_light": "Clair",
+  "theme_dark": "Sombre",
+  "theme_system": "Système",
+  "theme_auto": "Auto (selon l'heure)",
+  "race_chart": "Course par manche",
+  "play_heatmap": "Quand on joue",
 };
 
 // ------------------------------- Español -------------------------------
@@ -1135,6 +1149,13 @@ const Map<String, String> _es = {
   "teams": "Equipos",
   "teams_count": "Equipos",
   "team_n": "Equipo {n}",
+  "theme_mode": "Tema",
+  "theme_light": "Claro",
+  "theme_dark": "Oscuro",
+  "theme_system": "Sistema",
+  "theme_auto": "Auto (por hora)",
+  "race_chart": "Carrera por ronda",
+  "play_heatmap": "Cuándo jugamos",
 };
 
 // ------------------------------- Italiano -------------------------------
@@ -1510,6 +1531,13 @@ const Map<String, String> _it = {
   "teams": "Squadre",
   "teams_count": "Squadre",
   "team_n": "Squadra {n}",
+  "theme_mode": "Tema",
+  "theme_light": "Chiaro",
+  "theme_dark": "Scuro",
+  "theme_system": "Sistema",
+  "theme_auto": "Auto (a orario)",
+  "race_chart": "Gara per round",
+  "play_heatmap": "Quando giochiamo",
 };
 
 // ------------------------------- Português -------------------------------
@@ -1882,4 +1910,11 @@ const Map<String, String> _pt = {
   "teams": "Equipas",
   "teams_count": "Equipas",
   "team_n": "Equipa {n}",
+  "theme_mode": "Tema",
+  "theme_light": "Claro",
+  "theme_dark": "Escuro",
+  "theme_system": "Sistema",
+  "theme_auto": "Auto (por hora)",
+  "race_chart": "Corrida por rodada",
+  "play_heatmap": "Quando jogamos",
 };

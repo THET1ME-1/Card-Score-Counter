@@ -29,6 +29,7 @@ class GameRepository extends ChangeNotifier {
   static const String _kGameTypes = 'gameTypes';
   static const String _kProfiles = 'profiles';
   static const String _kIsDarkTheme = 'isDarkTheme';
+  static const String _kThemeMode = 'themeMode'; // 0 свет,1 тёмн,2 систем,3 авто
   static const String _kSeedColor = 'seedColor';
   static const String _kLanguage = 'languageCode';
   static const String _kTextSize = 'textSize';
@@ -501,6 +502,15 @@ class GameRepository extends ChangeNotifier {
   Future<void> setDarkTheme(bool value) async =>
       (await _prefs).setBool(_kIsDarkTheme, value);
 
+  /// Режим темы: 0 светлая, 1 тёмная, 2 системная, 3 авто-по-времени.
+  /// null — не задан (тогда контроллер мигрирует со старого isDarkTheme).
+  Future<int?> themeModeRaw() async => (await _prefs).getInt(_kThemeMode);
+
+  Future<void> setThemeModeRaw(int value) async {
+    await (await _prefs).setInt(_kThemeMode, value);
+    notifyListeners();
+  }
+
   /// Звуковые эффекты (победа/вылет/очко). По умолчанию включены.
   Future<bool> soundEnabled({bool fallback = true}) async =>
       (await _prefs).getBool(_kSoundEnabled) ?? fallback;
@@ -596,6 +606,7 @@ class GameRepository extends ChangeNotifier {
       _kSelectedGame: prefs.getString(_kSelectedGame),
       // Настройки.
       _kIsDarkTheme: prefs.getBool(_kIsDarkTheme),
+      _kThemeMode: prefs.getInt(_kThemeMode),
       _kSeedColor: prefs.getInt(_kSeedColor),
       _kLanguage: prefs.getString(_kLanguage),
       _kTextSize: prefs.getDouble(_kTextSize),
@@ -650,6 +661,9 @@ class GameRepository extends ChangeNotifier {
       // Числа.
       if (data[_kSeedColor] is num) {
         await prefs.setInt(_kSeedColor, (data[_kSeedColor] as num).toInt());
+      }
+      if (data[_kThemeMode] is num) {
+        await prefs.setInt(_kThemeMode, (data[_kThemeMode] as num).toInt());
       }
       if (data[_kTextSize] is num) {
         await prefs.setDouble(

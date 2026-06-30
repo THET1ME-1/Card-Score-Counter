@@ -83,9 +83,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _appVersion = version);
   }
 
-  void _toggleTheme(bool value) {
-    _theme.setDark(value);
-    setState(() {});
+  String _themeModeLabel(AppThemeMode m) => switch (m) {
+        AppThemeMode.light => tr('theme_light'),
+        AppThemeMode.dark => tr('theme_dark'),
+        AppThemeMode.system => tr('theme_system'),
+        AppThemeMode.autoTime => tr('theme_auto'),
+      };
+
+  Future<void> _pickThemeMode() async {
+    final scheme = Theme.of(context).colorScheme;
+    final picked = await showModalBottomSheet<AppThemeMode>(
+      context: context,
+      backgroundColor: scheme.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 14),
+            Text(
+              tr('theme_mode'),
+              style: TextStyle(
+                fontFamily: AppTheme.displayFont,
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+                color: scheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            for (final m in AppThemeMode.values)
+              ListTile(
+                leading: Icon(switch (m) {
+                  AppThemeMode.light => Icons.light_mode_rounded,
+                  AppThemeMode.dark => Icons.dark_mode_rounded,
+                  AppThemeMode.system => Icons.brightness_auto_rounded,
+                  AppThemeMode.autoTime => Icons.schedule_rounded,
+                }),
+                title: Text(_themeModeLabel(m)),
+                trailing: _theme.mode == m
+                    ? Icon(Icons.check_rounded, color: scheme.primary)
+                    : null,
+                onTap: () => Navigator.pop(ctx, m),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (picked != null) {
+      await _theme.setMode(picked);
+      if (mounted) setState(() {});
+    }
   }
 
   void _toggleSound(bool value) {
@@ -462,18 +512,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _rowDivider(scheme),
             _row(
               scheme: scheme,
-              icon: _theme.isDark
-                  ? Icons.dark_mode_rounded
-                  : Icons.light_mode_rounded,
+              icon: switch (_theme.mode) {
+                AppThemeMode.light => Icons.light_mode_rounded,
+                AppThemeMode.dark => Icons.dark_mode_rounded,
+                AppThemeMode.system => Icons.brightness_auto_rounded,
+                AppThemeMode.autoTime => Icons.schedule_rounded,
+              },
               iconBg: scheme.primaryContainer,
               iconFg: scheme.onPrimaryContainer,
-              title: tr('dark_theme'),
-              subtitle: _theme.isDark ? tr('on') : tr('off'),
-              onTap: () => _toggleTheme(!_theme.isDark),
-              trailing: Switch(value: _theme.isDark, onChanged: _toggleTheme),
+              title: tr('theme_mode'),
+              subtitle: _themeModeLabel(_theme.mode),
+              onTap: _pickThemeMode,
+              trailing: Icon(Icons.chevron_right_rounded, color: scheme.outline),
             ),
-            // AMOLED — только когда включена тёмная тема.
-            if (_theme.isDark) ...[
+            // AMOLED — когда тема не светлая.
+            if (_theme.mode != AppThemeMode.light) ...[
               _rowDivider(scheme),
               _row(
                 scheme: scheme,

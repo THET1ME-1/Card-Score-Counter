@@ -49,6 +49,11 @@ const Map<String, Map<String, String>> _strings = {
     'ru': 'Цвет из обоев системы (Android 12+)',
     'en': 'Color from system wallpaper (Android 12+)'
   },
+  'theme_mode': {'ru': 'Тема', 'en': 'Theme'},
+  'theme_light': {'ru': 'Светлая', 'en': 'Light'},
+  'theme_dark': {'ru': 'Тёмная', 'en': 'Dark'},
+  'theme_system': {'ru': 'Системная', 'en': 'System'},
+  'theme_auto': {'ru': 'Авто (по времени)', 'en': 'Auto (by time)'},
   'amoled': {'ru': 'AMOLED-чёрный', 'en': 'AMOLED black'},
   'amoled_sub': {
     'ru': 'Чистый чёрный фон в тёмной теме',
@@ -593,6 +598,8 @@ const Map<String, Map<String, String>> _strings = {
   },
   'favorite_game': {'ru': 'Любимая игра', 'en': 'Favorite game'},
   'recent_form': {'ru': 'Форма последних партий', 'en': 'Recent form'},
+  'race_chart': {'ru': 'Гонка по раундам', 'en': 'Round-by-round race'},
+  'play_heatmap': {'ru': 'Когда играем', 'en': 'When we play'},
   'records': {'ru': 'Рекорды', 'en': 'Records'},
   'rec_longest': {'ru': 'Самая длинная', 'en': 'Longest game'},
   'rec_fastest': {'ru': 'Самая быстрая', 'en': 'Fastest game'},

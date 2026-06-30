@@ -245,6 +245,93 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
     );
   }
 
+  /// Накопительный счёт каждого игрока по кругам (пропуски «—» переносят
+  /// предыдущее значение). Для графика «гонка».
+  List<List<double>> _raceSeries(int rounds) {
+    final series = <List<double>>[];
+    for (var i = 0; i < widget.game.players.length; i++) {
+      final row = i < widget.game.scores.length
+          ? widget.game.scores[i]
+          : const <dynamic>[];
+      final s = <double>[];
+      var last = 0;
+      for (var j = 0; j < rounds; j++) {
+        final v = j < row.length ? row[j] : null;
+        if (v is int) last = v;
+        s.add(last.toDouble());
+      }
+      series.add(s);
+    }
+    return series;
+  }
+
+  Widget _raceChartCard(ColorScheme scheme) {
+    final rounds = widget.game.scores.first.length;
+    final series = _raceSeries(rounds);
+    final colors = [
+      for (var i = 0; i < widget.game.players.length; i++)
+        _colorFor(widget.game.players[i], i)
+    ];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            tr('race_chart'),
+            style: TextStyle(
+              fontFamily: AppTheme.displayFont,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              color: scheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 180,
+            width: double.infinity,
+            child: CustomPaint(
+              painter: _RaceChartPainter(series, colors, scheme),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: [
+              for (var i = 0; i < widget.game.players.length; i++)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                          color: colors[i], shape: BoxShape.circle),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      widget.game.players[i],
+                      style: TextStyle(
+                        fontFamily: AppTheme.bodyFont,
+                        fontSize: 12.5,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Итоговый счёт игрока — последнее число в его столбце очков.
   int _finalScore(int i) {
     if (i >= widget.game.scores.length) return 0;
@@ -269,6 +356,8 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
         _timeByPlayerCard(scheme),
       ] else
         _noTimingCard(scheme),
+      if ((game.scores.isNotEmpty ? game.scores.first.length : 0) >= 2)
+        _raceChartCard(scheme),
       _standingsCard(scheme),
       if (_notesEnabled) _noteCard(scheme),
     ];
@@ -1145,4 +1234,74 @@ class _DonutPainter extends CustomPainter {
       old.colors != colors ||
       old.track != track ||
       old.progress != progress;
+}
+
+/// График «гонка»: накопительный счёт каждого игрока по кругам (линии).
+class _RaceChartPainter extends CustomPainter {
+  final List<List<double>> series;
+  final List<Color> colors;
+  final ColorScheme scheme;
+  _RaceChartPainter(this.series, this.colors, this.scheme);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (series.isEmpty || series.first.length < 2) return;
+    final rounds = series.first.length;
+
+    var minV = double.infinity, maxV = -double.infinity;
+    for (final s in series) {
+      for (final v in s) {
+        if (v < minV) minV = v;
+        if (v > maxV) maxV = v;
+      }
+    }
+    if (minV == maxV) {
+      maxV += 1;
+      minV -= 1;
+    }
+    const padL = 8.0, padR = 8.0, padT = 8.0, padB = 8.0;
+    final w = size.width - padL - padR;
+    final h = size.height - padT - padB;
+
+    double xOf(int j) => padL + w * (j / (rounds - 1));
+    double yOf(double v) => padT + h * (1 - (v - minV) / (maxV - minV));
+
+    // Базовые горизонтальные линии.
+    final grid = Paint()
+      ..color = scheme.outlineVariant.withValues(alpha: 0.4)
+      ..strokeWidth = 1;
+    for (var k = 0; k <= 3; k++) {
+      final y = padT + h * k / 3;
+      canvas.drawLine(Offset(padL, y), Offset(padL + w, y), grid);
+    }
+
+    for (var i = 0; i < series.length; i++) {
+      final paint = Paint()
+        ..color = colors[i]
+        ..strokeWidth = 3
+        ..style = PaintingStyle.stroke
+        ..strokeJoin = StrokeJoin.round
+        ..strokeCap = StrokeCap.round;
+      final path = Path();
+      for (var j = 0; j < rounds; j++) {
+        final p = Offset(xOf(j), yOf(series[i][j]));
+        if (j == 0) {
+          path.moveTo(p.dx, p.dy);
+        } else {
+          path.lineTo(p.dx, p.dy);
+        }
+      }
+      canvas.drawPath(path, paint);
+      // Точка в конце линии.
+      canvas.drawCircle(
+        Offset(xOf(rounds - 1), yOf(series[i][rounds - 1])),
+        4,
+        Paint()..color = colors[i],
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RaceChartPainter old) =>
+      old.series != series || old.colors != colors;
 }

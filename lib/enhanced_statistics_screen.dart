@@ -131,6 +131,11 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
   /// Завершённые партии (с победителем) — для очных встреч.
   List<GameSession> _finishedGames = [];
 
+  // Тепловая карта «когда играем»: 7 дней недели × 6 интервалов по 4 часа.
+  List<List<int>> _whenMatrix =
+      List.generate(7, (_) => List<int>.filled(6, 0));
+  int _whenMax = 0;
+
   // Календарь игр: игры по дням + режим/якорь периода.
   final Map<DateTime, List<GameSession>> _byDay = {};
   final Map<String, String> _typeOfGame = {}; // gameId → profileId
@@ -171,10 +176,19 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
     for (final gp in allGameProfiles) {
       _typeName[gp.id] = gp.displayName;
     }
+    final when = List.generate(7, (_) => List<int>.filled(6, 0));
+    var whenMax = 0;
     for (final g in games) {
       final key = DateTime(g.date.year, g.date.month, g.date.day);
       _byDay.putIfAbsent(key, () => []).add(g);
+      // День недели (Пн=0) × интервал 4 часа.
+      final row = g.date.weekday - 1;
+      final col = (g.date.hour ~/ 4).clamp(0, 5);
+      when[row][col]++;
+      if (when[row][col] > whenMax) whenMax = when[row][col];
     }
+    _whenMatrix = when;
+    _whenMax = whenMax;
     // Пока пользователь сам не листал календарь — держим его на дне последней
     // сыгранной партии (иначе можно открыть пустой месяц без игр).
     if (!_userTouchedCal) {
@@ -1432,8 +1446,90 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
           const SizedBox(height: 16),
           _matrixCard(scheme),
         ],
+        if (_whenMax > 0) ...[
+          const SizedBox(height: 16),
+          _whenCard(scheme),
+        ],
       ],
     );
+  }
+
+  /// Тепловая карта «когда играем»: дни недели × интервалы суток.
+  Widget _whenCard(ColorScheme scheme) {
+    final days = weekdayShort;
+    const cols = ['0', '4', '8', '12', '16', '20'];
+    return _panel(scheme, tr('play_heatmap'), [
+      const SizedBox(height: 4),
+      // Шапка с часами.
+      Padding(
+        padding: const EdgeInsets.only(left: 34, bottom: 4),
+        child: Row(
+          children: [
+            for (final c in cols)
+              Expanded(
+                child: Text(
+                  c,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: AppTheme.bodyFont,
+                    fontSize: 10,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+      for (var d = 0; d < 7; d++)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 30,
+                child: Text(
+                  days[d],
+                  style: TextStyle(
+                    fontFamily: AppTheme.bodyFont,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              for (var c = 0; c < 6; c++)
+                Expanded(
+                  child: Container(
+                    height: 22,
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    decoration: BoxDecoration(
+                      color: _whenMatrix[d][c] == 0
+                          ? scheme.surfaceContainerHighest
+                          : scheme.primary.withValues(
+                              alpha: (0.2 + 0.8 * _whenMatrix[d][c] / _whenMax)
+                                  .clamp(0.0, 1.0)),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    alignment: Alignment.center,
+                    child: _whenMatrix[d][c] > 0
+                        ? Text(
+                            '${_whenMatrix[d][c]}',
+                            style: TextStyle(
+                              fontFamily: AppTheme.bodyFont,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: _whenMatrix[d][c] / _whenMax > 0.5
+                                  ? scheme.onPrimary
+                                  : scheme.onSurface,
+                            ),
+                          )
+                        : null,
+                  ),
+                ),
+            ],
+          ),
+        ),
+    ]);
   }
 
   // --------------------------- РЕКОРДЫ / КОРОЛИ ---------------------------
