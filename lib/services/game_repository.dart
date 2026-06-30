@@ -38,6 +38,8 @@ class GameRepository extends ChangeNotifier {
   static const String _kDynamicColor = 'dynamicColor';
   static const String _kAmoled = 'amoled';
   static const String _kVolleyballActive = 'volleyballActive';
+  static const String _kGameNotes = 'gameNotes';
+  static const String _kFeatureNotes = 'featureNotes';
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
@@ -102,10 +104,15 @@ class GameRepository extends ChangeNotifier {
     final games = await loadGames();
     games.removeWhere((g) => g.gameId == gameId);
     await _saveGames(games);
-    // Заодно убираем сохранённое имя этой партии.
+    final prefs = await _prefs;
+    // Заодно убираем сохранённое имя и заметку этой партии.
     final names = await gameNames();
     if (names.remove(gameId) != null) {
-      await (await _prefs).setString(_kGameNames, jsonEncode(names));
+      await prefs.setString(_kGameNames, jsonEncode(names));
+    }
+    final notes = await gameNotes();
+    if (notes.remove(gameId) != null) {
+      await prefs.setString(_kGameNotes, jsonEncode(notes));
     }
   }
 
@@ -134,6 +141,43 @@ class GameRepository extends ChangeNotifier {
       names[gameId] = trimmed;
     }
     await prefs.setString(_kGameNames, jsonEncode(names));
+    notifyListeners();
+  }
+
+  // --------------------------- Заметки к партиям ---------------------------
+  // Свободный текст-комментарий к партии (gameId → заметка), как и имена —
+  // отдельно от модели GameSession.
+
+  Future<Map<String, String>> gameNotes() async {
+    final raw = (await _prefs).getString(_kGameNotes);
+    if (raw == null) return {};
+    try {
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      return map.map((k, v) => MapEntry(k, v.toString()));
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> setGameNote(String gameId, String note) async {
+    final prefs = await _prefs;
+    final notes = await gameNotes();
+    final trimmed = note.trim();
+    if (trimmed.isEmpty) {
+      notes.remove(gameId);
+    } else {
+      notes[gameId] = trimmed;
+    }
+    await prefs.setString(_kGameNotes, jsonEncode(notes));
+    notifyListeners();
+  }
+
+  /// Функция «Заметки к партиям» включена в настройках (по умолчанию выкл).
+  Future<bool> featureNotesEnabled({bool fallback = false}) async =>
+      (await _prefs).getBool(_kFeatureNotes) ?? fallback;
+
+  Future<void> setFeatureNotesEnabled(bool value) async {
+    await (await _prefs).setBool(_kFeatureNotes, value);
     notifyListeners();
   }
 
@@ -431,6 +475,7 @@ class GameRepository extends ChangeNotifier {
       _kProfiles: prefs.getStringList(_kProfiles) ?? const <String>[],
       _kCustomGames: prefs.getStringList(_kCustomGames) ?? const <String>[],
       _kGameNames: prefs.getString(_kGameNames),
+      _kGameNotes: prefs.getString(_kGameNotes),
       _kGameTypes: prefs.getString(_kGameTypes),
       _kSelectedGame: prefs.getString(_kSelectedGame),
       // Настройки.
@@ -443,6 +488,7 @@ class GameRepository extends ChangeNotifier {
       _kTimerEnabled: prefs.getBool(_kTimerEnabled),
       _kDynamicColor: prefs.getBool(_kDynamicColor),
       _kAmoled: prefs.getBool(_kAmoled),
+      _kFeatureNotes: prefs.getBool(_kFeatureNotes),
     };
     return const JsonEncoder.withIndent('  ').convert(data);
   }
@@ -470,8 +516,14 @@ class GameRepository extends ChangeNotifier {
       await setStrList(_kProfiles, profiles);
       await setStrList(_kCustomGames, data[_kCustomGames]);
 
-      // Строковые карты (имена партий, типы) и прочие строки.
-      for (final key in [_kGameNames, _kGameTypes, _kSelectedGame, _kLanguage]) {
+      // Строковые карты (имена/заметки партий, типы) и прочие строки.
+      for (final key in [
+        _kGameNames,
+        _kGameNotes,
+        _kGameTypes,
+        _kSelectedGame,
+        _kLanguage
+      ]) {
         final v = data[key];
         if (v is String) await prefs.setString(key, v);
       }
@@ -490,7 +542,8 @@ class GameRepository extends ChangeNotifier {
         _kSoundEnabled,
         _kTimerEnabled,
         _kDynamicColor,
-        _kAmoled
+        _kAmoled,
+        _kFeatureNotes
       ]) {
         final v = data[key];
         if (v is bool) await prefs.setBool(key, v);

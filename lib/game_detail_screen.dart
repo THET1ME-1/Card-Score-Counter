@@ -57,6 +57,10 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
   int _sameTypeCount = 0;
   bool _loading = true;
 
+  // Заметка к партии (функция, включается в настройках).
+  bool _notesEnabled = false;
+  String _note = '';
+
   @override
   void initState() {
     super.initState();
@@ -88,12 +92,78 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
       }
     }
 
+    final notesOn = await _repo.featureNotesEnabled();
+    final note = (await _repo.gameNotes())[widget.game.gameId] ?? '';
+
     if (!mounted) return;
     setState(() {
       _avgDurationMs = avg;
       _sameTypeCount = count;
+      _notesEnabled = notesOn;
+      _note = note;
       _loading = false;
     });
+  }
+
+  Future<void> _editNote() async {
+    final controller = TextEditingController(text: _note);
+    final scheme = Theme.of(context).colorScheme;
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: scheme.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+            20, 14, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: scheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              tr('note'),
+              style: TextStyle(
+                fontFamily: AppTheme.displayFont,
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+                color: scheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              maxLines: 4,
+              maxLength: 280,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(hintText: tr('note_hint')),
+            ),
+            const SizedBox(height: 8),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, controller.text),
+              child: Text(tr('save')),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result == null) return;
+    await _repo.setGameNote(widget.game.gameId, result);
+    if (!mounted) return;
+    setState(() => _note = result.trim());
   }
 
   Color _colorFor(String name, int index) =>
@@ -110,6 +180,70 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
         size: radius * 2,
         shape: avatarShape(_shapeFor(name)),
       );
+
+  /// Карточка заметки к партии: показывает текст или «Добавить заметку».
+  Widget _noteCard(ColorScheme scheme) {
+    final has = _note.isNotEmpty;
+    return Material(
+      color: scheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(24),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: _editNote,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.sticky_note_2_rounded,
+                    size: 22, color: scheme.onPrimaryContainer),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tr('note'),
+                      style: TextStyle(
+                        fontFamily: AppTheme.displayFont,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      has ? _note : tr('add_note'),
+                      style: TextStyle(
+                        fontFamily: AppTheme.bodyFont,
+                        fontSize: 14,
+                        height: 1.35,
+                        fontStyle: has ? FontStyle.normal : FontStyle.italic,
+                        color: has
+                            ? scheme.onSurface
+                            : scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.edit_rounded, size: 18, color: scheme.outline),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   /// Итоговый счёт игрока — последнее число в его столбце очков.
   int _finalScore(int i) {
@@ -136,6 +270,7 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
       ] else
         _noTimingCard(scheme),
       _standingsCard(scheme),
+      if (_notesEnabled) _noteCard(scheme),
     ];
 
     return Scaffold(

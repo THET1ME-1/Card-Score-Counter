@@ -27,6 +27,8 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
   List<GameSession> _games = [];
   Map<String, String> _names = {};
   Map<String, String> _types = {}; // gameId сессии → id профиля игры
+  Map<String, String> _notes = {}; // gameId → заметка (если функция включена)
+  bool _notesEnabled = false;
   Map<String, GameProfile> _gamesById = {};
   String? _filter; // фильтр по профилю игры (null — все)
   String _query = ''; // поисковый запрос (название/игра/игроки)
@@ -57,6 +59,8 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     final games = await _repo.loadGames();
     final names = await _repo.gameNames();
     final types = await _repo.gameTypes();
+    final notesOn = await _repo.featureNotesEnabled();
+    final notes = notesOn ? await _repo.gameNotes() : <String, String>{};
     final all = await _repo.allGames();
     games.sort((a, b) =>
         descending ? b.date.compareTo(a.date) : a.date.compareTo(b.date));
@@ -66,6 +70,8 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
       _games = games;
       _names = names;
       _types = types;
+      _notesEnabled = notesOn;
+      _notes = notes;
       _gamesById = {for (final g in all) g.id: g};
       _loading = false;
     });
@@ -429,6 +435,33 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
                     ],
                   ),
                 ),
+                // Заметка к партии (если функция включена и заметка есть).
+                if (_notesEnabled && (_notes[game.gameId]?.isNotEmpty ?? false))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10, right: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.sticky_note_2_rounded,
+                            size: 15, color: scheme.onSurfaceVariant),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            _notes[game.gameId]!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: AppTheme.bodyFont,
+                              fontSize: 12.5,
+                              fontStyle: FontStyle.italic,
+                              height: 1.3,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),

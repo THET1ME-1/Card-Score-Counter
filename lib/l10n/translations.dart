@@ -358,6 +358,13 @@ const Map<String, String> _de = {
   "flip": "Werfen",
   "heads": "Kopf",
   "tails": "Zahl",
+  "features": "Funktionen",
+  "features_sub": "Zusatzfunktionen — aktiviere, was du brauchst",
+  "feature_notes": "Spielnotizen",
+  "feature_notes_sub": "Einen Kommentar zur Partie hinzufügen",
+  "note": "Notiz",
+  "add_note": "Notiz hinzufügen",
+  "note_hint": "Was war los…",
 };
 
 // ------------------------------- Français -------------------------------
@@ -707,6 +714,13 @@ const Map<String, String> _fr = {
   "flip": "Lancer",
   "heads": "Face",
   "tails": "Pile",
+  "features": "Fonctions",
+  "features_sub": "Fonctions supplémentaires — activez ce dont vous avez besoin",
+  "feature_notes": "Notes de partie",
+  "feature_notes_sub": "Ajouter un commentaire à une partie",
+  "note": "Note",
+  "add_note": "Ajouter une note",
+  "note_hint": "Ce qui s'est passé…",
 };
 
 // ------------------------------- Español -------------------------------
@@ -1054,6 +1068,13 @@ const Map<String, String> _es = {
   "flip": "Lanzar",
   "heads": "Cara",
   "tails": "Cruz",
+  "features": "Funciones",
+  "features_sub": "Funciones extra — activa lo que necesites",
+  "feature_notes": "Notas de partida",
+  "feature_notes_sub": "Añadir un comentario a una partida",
+  "note": "Nota",
+  "add_note": "Añadir nota",
+  "note_hint": "Qué pasó…",
 };
 
 // ------------------------------- Italiano -------------------------------
@@ -1402,6 +1423,13 @@ const Map<String, String> _it = {
   "flip": "Lancia",
   "heads": "Testa",
   "tails": "Croce",
+  "features": "Funzioni",
+  "features_sub": "Funzioni extra — attiva ciò che ti serve",
+  "feature_notes": "Note alla partita",
+  "feature_notes_sub": "Aggiungere un commento a una partita",
+  "note": "Nota",
+  "add_note": "Aggiungi nota",
+  "note_hint": "Cosa è successo…",
 };
 
 // ------------------------------- Português -------------------------------
@@ -1747,4 +1775,11 @@ const Map<String, String> _pt = {
   "flip": "Lançar",
   "heads": "Cara",
   "tails": "Coroa",
+  "features": "Funções",
+  "features_sub": "Funções extra — ative o que precisar",
+  "feature_notes": "Notas da partida",
+  "feature_notes_sub": "Adicionar um comentário a uma partida",
+  "note": "Nota",
+  "add_note": "Adicionar nota",
+  "note_hint": "O que aconteceu…",
 };

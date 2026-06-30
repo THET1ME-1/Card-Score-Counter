@@ -38,6 +38,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _appVersion = '…';
   bool _soundEnabled = SoundService.instance.enabled;
   bool _timerEnabled = true;
+  bool _featureNotes = false;
 
   @override
   void initState() {
@@ -49,10 +50,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadPreferences() async {
     final size = await _repo.textSize();
     final timer = await _repo.timerEnabled();
+    final notes = await _repo.featureNotesEnabled();
     if (!mounted) return;
     setState(() {
       _textSize = size;
       _timerEnabled = timer;
+      _featureNotes = notes;
     });
   }
 
@@ -85,6 +88,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _toggleTimer(bool value) {
     setState(() => _timerEnabled = value);
     _repo.setTimerEnabled(value);
+  }
+
+  void _toggleFeatureNotes(bool value) {
+    setState(() => _featureNotes = value);
+    _repo.setFeatureNotesEnabled(value);
   }
 
   void _toggleDynamic(bool value) {
@@ -523,6 +531,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
             _rowDivider(scheme),
             _textSizeRow(scheme),
+          ]),
+
+          // ----------------------------- Функции -----------------------------
+          _sectionHeader(tr('features'), scheme.primary),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Text(
+              tr('features_sub'),
+              style: TextStyle(
+                fontFamily: AppTheme.bodyFont,
+                fontSize: 12.5,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          _groupCard(scheme, [
+            _row(
+              scheme: scheme,
+              icon: Icons.sticky_note_2_rounded,
+              iconBg: scheme.primaryContainer,
+              iconFg: scheme.onPrimaryContainer,
+              title: tr('feature_notes'),
+              subtitle: tr('feature_notes_sub'),
+              onTap: () => _toggleFeatureNotes(!_featureNotes),
+              trailing: Switch(
+                value: _featureNotes,
+                onChanged: _toggleFeatureNotes,
+              ),
+            ),
           ]),
 
           // ----------------------------- Данные -----------------------------

@@ -533,6 +533,19 @@ const Map<String, Map<String, String>> _strings = {
   'vb_tap_hint': {'ru': 'Тап по половине — очко команде', 'en': 'Tap a side to add a point'},
 
   // ----------------------- Очные встречи -----------------------
+  'features': {'ru': 'Функции', 'en': 'Features'},
+  'features_sub': {
+    'ru': 'Дополнительные возможности — включайте, что нужно',
+    'en': 'Extra features — turn on what you need'
+  },
+  'feature_notes': {'ru': 'Заметки к партиям', 'en': 'Game notes'},
+  'feature_notes_sub': {
+    'ru': 'Добавлять комментарий к сыгранной партии',
+    'en': 'Add a comment to a played game'
+  },
+  'note': {'ru': 'Заметка', 'en': 'Note'},
+  'add_note': {'ru': 'Добавить заметку', 'en': 'Add a note'},
+  'note_hint': {'ru': 'Что запомнилось…', 'en': 'What happened…'},
   'sc_new_game': {'ru': 'Новая игра', 'en': 'New game'},
   'who_first': {'ru': 'Кто первый?', 'en': 'Who’s first?'},
   'tool_wheel': {'ru': 'Колесо', 'en': 'Wheel'},
