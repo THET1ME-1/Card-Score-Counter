@@ -2,7 +2,29 @@
 
 Приложение на Flutter для подсчёта очков в карточных играх: от «КунКена» (Conquian)
 до Дурака, Президента и Phase 10. Учёт раундов, игроки с аватарками, история партий,
-статистика и достижения. Material 3 Expressive, русский и английский языки.
+статистика и достижения. Material 3 Expressive, 7 языков.
+
+## Установка (Android)
+
+[![Latest release](https://img.shields.io/github/v/release/THET1ME-1/Card-Score-Counter?label=релиз&style=for-the-badge)](https://github.com/THET1ME-1/Card-Score-Counter/releases/latest)
+
+**Вариант 1 — просто APK.** Скачайте `ScoreMaster-*.apk` со страницы
+[последнего релиза](https://github.com/THET1ME-1/Card-Score-Counter/releases/latest)
+и установите (разрешите установку из этого источника).
+
+**Вариант 2 — Obtainium (рекомендуется, с авто-обновлениями).**
+[Obtainium](https://github.com/ImranR98/Obtainium) сам ставит и обновляет приложение
+прямо из релизов GitHub.
+
+1. Установите Obtainium.
+2. Откройте на телефоне ссылку для добавления в один тап:
+   **[Добавить ScoreMaster в Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/THET1ME-1/Card-Score-Counter)**
+   — или в Obtainium → «Add App» вставьте URL репозитория:
+   `https://github.com/THET1ME-1/Card-Score-Counter`
+3. Готово — новые версии будут прилетать автоматически.
+
+> Подпись релизов: `CN=ScoreMaster`. Все APK подписаны одним ключом, поэтому
+> обновления ставятся поверх без переустановки.
 
 ## Возможности
 
