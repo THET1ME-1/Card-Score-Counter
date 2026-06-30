@@ -17,19 +17,23 @@ class AppTheme {
   /// пока пользователь не выбрал свой в настройках.
   static const Color defaultSeed = Color(0xFF00B5C7);
 
-  static ThemeData light(Color seed) => _build(Brightness.light, seed);
-  static ThemeData dark(Color seed) => _build(Brightness.dark, seed);
+  /// Кривые движения Material 3 «emphasized» — выразительный разгон/торможение
+  /// для появлений и переходов (живее, чем стандартный easeOut).
+  static const Curve emphasized = Cubic(0.2, 0.0, 0.0, 1.0);
+  static const Curve emphasizedDecelerate = Cubic(0.05, 0.7, 0.1, 1.0);
 
-  static ThemeData _build(Brightness brightness, Color seed) {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: seed,
-      brightness: brightness,
-    );
+  static ThemeData light(Color seed) =>
+      fromScheme(ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.light));
+  static ThemeData dark(Color seed) =>
+      fromScheme(ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark));
 
+  /// Строит тему приложения (шрифты, кнопки, переходы) из готовой [colorScheme].
+  /// Это позволяет использовать и seed-цвет, и динамический цвет Material You.
+  static ThemeData fromScheme(ColorScheme colorScheme) {
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      brightness: brightness,
+      brightness: colorScheme.brightness,
     );
 
     final textTheme = _expressiveTextTheme(base.textTheme);
@@ -141,6 +145,9 @@ class AppTheme {
         ),
       ),
       dividerTheme: const DividerThemeData(thickness: 1),
+      // Новые M3-индикаторы загрузки (волнистые, 2024) во всём приложении.
+      // ignore: deprecated_member_use
+      progressIndicatorTheme: const ProgressIndicatorThemeData(year2023: false),
       // Плавные M3-переходы между экранами (shared-axis: проявление + сдвиг)
       // вместо стандартного слайда — навигация ощущается дороже.
       pageTransitionsTheme: const PageTransitionsTheme(
@@ -209,7 +216,8 @@ class _SharedAxisPageTransitionsBuilder extends PageTransitionsBuilder {
     final inSlide = Tween<Offset>(
       begin: const Offset(shift, 0),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+    ).animate(CurvedAnimation(
+        parent: animation, curve: AppTheme.emphasizedDecelerate));
     final inFade = CurvedAnimation(
       parent: animation,
       curve: const Interval(0.15, 1, curve: Curves.easeOut),

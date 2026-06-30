@@ -907,7 +907,10 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
           width: double.infinity,
           child: FilledButton.icon(
             onPressed: () {
-              Navigator.push(
+              // Заменяем экран аналитики табло: после выхода из партии
+              // пользователь попадает в Историю (она сама обновится), а не на
+              // устаревшую аналитику.
+              Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
                   builder: (_) => ScoreBoardScreen(

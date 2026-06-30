@@ -1,3 +1,4 @@
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -8,6 +9,7 @@ import 'models/game_session.dart';
 import 'score_board_screen.dart';
 import 'services/game_repository.dart';
 import 'theme/app_theme.dart';
+import 'widgets/reveal.dart';
 
 class GameHistoryScreen extends StatefulWidget {
   const GameHistoryScreen({super.key});
@@ -27,6 +29,8 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
   Map<String, String> _types = {}; // gameId сессии → id профиля игры
   Map<String, GameProfile> _gamesById = {};
   String? _filter; // фильтр по профилю игры (null — все)
+  String _query = ''; // поисковый запрос (название/игра/игроки)
+  final TextEditingController _searchController = TextEditingController();
   bool _isDescending = true;
   bool _loading = true;
 
@@ -40,6 +44,7 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
   @override
   void dispose() {
     _repo.removeListener(_onRepoChanged);
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -66,10 +71,21 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     });
   }
 
-  /// Партии с учётом фильтра по игре.
+  /// Партии с учётом фильтра по игре и поискового запроса.
   List<GameSession> get _visible {
-    if (_filter == null) return _games;
-    return _games.where((g) => _types[g.gameId] == _filter).toList();
+    final q = _query.trim().toLowerCase();
+    return _games.where((g) {
+      if (_filter != null && _types[g.gameId] != _filter) return false;
+      if (q.isEmpty) return true;
+      // Ищем по названию партии, названию игры и именам игроков.
+      final name = (_names[g.gameId] ?? '').toLowerCase();
+      final typeName =
+          (_gamesById[_types[g.gameId]]?.displayName ?? '').toLowerCase();
+      final players = g.players.join(' ').toLowerCase();
+      return name.contains(q) ||
+          typeName.contains(q) ||
+          players.contains(q);
+    }).toList();
   }
 
   GameProfile? _gameOf(GameSession g) => _gamesById[_types[g.gameId]];
@@ -227,12 +243,72 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _games.isEmpty
               ? _emptyState(scheme)
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                  itemCount: visible.length,
-                  itemBuilder: (context, index) =>
-                      _gameCard(visible[index], index, scheme),
+              : Column(
+                  children: [
+                    _searchBar(scheme),
+                    Expanded(
+                      child: visible.isEmpty
+                          ? _noResults(scheme)
+                          : ListView.builder(
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                              itemCount: visible.length,
+                              itemBuilder: (context, index) => Reveal(
+                                delay: Duration(milliseconds: 30 * index),
+                                child:
+                                    _gameCard(visible[index], index, scheme),
+                              ),
+                            ),
+                    ),
+                  ],
                 ),
+    );
+  }
+
+  /// M3-строка поиска по истории (название/игра/игроки).
+  Widget _searchBar(ColorScheme scheme) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: SearchBar(
+        controller: _searchController,
+        hintText: tr('search_games'),
+        elevation: const WidgetStatePropertyAll(0),
+        backgroundColor:
+            WidgetStatePropertyAll(scheme.surfaceContainerHigh),
+        leading: Icon(Icons.search_rounded, color: scheme.onSurfaceVariant),
+        trailing: _query.isEmpty
+            ? null
+            : [
+                IconButton(
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _query = '');
+                  },
+                ),
+              ],
+        onChanged: (v) => setState(() => _query = v),
+      ),
+    );
+  }
+
+  Widget _noResults(ColorScheme scheme) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.search_off_rounded, size: 64, color: scheme.outlineVariant),
+          const SizedBox(height: 12),
+          Text(
+            tr('nothing_found'),
+            style: TextStyle(
+              fontFamily: AppTheme.bodyFont,
+              fontSize: 15,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -243,14 +319,27 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     final profile = _gameOf(game);
     final typeId = _types[game.gameId];
 
+    // Container transform (M3): карточка «морфится» в экран аналитики.
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(28),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => _openDetail(game, title),
+      child: OpenContainer(
+        closedColor: scheme.surfaceContainerHigh,
+        openColor: scheme.surface,
+        closedElevation: 0,
+        openElevation: 0,
+        closedShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(28),
+        ),
+        transitionType: ContainerTransitionType.fadeThrough,
+        transitionDuration: const Duration(milliseconds: 380),
+        onClosed: (_) => _load(),
+        openBuilder: (context, _) => GameDetailScreen(
+          game: game,
+          profile: _gameOf(game),
+          title: title,
+        ),
+        closedBuilder: (context, openContainer) => InkWell(
+          onTap: openContainer,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 8, 16),
             child: Column(

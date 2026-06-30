@@ -86,6 +86,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _repo.setTimerEnabled(value);
   }
 
+  void _toggleDynamic(bool value) {
+    _theme.setUseDynamicColor(value);
+    setState(() {});
+  }
+
   void _updateTextSize(double value) {
     setState(() => _textSize = value);
     _repo.setTextSize(value);
@@ -361,24 +366,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _rowDivider(scheme),
             _row(
               scheme: scheme,
-              icon: Icons.palette_rounded,
+              icon: Icons.auto_awesome_rounded,
               iconBg: scheme.primaryContainer,
               iconFg: scheme.onPrimaryContainer,
-              title: tr('theme_color'),
-              subtitle: _theme.isDefaultSeed
-                  ? tr('theme_color_default')
-                  : colorToHex(_theme.seedColor),
-              onTap: _pickSeedColor,
-              trailing: Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: _theme.seedColor,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: scheme.outlineVariant, width: 2),
-                ),
+              title: tr('dynamic_color'),
+              subtitle: tr('dynamic_color_sub'),
+              onTap: () => _toggleDynamic(!_theme.useDynamicColor),
+              trailing: Switch(
+                value: _theme.useDynamicColor,
+                onChanged: _toggleDynamic,
               ),
             ),
+            // Свой цвет оформления — только когда Material You выключен.
+            if (!_theme.useDynamicColor) ...[
+              _rowDivider(scheme),
+              _row(
+                scheme: scheme,
+                icon: Icons.palette_rounded,
+                iconBg: scheme.primaryContainer,
+                iconFg: scheme.onPrimaryContainer,
+                title: tr('theme_color'),
+                subtitle: _theme.isDefaultSeed
+                    ? tr('theme_color_default')
+                    : colorToHex(_theme.seedColor),
+                onTap: _pickSeedColor,
+                trailing: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: _theme.seedColor,
+                    shape: BoxShape.circle,
+                    border:
+                        Border.all(color: scheme.outlineVariant, width: 2),
+                  ),
+                ),
+              ),
+            ],
             _rowDivider(scheme),
             _textSizeRow(scheme),
           ]),

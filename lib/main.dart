@@ -1,3 +1,4 @@
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -37,20 +38,35 @@ class CardGameScoreTracker extends StatelessWidget {
     final locale = LocaleController.instance;
     return ListenableBuilder(
       listenable: Listenable.merge([theme, locale]),
-      builder: (context, _) => MaterialApp(
-        title: 'ScoreMaster',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light(theme.seedColor),
-        darkTheme: AppTheme.dark(theme.seedColor),
-        themeMode: theme.themeMode,
-        locale: locale.locale,
-        supportedLocales: LocaleController.supported,
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        home: const MainScreen(),
+      builder: (context, _) => DynamicColorBuilder(
+        builder: (lightDynamic, darkDynamic) {
+          // Material You: если включено и система отдала схему (Android 12+) —
+          // строим тему из неё, иначе из выбранного seed-цвета.
+          final useDyn = theme.useDynamicColor &&
+              lightDynamic != null &&
+              darkDynamic != null;
+          final lightTheme = useDyn
+              ? AppTheme.fromScheme(lightDynamic.harmonized())
+              : AppTheme.light(theme.seedColor);
+          final darkTheme = useDyn
+              ? AppTheme.fromScheme(darkDynamic.harmonized())
+              : AppTheme.dark(theme.seedColor);
+          return MaterialApp(
+            title: 'ScoreMaster',
+            debugShowCheckedModeBanner: false,
+            theme: lightTheme,
+            darkTheme: darkTheme,
+            themeMode: theme.themeMode,
+            locale: locale.locale,
+            supportedLocales: LocaleController.supported,
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: const MainScreen(),
+          );
+        },
       ),
     );
   }

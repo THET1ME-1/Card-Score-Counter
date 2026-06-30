@@ -37,6 +37,11 @@ const Map<String, Map<String, String>> _strings = {
   'sound': {'ru': 'Звук', 'en': 'Sound'},
   'on': {'ru': 'Включена', 'en': 'On'},
   'off': {'ru': 'Выключена', 'en': 'Off'},
+  'dynamic_color': {'ru': 'Material You', 'en': 'Material You'},
+  'dynamic_color_sub': {
+    'ru': 'Цвет из обоев системы (Android 12+)',
+    'en': 'Color from system wallpaper (Android 12+)'
+  },
   'theme_color': {'ru': 'Цвет оформления', 'en': 'Theme color'},
   'theme_color_default': {'ru': 'Бирюзовый (стандартный)', 'en': 'Teal (default)'},
   'scoreboard_text_size': {
@@ -277,6 +282,8 @@ const Map<String, Map<String, String>> _strings = {
   'open': {'ru': 'Открыть', 'en': 'Open'},
   'resume': {'ru': 'Продолжить', 'en': 'Resume'},
   'rename': {'ru': 'Переименовать', 'en': 'Rename'},
+  'search_games': {'ru': 'Поиск партий', 'en': 'Search games'},
+  'nothing_found': {'ru': 'Ничего не найдено', 'en': 'Nothing found'},
   'history_empty': {'ru': 'История пуста', 'en': 'History is empty'},
   'history_empty_sub': {
     'ru': 'Сыграйте первую партию — она появится здесь.',

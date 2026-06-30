@@ -17,10 +17,14 @@ class ThemeController extends ChangeNotifier {
 
   Color _seedColor = AppTheme.defaultSeed;
   bool _isDark = true;
+  bool _useDynamic = false;
   bool _loaded = false;
 
   Color get seedColor => _seedColor;
   bool get isDark => _isDark;
+
+  /// Режим Material You — брать цвет из системных обоев (Android 12+).
+  bool get useDynamicColor => _useDynamic;
   bool get isLoaded => _loaded;
   ThemeMode get themeMode => _isDark ? ThemeMode.dark : ThemeMode.light;
 
@@ -33,8 +37,16 @@ class ThemeController extends ChangeNotifier {
     final stored = await _repo.seedColorValue();
     _seedColor = stored == null ? AppTheme.defaultSeed : Color(stored);
     _isDark = await _repo.isDarkTheme();
+    _useDynamic = await _repo.dynamicColorEnabled();
     _loaded = true;
     notifyListeners();
+  }
+
+  Future<void> setUseDynamicColor(bool value) async {
+    if (value == _useDynamic) return;
+    _useDynamic = value;
+    notifyListeners();
+    await _repo.setDynamicColorEnabled(value);
   }
 
   Future<void> setSeedColor(Color color) async {

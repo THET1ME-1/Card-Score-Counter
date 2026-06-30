@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
+
 /// Появление дочернего виджета с проявлением и лёгким подъёмом (M3 emphasized).
 ///
 /// Анимация проигрывается один раз при первом построении. Опциональная [delay]
@@ -30,7 +32,7 @@ class _RevealState extends State<Reveal> with SingleTickerProviderStateMixin {
   late final Animation<Offset> _slide = Tween<Offset>(
     begin: widget.beginOffset,
     end: Offset.zero,
-  ).animate(CurvedAnimation(parent: _c, curve: Curves.easeOutCubic));
+  ).animate(CurvedAnimation(parent: _c, curve: AppTheme.emphasizedDecelerate));
 
   @override
   void initState() {

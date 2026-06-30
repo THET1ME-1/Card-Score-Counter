@@ -1055,11 +1055,14 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
         if (podium.length >= 2) ...[
-          _podium(podium, scheme),
+          Reveal(child: _podium(podium, scheme)),
           const SizedBox(height: 20),
         ],
         for (var i = 0; i < ranked.length; i++)
-          _leaderRow(i, ranked[i], scheme),
+          Reveal(
+            delay: Duration(milliseconds: 40 * i),
+            child: _leaderRow(i, ranked[i], scheme),
+          ),
       ],
     );
   }

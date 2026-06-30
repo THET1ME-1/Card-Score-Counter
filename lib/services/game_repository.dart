@@ -34,6 +34,7 @@ class GameRepository extends ChangeNotifier {
   static const String _kSoundEnabled = 'soundEnabled';
   static const String _kTimerEnabled = 'timerEnabled';
   static const String _kResumeDismissed = 'resumeDismissed';
+  static const String _kDynamicColor = 'dynamicColor';
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
@@ -316,6 +317,15 @@ class GameRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Material You — брать цвет из системных обоев. По умолчанию выключено.
+  Future<bool> dynamicColorEnabled({bool fallback = false}) async =>
+      (await _prefs).getBool(_kDynamicColor) ?? fallback;
+
+  Future<void> setDynamicColorEnabled(bool value) async {
+    await (await _prefs).setBool(_kDynamicColor, value);
+    notifyListeners();
+  }
+
   /// ARGB-значение seed-цвета темы, или null если пользователь не выбирал.
   Future<int?> seedColorValue() async => (await _prefs).getInt(_kSeedColor);
 
@@ -369,6 +379,7 @@ class GameRepository extends ChangeNotifier {
       _kIsDescending: prefs.getBool(_kIsDescending),
       _kSoundEnabled: prefs.getBool(_kSoundEnabled),
       _kTimerEnabled: prefs.getBool(_kTimerEnabled),
+      _kDynamicColor: prefs.getBool(_kDynamicColor),
     };
     return const JsonEncoder.withIndent('  ').convert(data);
   }
@@ -414,7 +425,8 @@ class GameRepository extends ChangeNotifier {
         _kIsDarkTheme,
         _kIsDescending,
         _kSoundEnabled,
-        _kTimerEnabled
+        _kTimerEnabled,
+        _kDynamicColor
       ]) {
         final v = data[key];
         if (v is bool) await prefs.setBool(key, v);
