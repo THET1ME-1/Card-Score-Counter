@@ -45,16 +45,41 @@ class LocaleController extends ChangeNotifier {
   Locale get locale => Locale(_code);
   bool get isLoaded => _loaded;
 
+  /// Сопоставление страны → вероятный язык (если язык телефона не поддержан).
+  static const Map<String, String> _langByCountry = {
+    'RU': 'ru', 'BY': 'ru', 'KZ': 'ru', 'KG': 'ru',
+    'DE': 'de', 'AT': 'de', 'CH': 'de', 'LI': 'de',
+    'FR': 'fr', 'BE': 'fr', 'LU': 'fr', 'MC': 'fr',
+    'ES': 'es', 'MX': 'es', 'AR': 'es', 'CO': 'es', 'CL': 'es',
+    'PE': 'es', 'VE': 'es', 'EC': 'es', 'GT': 'es',
+    'IT': 'it', 'SM': 'it',
+    'PT': 'pt', 'BR': 'pt', 'AO': 'pt', 'MZ': 'pt',
+  };
+
+  /// Определяет язык по системе: сперва по языку телефона (и всему списку
+  /// предпочтений), затем по стране, иначе — английский (междунар. дефолт).
+  String _detectSystem() {
+    final disp = WidgetsBinding.instance.platformDispatcher;
+    // 1) Любой из предпочитаемых языков телефона, который мы поддерживаем.
+    for (final l in disp.locales) {
+      final lc = l.languageCode.toLowerCase();
+      if (_codes.contains(lc)) return lc;
+    }
+    // 2) По стране основной локали.
+    final country = (disp.locale.countryCode ?? '').toUpperCase();
+    final byCountry = _langByCountry[country];
+    if (byCountry != null && _codes.contains(byCountry)) return byCountry;
+    // 3) Международный дефолт.
+    return 'en';
+  }
+
   /// Подгружает сохранённый язык. Вызывается один раз до `runApp`.
   Future<void> load() async {
     final stored = await _repo.languageCode();
     if (stored != null && _codes.contains(stored)) {
       _code = stored;
     } else {
-      // Первый запуск — берём системный язык, если он поддержан, иначе русский.
-      final sys =
-          WidgetsBinding.instance.platformDispatcher.locale.languageCode;
-      _code = _codes.contains(sys) ? sys : 'ru';
+      _code = _detectSystem();
     }
     _loaded = true;
     notifyListeners();
