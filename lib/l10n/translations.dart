@@ -346,6 +346,10 @@ const Map<String, String> _de = {
   "game_type_kings": "Könige nach Spiel",
   "h2h_matrix": "Duell-Matrix",
   "h2h_matrix_hint": "Wie oft der Spieler in der Zeile den Spieler in der Spalte schlug",
+  "dice_title": "Glückswürfel",
+  "dice_hint": "Wirf für Glück — ändert den Punktestand nicht",
+  "favorite_game": "Lieblingsspiel",
+  "recent_form": "Aktuelle Form",
 };
 
 // ------------------------------- Français -------------------------------
@@ -683,6 +687,10 @@ const Map<String, String> _fr = {
   "game_type_kings": "Rois par jeu",
   "h2h_matrix": "Matrice des duels",
   "h2h_matrix_hint": "Combien de fois le joueur de la ligne a battu celui de la colonne",
+  "dice_title": "Dé de chance",
+  "dice_hint": "Lance pour la chance — ne change pas le score",
+  "favorite_game": "Jeu favori",
+  "recent_form": "Forme récente",
 };
 
 // ------------------------------- Español -------------------------------
@@ -1018,6 +1026,10 @@ const Map<String, String> _es = {
   "game_type_kings": "Reyes por juego",
   "h2h_matrix": "Matriz de duelos",
   "h2h_matrix_hint": "Cuántas veces el jugador de la fila venció al de la columna",
+  "dice_title": "Dado de la suerte",
+  "dice_hint": "Tira por suerte — no cambia el marcador",
+  "favorite_game": "Juego favorito",
+  "recent_form": "Forma reciente",
 };
 
 // ------------------------------- Italiano -------------------------------
@@ -1354,6 +1366,10 @@ const Map<String, String> _it = {
   "game_type_kings": "Re per gioco",
   "h2h_matrix": "Matrice scontri",
   "h2h_matrix_hint": "Quante volte il giocatore della riga ha battuto quello della colonna",
+  "dice_title": "Dado della fortuna",
+  "dice_hint": "Tira per fortuna — non cambia il punteggio",
+  "favorite_game": "Gioco preferito",
+  "recent_form": "Forma recente",
 };
 
 // ------------------------------- Português -------------------------------
@@ -1687,4 +1703,8 @@ const Map<String, String> _pt = {
   "game_type_kings": "Reis por jogo",
   "h2h_matrix": "Matriz de confrontos",
   "h2h_matrix_hint": "Quantas vezes o jogador da linha venceu o da coluna",
+  "dice_title": "Dado da sorte",
+  "dice_hint": "Role pela sorte — não muda o placar",
+  "favorite_game": "Jogo favorito",
+  "recent_form": "Forma recente",
 };

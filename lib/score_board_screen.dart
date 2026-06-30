@@ -17,6 +17,7 @@ import 'services/game_repository.dart';
 import 'services/sound_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/count_up_number.dart';
+import 'widgets/dice_roll.dart';
 import 'widgets/flash_highlight.dart';
 import 'widgets/game_timer.dart';
 import 'widgets/pressable.dart';
@@ -114,6 +115,12 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
   /// Счётчик «вспышек» по игрокам — растёт, когда игрок набрал очки в этом
   /// ходу (подсвечивает его карточку). Параллельно [widget.players].
   late List<int> _flashCounts;
+
+  /// Кубик удачи: индекс игрока, чья плитка сейчас «крутит» кубик (или null),
+  /// число граней и seed для перезапуска анимации. На счёт не влияет.
+  int? _diceRollingPlayer;
+  int _diceSides = 20;
+  int _diceSeed = 0;
 
   /// Засчитывать ли время по игрокам — только в режимах с передачей хода.
   /// В «Дураке»/«Президенте»/Phase 10 хода как такового нет.
@@ -1145,6 +1152,127 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
     return 0;
   }
 
+  // ----------------------------- Кубик удачи -----------------------------
+
+  /// Удержание плитки игрока → выбор кубика. На счёт не влияет, чисто на удачу:
+  /// на месте очков «крутится» d-кубик и падает на случайное число.
+  Future<void> _openDicePicker(int index) async {
+    HapticFeedback.selectionClick();
+    final scheme = Theme.of(context).colorScheme;
+    final sides = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: scheme.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: scheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Icon(Icons.casino_rounded, color: scheme.primary, size: 26),
+                  const SizedBox(width: 10),
+                  Text(
+                    tr('dice_title'),
+                    style: TextStyle(
+                      fontFamily: AppTheme.displayFont,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 19,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                tr('dice_hint'),
+                style: TextStyle(
+                  fontFamily: AppTheme.bodyFont,
+                  fontSize: 13,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final s in kDiceSides)
+                    _diceChip(ctx, s, scheme, recommended: s == 20),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (sides == null || !mounted) return;
+    final seed = ++_diceSeed;
+    HapticFeedback.heavyImpact();
+    setState(() {
+      _diceSides = sides;
+      _diceRollingPlayer = index;
+    });
+    // Через несколько секунд плитка сама возвращается к счёту (если её не
+    // сбросили тапом и не запустили новый бросок).
+    Future.delayed(const Duration(seconds: 5), () {
+      if (mounted && _diceRollingPlayer == index && _diceSeed == seed) {
+        setState(() => _diceRollingPlayer = null);
+      }
+    });
+  }
+
+  Widget _diceChip(BuildContext ctx, int sides, ColorScheme scheme,
+      {bool recommended = false}) {
+    final bg =
+        recommended ? scheme.primaryContainer : scheme.surfaceContainerHigh;
+    final fg = recommended ? scheme.onPrimaryContainer : scheme.onSurface;
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.pop(ctx, sides),
+        child: Container(
+          width: 86,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.casino_rounded, size: 26, color: fg),
+              const SizedBox(height: 4),
+              Text(
+                'd$sides',
+                style: TextStyle(
+                  fontFamily: AppTheme.displayFont,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  color: fg,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Индекс последнего записанного раунда (или -1, если ходов нет).
   int get _lastRoundIndex => scores.isEmpty ? -1 : scores.first.length - 1;
 
@@ -1593,7 +1721,13 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
       flashColor: scheme.primary,
       borderRadius: BorderRadius.circular(28),
       child: InkWell(
+        onLongPress: () => _openDicePicker(index),
         onTap: () {
+          // Во время броска кубика тап просто убирает его (счёт не трогаем).
+          if (_diceRollingPlayer == index) {
+            setState(() => _diceRollingPlayer = null);
+            return;
+          }
           HapticFeedback.selectionClick();
           // «Дурак»: тап по игроку = «он проиграл кон» (быстрый ввод).
           // «Президент»/Phase 10 — ввод только через нижнюю кнопку (no-op).
@@ -1647,24 +1781,41 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
             ],
           ),
           // Большая цифра: счёт (для Phase 10 — текущая фаза 1..10).
+          // При броске кубика на её месте крутится d-кубик (на удачу).
           Expanded(
             child: Center(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: CountUpNumber(
-                  value: _rule == WinRule.phases
-                      ? _phaseDisplay(index)
-                      : total,
-                  style: TextStyle(
-                    fontFamily: AppTheme.displayFont,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 64,
-                    height: 1.0,
-                    letterSpacing: -2,
-                    color: fg,
-                  ),
-                ),
-              ),
+              child: _diceRollingPlayer == index
+                  ? DiceRoll(
+                      key: ValueKey('dice_${index}_$_diceSeed'),
+                      sides: _diceSides,
+                      color: fg,
+                      numberStyle: TextStyle(
+                        fontFamily: AppTheme.displayFont,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 64,
+                        height: 1.0,
+                        letterSpacing: -2,
+                        color: fg,
+                      ),
+                      onSettled: (_) =>
+                          SoundService.instance.play(Sfx.point),
+                    )
+                  : FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: CountUpNumber(
+                        value: _rule == WinRule.phases
+                            ? _phaseDisplay(index)
+                            : total,
+                        style: TextStyle(
+                          fontFamily: AppTheme.displayFont,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 64,
+                          height: 1.0,
+                          letterSpacing: -2,
+                          color: fg,
+                        ),
+                      ),
+                    ),
             ),
           ),
           AutoSizeText(

@@ -356,12 +356,142 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
         _heroCard(stat, scheme),
         const SizedBox(height: 12),
         _statTiles(stat, scheme),
+        if (_favoriteGameOf(stat.name) != null) ...[
+          const SizedBox(height: 16),
+          _favoriteGameCard(stat, scheme),
+        ],
+        if (_recentForm(stat.name).isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _recentFormCard(stat, scheme),
+        ],
         const SizedBox(height: 16),
         _dynamicsCard(stat, scheme),
         const SizedBox(height: 16),
         Reveal(child: _headToHeadCard(stat, scheme)),
       ],
     );
+  }
+
+  /// Любимая игра выбранного игрока: тип, где он сыграл больше всего партий.
+  ({String type, String name, int played, int wins})? _favoriteGameOf(
+      String player) {
+    final played = <String, int>{};
+    final wins = <String, int>{};
+    for (final g in _finishedGames) {
+      if (!g.players.contains(player)) continue;
+      final t = _typeOfGame[g.gameId] ?? '';
+      played[t] = (played[t] ?? 0) + 1;
+      if (g.winner == player) wins[t] = (wins[t] ?? 0) + 1;
+    }
+    if (played.isEmpty) return null;
+    var bestType = '';
+    var bestN = 0;
+    played.forEach((t, n) {
+      if (n > bestN) {
+        bestN = n;
+        bestType = t;
+      }
+    });
+    return (
+      type: bestType,
+      name: _typeName[bestType] ?? tr('scoreboard'),
+      played: bestN,
+      wins: wins[bestType] ?? 0,
+    );
+  }
+
+  /// Форма игрока: исходы последних завершённых партий (самые свежие — первыми).
+  List<bool> _recentForm(String player, {int max = 14}) {
+    final list = _finishedGames.where((g) => g.players.contains(player)).toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    return [for (final g in list.take(max)) g.winner == player];
+  }
+
+  Widget _favoriteGameCard(_PlayerStat stat, ColorScheme scheme) {
+    final fav = _favoriteGameOf(stat.name)!;
+    final pct = fav.played > 0 ? (fav.wins / fav.played * 100).round() : 0;
+    return _panel(scheme, tr('favorite_game'), [
+      Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 4),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.style_rounded,
+                  size: 22, color: scheme.onPrimaryContainer),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    fav.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: AppTheme.displayFont,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                  Text(
+                    '${trf('win_of_total', {'w': '${fav.wins}', 'g': '${fav.played}'})} · $pct%',
+                    style: TextStyle(
+                      fontFamily: AppTheme.bodyFont,
+                      fontSize: 12,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ]);
+  }
+
+  Widget _recentFormCard(_PlayerStat stat, ColorScheme scheme) {
+    final form = _recentForm(stat.name);
+    return _panel(scheme, tr('recent_form'), [
+      Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final won in form)
+              Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: won ? stat.color : scheme.surfaceContainerHighest,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  won ? Icons.check_rounded : Icons.close_rounded,
+                  size: 16,
+                  color: won
+                      ? (ThemeData.estimateBrightnessForColor(stat.color) ==
+                              Brightness.dark
+                          ? Colors.white
+                          : Colors.black)
+                      : scheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+        ),
+      ),
+    ]);
   }
 
   // --------------------------- ОЧНЫЕ ВСТРЕЧИ ---------------------------

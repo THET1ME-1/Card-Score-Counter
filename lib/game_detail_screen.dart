@@ -12,6 +12,7 @@ import 'theme/app_theme.dart';
 import 'utils/format.dart';
 import 'widgets/player_shapes.dart';
 import 'widgets/reveal.dart';
+import 'widgets/share_result_sheet.dart';
 
 /// Экран полной аналитики одной партии: сколько шла, кто сколько по времени
 /// «держал ход», доли времени (кольцо), сравнение длительности с другими
@@ -138,7 +139,20 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
     ];
 
     return Scaffold(
-      appBar: AppBar(title: Text(tr('game_analytics'))),
+      appBar: AppBar(
+        title: Text(tr('game_analytics')),
+        actions: [
+          IconButton(
+            tooltip: tr('share'),
+            icon: const Icon(Icons.ios_share_rounded),
+            onPressed: () => ShareResultSheet.show(
+              context,
+              game: widget.game,
+              gameTypeName: widget.profile?.displayName ?? widget.title,
+            ),
+          ),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView.separated(
