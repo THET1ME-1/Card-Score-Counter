@@ -498,25 +498,31 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     );
   }
 
-  /// Удаление свайпом с возможностью отмены: карточку убираем сразу, а из
-  /// репозитория удаляем только если «Отменить» не нажали (по закрытию снэкбара).
+  /// Удаление свайпом сразу (надёжно — переживает смену вкладки). «Отменить»
+  /// возвращает партию обратно (со счётом, датой и названием).
   void _swipeDelete(GameSession game) {
+    // Запоминаем имя — deleteGame его сотрёт (тип партии остаётся).
+    final savedName = _names[game.gameId];
     setState(() => _games.removeWhere((g) => g.gameId == game.gameId));
-    final messenger = ScaffoldMessenger.of(context)..clearSnackBars();
-    final controller = messenger.showSnackBar(
-      SnackBar(
-        content: Text(tr('game_deleted')),
-        duration: const Duration(seconds: 4),
-        action: SnackBarAction(label: tr('undo'), onPressed: () {}),
-      ),
-    );
-    controller.closed.then((reason) {
-      if (reason == SnackBarClosedReason.action) {
-        _load(); // отменили — партия ещё на диске, возвращаем
-      } else {
-        _repo.deleteGame(game.gameId); // подтверждаем удаление
-      }
-    });
+    _repo.deleteGame(game.gameId);
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(tr('game_deleted')),
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: tr('undo'),
+            onPressed: () async {
+              await _repo.upsertGame(game, preserveDate: true);
+              if (savedName != null && savedName.isNotEmpty) {
+                await _repo.setGameName(game.gameId, savedName);
+              }
+              await _load();
+            },
+          ),
+        ),
+      );
   }
 
   Widget _menu(GameSession game, String title) {
