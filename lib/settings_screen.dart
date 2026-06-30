@@ -13,7 +13,9 @@ import 'l10n/locale_controller.dart';
 import 'l10n/strings.dart';
 import 'services/game_repository.dart';
 import 'services/sound_service.dart';
+import 'services/update_service.dart';
 import 'utils/app_version.dart';
+import 'widgets/update_sheet.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 import 'widgets/color_picker_sheet.dart';
@@ -149,6 +151,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _snack(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// Ручная проверка обновления: показывает меню обновления или сообщает, что
+  /// установлена последняя версия.
+  Future<void> _checkUpdates() async {
+    _snack(tr('check_updates'));
+    final current = await appVersionName();
+    final info =
+        current.isEmpty ? null : await UpdateService.checkForUpdate(current);
+    if (!mounted) return;
+    if (info == null) {
+      _snack(tr('up_to_date'));
+    } else {
+      await UpdateSheet.show(context, info, current);
+    }
   }
 
   // ----------------------- Опасные действия -----------------------
@@ -453,6 +470,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ----------------------------- Справка -----------------------------
           _sectionHeader(tr('help'), scheme.primary),
           _groupCard(scheme, [
+            _row(
+              scheme: scheme,
+              icon: Icons.system_update_rounded,
+              iconBg: scheme.tertiaryContainer,
+              iconFg: scheme.onTertiaryContainer,
+              title: tr('check_updates'),
+              subtitle: tr('check_updates_sub'),
+              onTap: _checkUpdates,
+              trailing: Icon(Icons.chevron_right_rounded, color: scheme.outline),
+            ),
+            _rowDivider(scheme),
             _row(
               scheme: scheme,
               icon: Icons.menu_book_rounded,

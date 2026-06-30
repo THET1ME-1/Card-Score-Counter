@@ -7,9 +7,12 @@ import 'enhanced_statistics_screen.dart';
 import 'l10n/locale_controller.dart';
 import 'player_input_screen.dart';
 import 'services/sound_service.dart';
+import 'services/update_service.dart';
 import 'settings_screen.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
+import 'utils/app_version.dart';
+import 'widgets/update_sheet.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,6 +67,24 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   static const int _tabCount = 4;
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkForUpdate();
+  }
+
+  /// Тихая проверка обновления на GitHub при запуске. Если есть версия новее —
+  /// сразу показываем нижнее меню с предложением обновиться.
+  Future<void> _checkForUpdate() async {
+    final current = await appVersionName();
+    if (current.isEmpty) return;
+    final info = await UpdateService.checkForUpdate(current);
+    if (!mounted || info == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) UpdateSheet.show(context, info, current);
+    });
+  }
 
   /// Экран строится при каждом показе, поэтому история и статистика всегда
   /// отражают актуальные данные после сыгранной партии. Лидеры теперь живут

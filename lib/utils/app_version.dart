@@ -32,3 +32,22 @@ Future<String> appVersionFromPubspec() async {
   }
   return '';
 }
+
+/// Только «имя» версии без билда: «2.6.5+12» → «2.6.5». Для сравнения версий
+/// при проверке обновлений.
+Future<String> appVersionName() async {
+  try {
+    final yaml = await rootBundle.loadString('pubspec.yaml');
+    for (final raw in yaml.split('\n')) {
+      final line = raw.trim();
+      if (!line.startsWith('version:')) continue;
+      var v = line.substring('version:'.length).trim();
+      final hash = v.indexOf('#');
+      if (hash != -1) v = v.substring(0, hash).trim();
+      v = v.replaceAll('"', '').replaceAll("'", '').trim();
+      final plus = v.indexOf('+');
+      return plus == -1 ? v : v.substring(0, plus);
+    }
+  } catch (_) {}
+  return '';
+}
