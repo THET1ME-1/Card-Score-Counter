@@ -137,6 +137,9 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
       List.generate(7, (_) => List<int>.filled(6, 0));
   int _whenMax = 0;
 
+  // Рейтинг силы (Эло): имя игрока → рейтинг.
+  Map<String, double> _elo = {};
+
   // Календарь игр: игры по дням + режим/якорь периода.
   final Map<DateTime, List<GameSession>> _byDay = {};
   final Map<String, String> _typeOfGame = {}; // gameId → profileId
@@ -227,6 +230,9 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
     var finished = 0;
     var rounds = 0;
     final finishedGames = <GameSession>[];
+    // Рейтинг силы (Эло): старт 1000, обновляем по хронологии.
+    final elo = <String, double>{};
+    double rate(String n) => elo.putIfAbsent(n, () => 1000);
     // По возрастанию даты — для корректного подсчёта серии.
     final sorted = [...games]..sort((a, b) => a.date.compareTo(b.date));
     for (final g in sorted) {
@@ -240,6 +246,21 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
       final winner = g.winner;
       for (final player in g.players) {
         statFor(player).record(g.date, player == winner);
+      }
+      // Эло: победитель «обыграл» каждого проигравшего (попарно, K делим на
+      // число соперников, чтобы крупная партия не давала перекос).
+      if (winner != null && g.players.length >= 2) {
+        final losers = g.players.where((p) => p != winner).toList();
+        if (losers.isNotEmpty) {
+          for (final l in losers) {
+            final rw = rate(winner);
+            final rl = rate(l);
+            final expW = 1 / (1 + math.pow(10, (rl - rw) / 400));
+            final d = 24 * (1 - expW) / losers.length;
+            elo[winner] = rw + d;
+            elo[l] = rl - d;
+          }
+        }
       }
     }
     for (final s in byName.values) {
@@ -257,6 +278,7 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
     setState(() {
       _stats = list;
       _finishedGames = finishedGames;
+      _elo = elo;
       _totalFinished = finished;
       _totalRounds = rounds;
       _selectedName = list.any((s) => s.name == _selectedName)
@@ -1447,12 +1469,90 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
           const SizedBox(height: 16),
           _matrixCard(scheme),
         ],
+        if (_elo.length >= 2) ...[
+          const SizedBox(height: 16),
+          _eloCard(scheme),
+        ],
         if (_whenMax > 0) ...[
           const SizedBox(height: 16),
           _whenCard(scheme),
         ],
       ],
     );
+  }
+
+  Widget _eloCard(ColorScheme scheme) {
+    final entries = _elo.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    Color colorOf(String name) => _stats
+        .firstWhere((s) => s.name == name,
+            orElse: () => _PlayerStat(name, scheme.primary, null))
+        .color;
+    const medals = [_gold, _silver, _bronze];
+    return _panel(scheme, tr('elo_rating'), [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Text(
+          tr('elo_hint'),
+          style: TextStyle(
+            fontFamily: AppTheme.bodyFont,
+            fontSize: 11.5,
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+      for (var i = 0; i < entries.length; i++)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 24,
+                child: i < 3
+                    ? Icon(Icons.military_tech_rounded,
+                        size: 19, color: medals[i])
+                    : Text('${i + 1}',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: AppTheme.displayFont,
+                          fontWeight: FontWeight.w700,
+                          color: scheme.outline,
+                        )),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                    color: colorOf(entries[i].key), shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  entries[i].key,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTheme.bodyFont,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: scheme.onSurface,
+                  ),
+                ),
+              ),
+              Text(
+                '${entries[i].value.round()}',
+                style: TextStyle(
+                  fontFamily: AppTheme.displayFont,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 17,
+                  color: scheme.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+    ]);
   }
 
   /// Тепловая карта «когда играем»: дни недели × интервалы суток.

@@ -10,6 +10,8 @@ import 'l10n/strings.dart';
 import 'models/game_profile.dart';
 import 'models/game_session.dart';
 import 'player_profile.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
+
 import 'models/player_company.dart';
 import 'score_board_screen.dart';
 import 'volleyball_screen.dart';
@@ -283,6 +285,172 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
       return;
     }
     TableToolsSheet.show(context, list);
+  }
+
+  static const List<Color> _contactPalette = [
+    Color(0xFF26C6DA),
+    Color(0xFFFFB300),
+    Color(0xFF7E57C2),
+    Color(0xFFEF5350),
+    Color(0xFF66BB6A),
+    Color(0xFFFF7043),
+    Color(0xFF42A5F5),
+    Color(0xFFEC407A),
+  ];
+
+  /// Импорт игроков из телефонной книги: спрашиваем доступ, показываем
+  /// M3-лист с выбором, добавляем отмеченных как новых игроков.
+  Future<void> _importContacts() async {
+    final messenger = ScaffoldMessenger.of(context);
+    bool granted;
+    try {
+      granted = await FlutterContacts.requestPermission(readonly: true);
+    } catch (_) {
+      granted = false;
+    }
+    if (!granted) {
+      messenger.showSnackBar(SnackBar(content: Text(tr('contacts_denied'))));
+      return;
+    }
+    final raw = await FlutterContacts.getContacts();
+    final existing = profiles.map((p) => p.name.toLowerCase()).toSet();
+    final names = <String>{};
+    for (final c in raw) {
+      final n = c.displayName.trim();
+      if (n.isNotEmpty && !existing.contains(n.toLowerCase())) names.add(n);
+    }
+    final list = names.toList()..sort();
+    if (!mounted) return;
+    if (list.isEmpty) {
+      messenger.showSnackBar(SnackBar(content: Text(tr('contacts_empty'))));
+      return;
+    }
+
+    final selected = <String>{};
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        final scheme = Theme.of(ctx).colorScheme;
+        return StatefulBuilder(
+          builder: (ctx, setSheet) => DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.75,
+            maxChildSize: 0.92,
+            builder: (ctx, scrollCtrl) => Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: scheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: scheme.primaryContainer,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.contacts_rounded,
+                            color: scheme.onPrimaryContainer),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          tr('import_contacts'),
+                          style: TextStyle(
+                            fontFamily: AppTheme.displayFont,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 19,
+                            color: scheme.onSurface,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollCtrl,
+                    itemCount: list.length,
+                    itemBuilder: (_, i) {
+                      final name = list[i];
+                      final checked = selected.contains(name);
+                      final color =
+                          _contactPalette[i % _contactPalette.length];
+                      return CheckboxListTile(
+                        value: checked,
+                        controlAffinity: ListTileControlAffinity.trailing,
+                        secondary: CircleAvatar(
+                          backgroundColor: color,
+                          child: Text(
+                            name.substring(0, 1).toUpperCase(),
+                            style: const TextStyle(
+                              fontFamily: AppTheme.displayFont,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        title: Text(name,
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        onChanged: (v) => setSheet(() {
+                          if (v == true) {
+                            selected.add(name);
+                          } else {
+                            selected.remove(name);
+                          }
+                        }),
+                      );
+                    },
+                  ),
+                ),
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: selected.isEmpty
+                            ? null
+                            : () => Navigator.pop(ctx, true),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(54),
+                          shape: const StadiumBorder(),
+                        ),
+                        child: Text(
+                            trf('add_selected_n', {'n': selected.length})),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (confirmed != true || selected.isEmpty) return;
+    var idx = profiles.length;
+    for (final name in selected) {
+      await _addProfile(name, _contactPalette[idx % _contactPalette.length]);
+      idx++;
+    }
   }
 
   void _deleteProfile(int index) {
@@ -566,6 +734,24 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
             tooltip: tr('who_first'),
             icon: const Icon(Icons.casino_rounded),
             onPressed: _openTableTools,
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded),
+            onSelected: (v) {
+              if (v == 'contacts') _importContacts();
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'contacts',
+                child: Row(
+                  children: [
+                    const Icon(Icons.contacts_rounded, size: 20),
+                    const SizedBox(width: 12),
+                    Text(tr('import_contacts')),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

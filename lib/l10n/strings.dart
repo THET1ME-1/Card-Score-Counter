@@ -625,6 +625,19 @@ const Map<String, Map<String, String>> _strings = {
   'csv_rounds': {'ru': 'Кругов', 'en': 'Rounds'},
   'game_type_stats': {'ru': 'Статистика по игре', 'en': 'Game stats'},
   'last_played': {'ru': 'Последняя игра', 'en': 'Last played'},
+  'elo_rating': {'ru': 'Рейтинг силы', 'en': 'Power rating'},
+  'elo_hint': {
+    'ru': 'Очки за победы над сильными соперниками (старт 1000)',
+    'en': 'Points for beating strong rivals (start 1000)'
+  },
+  'random_game': {'ru': 'Что сыграть?', 'en': 'What to play?'},
+  'import_contacts': {'ru': 'Импорт из контактов', 'en': 'Import from contacts'},
+  'add_selected_n': {'ru': 'Добавить ({n})', 'en': 'Add ({n})'},
+  'contacts_denied': {
+    'ru': 'Нет доступа к контактам',
+    'en': 'No access to contacts'
+  },
+  'contacts_empty': {'ru': 'Контакты не найдены', 'en': 'No contacts found'},
   'race_chart': {'ru': 'Гонка по раундам', 'en': 'Round-by-round race'},
   'play_heatmap': {'ru': 'Когда играем', 'en': 'When we play'},
   'records': {'ru': 'Рекорды', 'en': 'Records'},

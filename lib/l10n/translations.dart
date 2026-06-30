@@ -410,6 +410,13 @@ const Map<String, String> _de = {
   "lock_biometric_reason": "App entsperren",
   "lock_change_pin": "PIN ändern",
   "lock_biometric": "Fingerabdruck / Gesicht",
+  "elo_rating": "Stärke-Rating",
+  "elo_hint": "Punkte fürs Schlagen starker Gegner (Start 1000)",
+  "random_game": "Was spielen?",
+  "import_contacts": "Aus Kontakten importieren",
+  "add_selected_n": "Hinzufügen ({n})",
+  "contacts_denied": "Kein Zugriff auf Kontakte",
+  "contacts_empty": "Keine Kontakte gefunden",
 };
 
 // ------------------------------- Français -------------------------------
@@ -811,6 +818,13 @@ const Map<String, String> _fr = {
   "lock_biometric_reason": "Déverrouillez l'app",
   "lock_change_pin": "Changer le PIN",
   "lock_biometric": "Empreinte / visage",
+  "elo_rating": "Classement de force",
+  "elo_hint": "Points pour avoir battu des adversaires forts (départ 1000)",
+  "random_game": "Quoi jouer ?",
+  "import_contacts": "Importer des contacts",
+  "add_selected_n": "Ajouter ({n})",
+  "contacts_denied": "Pas d'accès aux contacts",
+  "contacts_empty": "Aucun contact trouvé",
 };
 
 // ------------------------------- Español -------------------------------
@@ -1210,6 +1224,13 @@ const Map<String, String> _es = {
   "lock_biometric_reason": "Desbloquea la app",
   "lock_change_pin": "Cambiar PIN",
   "lock_biometric": "Huella / cara",
+  "elo_rating": "Ranking de fuerza",
+  "elo_hint": "Puntos por vencer a rivales fuertes (inicio 1000)",
+  "random_game": "¿Qué jugar?",
+  "import_contacts": "Importar de contactos",
+  "add_selected_n": "Añadir ({n})",
+  "contacts_denied": "Sin acceso a los contactos",
+  "contacts_empty": "No se encontraron contactos",
 };
 
 // ------------------------------- Italiano -------------------------------
@@ -1610,6 +1631,13 @@ const Map<String, String> _it = {
   "lock_biometric_reason": "Sblocca l'app",
   "lock_change_pin": "Cambia PIN",
   "lock_biometric": "Impronta / volto",
+  "elo_rating": "Classifica forza",
+  "elo_hint": "Punti per aver battuto avversari forti (start 1000)",
+  "random_game": "Cosa giocare?",
+  "import_contacts": "Importa dai contatti",
+  "add_selected_n": "Aggiungi ({n})",
+  "contacts_denied": "Nessun accesso ai contatti",
+  "contacts_empty": "Nessun contatto trovato",
 };
 
 // ------------------------------- Português -------------------------------
@@ -2007,4 +2035,11 @@ const Map<String, String> _pt = {
   "lock_biometric_reason": "Desbloqueie o app",
   "lock_change_pin": "Alterar PIN",
   "lock_biometric": "Digital / rosto",
+  "elo_rating": "Ranking de força",
+  "elo_hint": "Pontos por vencer rivais fortes (início 1000)",
+  "random_game": "O que jogar?",
+  "import_contacts": "Importar dos contatos",
+  "add_selected_n": "Adicionar ({n})",
+  "contacts_denied": "Sem acesso aos contatos",
+  "contacts_empty": "Nenhum contato encontrado",
 };

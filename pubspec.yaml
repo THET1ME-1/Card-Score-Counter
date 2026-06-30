@@ -1,6 +1,6 @@
 name: score_master
 description: 'Приложение для подсчёта очков в карточной игре КунКен.'
-version: 1.0.7+8
+version: 1.0.8+9
 
 environment:
   sdk: '>=3.4.3 <4.0.0'
@@ -28,6 +28,7 @@ dependencies:
   quick_actions: ^1.0.7
   local_auth: ^2.3.0
   crypto: ^3.0.3
+  flutter_contacts: ^1.1.9
 
 dev_dependencies:
   flutter_test:

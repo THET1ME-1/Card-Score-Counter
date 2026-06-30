@@ -1,4 +1,7 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'l10n/strings.dart';
 import 'models/game_profile.dart';
@@ -75,6 +78,16 @@ class _GamePickerSheetState extends State<_GamePickerSheet> {
     await _load();
   }
 
+  /// «Что сыграть?» — выбирает случайную игру (встроенную или свою) и закрывает
+  /// пикер с её id.
+  void _pickRandomGame() {
+    final all = [...kBuiltInGames, ..._custom];
+    if (all.isEmpty) return;
+    HapticFeedback.mediumImpact();
+    final pick = all[Random().nextInt(all.length)];
+    Navigator.pop(context, pick.id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -93,14 +106,25 @@ class _GamePickerSheetState extends State<_GamePickerSheet> {
               ),
             ),
             const SizedBox(height: 14),
-            Text(
-              tr('choose_game'),
-              style: TextStyle(
-                fontFamily: AppTheme.displayFont,
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-                color: scheme.onSurface,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    tr('choose_game'),
+                    style: TextStyle(
+                      fontFamily: AppTheme.displayFont,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 18,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _pickRandomGame,
+                  icon: const Icon(Icons.casino_rounded, size: 18),
+                  label: Text(tr('random_game')),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             Flexible(
