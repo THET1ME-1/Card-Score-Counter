@@ -196,6 +196,26 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
     // Запускаем часы партии, если она ещё не окончена.
     if (!_finished) _clock.start();
     _startTicker();
+    _loadTeams();
+  }
+
+  /// Загружаем сохранённые команды этой партии (если есть).
+  Future<void> _loadTeams() async {
+    final id = gameId;
+    if (id == null) return;
+    final t = await _repo.gameTeams(id);
+    if (!mounted || t.of.isEmpty) return;
+    setState(() {
+      _teamCount = t.count;
+      _teamOf
+        ..clear()
+        ..addAll(t.of);
+    });
+  }
+
+  void _saveTeams() {
+    final id = gameId;
+    if (id != null) _repo.setGameTeams(id, _teamCount, _teamOf);
   }
 
   Future<void> _loadTextSize() async {
@@ -401,6 +421,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
         ),
       ),
     );
+    _saveTeams();
     if (mounted) setState(() {});
   }
 
@@ -1843,7 +1864,8 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
             IconButton(
               tooltip: tr('kassa'),
               icon: const Icon(Icons.payments_outlined),
-              onPressed: () => KassaSheet.show(context, widget.players),
+              onPressed: () =>
+                  KassaSheet.show(context, widget.players, gameId: gameId),
             ),
           IconButton(
             tooltip: tr('share'),

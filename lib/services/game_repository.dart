@@ -50,6 +50,10 @@ class GameRepository extends ChangeNotifier {
   static const String _kLockEnabled = 'lockEnabled';
   static const String _kLockPin = 'lockPin';
   static const String _kLockBiometric = 'lockBiometric';
+  static const String _kLockGrace = 'lockGrace'; // сек: 0 сразу, 60, 300
+  static const String _kOnboardingDone = 'onboardingDone';
+  static const String _kGameKassa = 'gameKassa'; // gameId → {игрок: сумма}
+  static const String _kGameTeams = 'gameTeams'; // gameId → {count, of:{игрок:idx}}
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
@@ -123,6 +127,13 @@ class GameRepository extends ChangeNotifier {
     final notes = await gameNotes();
     if (notes.remove(gameId) != null) {
       await prefs.setString(_kGameNotes, jsonEncode(notes));
+    }
+    // Касса и команды этой партии.
+    for (final key in [_kGameKassa, _kGameTeams]) {
+      final all = _decodeMap(prefs.getString(key) ?? '{}');
+      if (all.remove(gameId) != null) {
+        await prefs.setString(key, jsonEncode(all));
+      }
     }
   }
 
@@ -243,6 +254,15 @@ class GameRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Через сколько секунд после сворачивания снова просить PIN (0 — сразу).
+  Future<int> lockGraceSeconds() async =>
+      (await _prefs).getInt(_kLockGrace) ?? 0;
+
+  Future<void> setLockGraceSeconds(int value) async {
+    await (await _prefs).setInt(_kLockGrace, value);
+    notifyListeners();
+  }
+
   /// Полностью снять замок (выключить + стереть PIN и биометрию).
   Future<void> clearLock() async {
     final prefs = await _prefs;
@@ -250,6 +270,68 @@ class GameRepository extends ChangeNotifier {
     await prefs.remove(_kLockPin);
     await prefs.remove(_kLockBiometric);
     notifyListeners();
+  }
+
+  // ----------------------------- Онбординг -----------------------------
+
+  Future<bool> onboardingDone() async =>
+      (await _prefs).getBool(_kOnboardingDone) ?? false;
+
+  Future<void> setOnboardingDone() async {
+    await (await _prefs).setBool(_kOnboardingDone, true);
+  }
+
+  // ------------------- Касса/команды конкретной партии -------------------
+
+  Map<String, dynamic> _decodeMap(String raw) {
+    try {
+      final m = jsonDecode(raw);
+      return m is Map<String, dynamic> ? m : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<Map<String, int>> gameKassa(String gameId) async {
+    final all = _decodeMap((await _prefs).getString(_kGameKassa) ?? '{}');
+    final m = all[gameId];
+    if (m is! Map) return {};
+    return m.map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
+  }
+
+  Future<void> setGameKassa(String gameId, Map<String, int> data) async {
+    final prefs = await _prefs;
+    final all = _decodeMap(prefs.getString(_kGameKassa) ?? '{}');
+    if (data.values.every((v) => v == 0)) {
+      all.remove(gameId);
+    } else {
+      all[gameId] = data;
+    }
+    await prefs.setString(_kGameKassa, jsonEncode(all));
+  }
+
+  /// Команды партии: (число команд, карта игрок→индекс команды).
+  Future<({int count, Map<String, int> of})> gameTeams(String gameId) async {
+    final all = _decodeMap((await _prefs).getString(_kGameTeams) ?? '{}');
+    final m = all[gameId];
+    if (m is! Map) return (count: 2, of: <String, int>{});
+    final of = (m['of'] as Map?)
+            ?.map((k, v) => MapEntry(k.toString(), (v as num).toInt())) ??
+        <String, int>{};
+    final count = (m['count'] as num?)?.toInt() ?? 2;
+    return (count: count, of: of);
+  }
+
+  Future<void> setGameTeams(
+      String gameId, int count, Map<String, int> of) async {
+    final prefs = await _prefs;
+    final all = _decodeMap(prefs.getString(_kGameTeams) ?? '{}');
+    if (of.isEmpty) {
+      all.remove(gameId);
+    } else {
+      all[gameId] = {'count': count, 'of': of};
+    }
+    await prefs.setString(_kGameTeams, jsonEncode(all));
   }
 
   // ----------------------- Профили игр (что играем) -----------------------
@@ -649,6 +731,8 @@ class GameRepository extends ChangeNotifier {
       _kCompanies: prefs.getStringList(_kCompanies) ?? const <String>[],
       _kGameNames: prefs.getString(_kGameNames),
       _kGameNotes: prefs.getString(_kGameNotes),
+      _kGameKassa: prefs.getString(_kGameKassa),
+      _kGameTeams: prefs.getString(_kGameTeams),
       _kGameTypes: prefs.getString(_kGameTypes),
       _kSelectedGame: prefs.getString(_kSelectedGame),
       // Настройки.
@@ -698,6 +782,8 @@ class GameRepository extends ChangeNotifier {
       for (final key in [
         _kGameNames,
         _kGameNotes,
+        _kGameKassa,
+        _kGameTeams,
         _kGameTypes,
         _kSelectedGame,
         _kLanguage

@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 
 import 'achievements_screen.dart';
 import 'lock_screen.dart';
+import 'onboarding_screen.dart';
 
 import 'l10n/locale_controller.dart';
 import 'l10n/strings.dart';
@@ -46,6 +47,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _featureTeams = false;
   bool _lockEnabled = false;
   bool _lockBiometric = false;
+  int _lockGrace = 0;
 
   @override
   void initState() {
@@ -63,6 +65,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final teams = await _repo.featureTeamsEnabled();
     final lock = await _repo.lockEnabled();
     final bio = await _repo.lockBiometric();
+    final grace = await _repo.lockGraceSeconds();
     if (!mounted) return;
     setState(() {
       _textSize = size;
@@ -73,7 +76,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _featureTeams = teams;
       _lockEnabled = lock;
       _lockBiometric = bio;
+      _lockGrace = grace;
     });
+  }
+
+  String _graceLabel(int s) => switch (s) {
+        60 => tr('lock_grace_1m'),
+        300 => tr('lock_grace_5m'),
+        _ => tr('lock_grace_now'),
+      };
+
+  Future<void> _pickLockGrace() async {
+    final scheme = Theme.of(context).colorScheme;
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: scheme.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 14),
+            Text(tr('lock_grace'),
+                style: TextStyle(
+                  fontFamily: AppTheme.displayFont,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                  color: scheme.onSurface,
+                )),
+            const SizedBox(height: 8),
+            for (final s in [0, 60, 300])
+              ListTile(
+                title: Text(_graceLabel(s)),
+                trailing: _lockGrace == s
+                    ? Icon(Icons.check_rounded, color: scheme.primary)
+                    : null,
+                onTap: () => Navigator.pop(ctx, s),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (picked != null) {
+      await _repo.setLockGraceSeconds(picked);
+      if (mounted) setState(() => _lockGrace = picked);
+    }
+  }
+
+  void _replayTour() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => OnboardingScreen(onDone: () => Navigator.pop(ctx)),
+      ),
+    );
   }
 
   Future<void> _toggleLock(bool value) async {
@@ -839,6 +898,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 trailing: Switch(
                     value: _lockBiometric, onChanged: _toggleBiometric),
               ),
+              _rowDivider(scheme),
+              _row(
+                scheme: scheme,
+                icon: Icons.timer_outlined,
+                iconBg: scheme.primaryContainer,
+                iconFg: scheme.onPrimaryContainer,
+                title: tr('lock_grace'),
+                subtitle: _graceLabel(_lockGrace),
+                onTap: _pickLockGrace,
+                trailing:
+                    Icon(Icons.chevron_right_rounded, color: scheme.outline),
+              ),
             ],
           ]),
 
@@ -969,6 +1040,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       builder: (context) => const GameRulesScreen()),
                 );
               },
+              trailing: Icon(Icons.chevron_right_rounded, color: scheme.outline),
+            ),
+            _rowDivider(scheme),
+            _row(
+              scheme: scheme,
+              icon: Icons.school_rounded,
+              iconBg: scheme.tertiaryContainer,
+              iconFg: scheme.onTertiaryContainer,
+              title: tr('replay_tour'),
+              onTap: _replayTour,
               trailing: Icon(Icons.chevron_right_rounded, color: scheme.outline),
             ),
           ]),

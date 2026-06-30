@@ -2,16 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../l10n/strings.dart';
+import '../services/game_repository.dart';
 import '../theme/app_theme.dart';
 
 /// Касса: вводишь итог каждого игрока в деньгах (+выиграл / −проиграл), а внизу
-/// считается «кто кому сколько должен» (минимум переводов). Чисто счётчик —
-/// в историю не пишется.
+/// считается «кто кому сколько должен» (минимум переводов). Если задан [gameId],
+/// суммы сохраняются к партии (переживают «Продолжить»).
 class KassaSheet extends StatefulWidget {
   final List<String> players;
-  const KassaSheet({super.key, required this.players});
+  final String? gameId;
+  const KassaSheet({super.key, required this.players, this.gameId});
 
-  static Future<void> show(BuildContext context, List<String> players) {
+  static Future<void> show(BuildContext context, List<String> players,
+      {String? gameId}) {
     final scheme = Theme.of(context).colorScheme;
     return showModalBottomSheet(
       context: context,
@@ -20,7 +23,7 @@ class KassaSheet extends StatefulWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (_) => KassaSheet(players: players),
+      builder: (_) => KassaSheet(players: players, gameId: gameId),
     );
   }
 
@@ -49,6 +52,34 @@ class _KassaSheetState extends State<KassaSheet> {
   late final Map<String, TextEditingController> _ctrls = {
     for (final p in widget.players) p: TextEditingController(),
   };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSaved();
+  }
+
+  Future<void> _loadSaved() async {
+    final id = widget.gameId;
+    if (id == null || id.isEmpty) return;
+    final saved = await GameRepository.instance.gameKassa(id);
+    if (!mounted || saved.isEmpty) return;
+    setState(() {
+      saved.forEach((name, v) {
+        if (_net.containsKey(name)) {
+          _net[name] = v;
+          _ctrls[name]?.text = v == 0 ? '' : '$v';
+        }
+      });
+    });
+  }
+
+  void _save() {
+    final id = widget.gameId;
+    if (id != null && id.isNotEmpty) {
+      GameRepository.instance.setGameKassa(id, _net);
+    }
+  }
 
   @override
   void dispose() {
@@ -247,6 +278,7 @@ class _KassaSheetState extends State<KassaSheet> {
               ),
               onChanged: (v) {
                 setState(() => _net[name] = int.tryParse(v) ?? 0);
+                _save();
               },
             ),
           ),

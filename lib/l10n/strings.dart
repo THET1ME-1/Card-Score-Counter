@@ -598,6 +598,34 @@ const Map<String, Map<String, String>> _strings = {
   },
   'favorite_game': {'ru': 'Любимая игра', 'en': 'Favorite game'},
   'recent_form': {'ru': 'Форма последних партий', 'en': 'Recent form'},
+  'onb_skip': {'ru': 'Пропустить', 'en': 'Skip'},
+  'onb_next': {'ru': 'Дальше', 'en': 'Next'},
+  'onb_start': {'ru': 'Поехали!', 'en': 'Let’s go!'},
+  'onb1_t': {'ru': 'ScoreMaster', 'en': 'ScoreMaster'},
+  'onb1_d': {
+    'ru': 'Счёт для любых карточных игр — и не только',
+    'en': 'Keep score for any card game — and beyond'
+  },
+  'onb2_t': {'ru': 'Много игр + волейбол', 'en': 'Many games + volleyball'},
+  'onb2_d': {
+    'ru': '101, Дурак, Кинг и ещё игры, плюс умное табло волейбола',
+    'en': '101, Durak, King and more, plus a smart volleyball scoreboard'
+  },
+  'onb3_t': {'ru': 'Статистика и Эло', 'en': 'Stats and Elo'},
+  'onb3_d': {
+    'ru': 'Графики, рекорды, рейтинг силы — кто реально лучший',
+    'en': 'Charts, records, power rating — who’s really the best'
+  },
+  'onb4_t': {'ru': 'Функции по вкусу', 'en': 'Features to taste'},
+  'onb4_d': {
+    'ru': 'Кубик, рулетка, касса, команды, папки — включай в Настройках',
+    'en': 'Dice, wheel, kitty, teams, folders — turn on in Settings'
+  },
+  'lock_grace': {'ru': 'Запрашивать PIN', 'en': 'Ask for PIN'},
+  'lock_grace_now': {'ru': 'Сразу', 'en': 'Immediately'},
+  'lock_grace_1m': {'ru': 'Через 1 мин', 'en': 'After 1 min'},
+  'lock_grace_5m': {'ru': 'Через 5 мин', 'en': 'After 5 min'},
+  'replay_tour': {'ru': 'Показать тур заново', 'en': 'Replay tour'},
   'security': {'ru': 'Безопасность', 'en': 'Security'},
   'feature_lock': {'ru': 'Замок приложения', 'en': 'App lock'},
   'feature_lock_sub': {

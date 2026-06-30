@@ -9,6 +9,7 @@ import 'enhanced_statistics_screen.dart';
 import 'l10n/locale_controller.dart';
 import 'l10n/strings.dart';
 import 'lock_screen.dart';
+import 'onboarding_screen.dart';
 import 'player_input_screen.dart';
 import 'score_board_screen.dart';
 import 'services/game_repository.dart';
@@ -92,6 +93,8 @@ class _LockGate extends StatefulWidget {
 class _LockGateState extends State<_LockGate> with WidgetsBindingObserver {
   bool _ready = false;
   bool _locked = false;
+  bool _onboarded = true;
+  DateTime? _pausedAt;
 
   @override
   void initState() {
@@ -107,22 +110,37 @@ class _LockGateState extends State<_LockGate> with WidgetsBindingObserver {
   }
 
   Future<void> _check() async {
-    final enabled = await GameRepository.instance.lockEnabled();
+    final repo = GameRepository.instance;
+    final enabled = await repo.lockEnabled();
+    final onboarded = await repo.onboardingDone();
     if (!mounted) return;
     setState(() {
       _locked = enabled;
+      _onboarded = onboarded;
       _ready = true;
     });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // При возврате из фона снова запираем (если замок включён и не заперт).
-    if (state == AppLifecycleState.resumed && !_locked) {
-      GameRepository.instance.lockEnabled().then((enabled) {
-        if (mounted && enabled) setState(() => _locked = true);
-      });
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _pausedAt = DateTime.now();
+    } else if (state == AppLifecycleState.resumed && !_locked) {
+      _maybeRelock();
     }
+  }
+
+  /// Запираем при возврате из фона, но только если прошёл грейс-период
+  /// (0 — сразу). Это чтобы не вводить PIN при каждом мимолётном сворачивании.
+  Future<void> _maybeRelock() async {
+    final repo = GameRepository.instance;
+    if (!await repo.lockEnabled()) return;
+    final grace = await repo.lockGraceSeconds();
+    final paused = _pausedAt;
+    final elapsed =
+        paused == null ? 1 << 30 : DateTime.now().difference(paused).inSeconds;
+    if (mounted && elapsed >= grace) setState(() => _locked = true);
   }
 
   @override
@@ -132,6 +150,12 @@ class _LockGateState extends State<_LockGate> with WidgetsBindingObserver {
     }
     if (_locked) {
       return LockScreen(onUnlocked: () => setState(() => _locked = false));
+    }
+    if (!_onboarded) {
+      return OnboardingScreen(onDone: () {
+        GameRepository.instance.setOnboardingDone();
+        setState(() => _onboarded = true);
+      });
     }
     return const MainScreen();
   }

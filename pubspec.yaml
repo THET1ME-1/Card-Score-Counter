@@ -1,6 +1,6 @@
 name: score_master
 description: 'Приложение для подсчёта очков в карточной игре КунКен.'
-version: 1.0.8+9
+version: 1.0.9+10
 
 environment:
   sdk: '>=3.4.3 <4.0.0'
