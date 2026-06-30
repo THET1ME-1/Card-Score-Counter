@@ -11,7 +11,7 @@ import 'package:score_master/main.dart';
 void main() {
   testWidgets('Приложение запускается и показывает нижнюю навигацию',
       (WidgetTester tester) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'onboardingDone': true});
 
     await tester.pumpWidget(const CardGameScoreTracker());
     await tester.pump(const Duration(milliseconds: 100));
@@ -51,6 +51,7 @@ void main() {
       'playerTimesMs': [3000, 2000],
     });
     SharedPreferences.setMockInitialValues({
+      'onboardingDone': true,
       'profiles': [profile],
       'gameHistory': [unfinished],
     });
