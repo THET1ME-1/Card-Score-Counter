@@ -33,6 +33,7 @@ class GameRepository extends ChangeNotifier {
   static const String _kIsDescending = 'isDescending';
   static const String _kSoundEnabled = 'soundEnabled';
   static const String _kTimerEnabled = 'timerEnabled';
+  static const String _kResumeDismissed = 'resumeDismissed';
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
@@ -300,6 +301,18 @@ class GameRepository extends ChangeNotifier {
 
   Future<void> setTimerEnabled(bool value) async {
     await (await _prefs).setBool(_kTimerEnabled, value);
+    notifyListeners();
+  }
+
+  /// Партии, для которых пользователь скрыл подсказку «Продолжить» (по gameId).
+  Future<Set<String>> dismissedResume() async =>
+      (await _prefs).getStringList(_kResumeDismissed)?.toSet() ?? <String>{};
+
+  Future<void> dismissResume(String gameId) async {
+    final prefs = await _prefs;
+    final set = await dismissedResume()
+      ..add(gameId);
+    await prefs.setStringList(_kResumeDismissed, set.toList());
     notifyListeners();
   }
 

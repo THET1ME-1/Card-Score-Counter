@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'game_picker_sheet.dart';
 import 'l10n/strings.dart';
 import 'models/game_profile.dart';
+import 'models/game_session.dart';
 import 'player_profile.dart';
 import 'score_board_screen.dart';
 import 'services/game_repository.dart';
@@ -31,12 +32,62 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
   List<int> selectedProfiles = [];
   GameProfile? _game;
 
+  /// Последняя незавершённая партия (для подсказки «Продолжить»), и её игра.
+  GameSession? _resumeGame;
+  GameProfile? _resumeProfile;
+
   @override
   void initState() {
     super.initState();
     _repo.addListener(_onRepoChanged);
     _loadProfiles();
     _loadGame();
+    _loadResume();
+  }
+
+  /// Ищет самую свежую незавершённую (и не пустую, и не скрытую) партию.
+  Future<void> _loadResume() async {
+    final games = await _repo.loadGames();
+    final dismissed = await _repo.dismissedResume();
+    final types = await _repo.gameTypes();
+    final candidates = games
+        .where((g) =>
+            !g.isFinished && !g.isEmpty && !dismissed.contains(g.gameId))
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    final latest = candidates.isEmpty ? null : candidates.first;
+    final profile =
+        latest == null ? null : await _repo.gameById(types[latest.gameId]);
+    if (!mounted) return;
+    setState(() {
+      _resumeGame = latest;
+      _resumeProfile = profile;
+    });
+  }
+
+  /// Продолжить незавершённую партию (восстанавливаем тип игры по тегу).
+  void _resume() {
+    final game = _resumeGame;
+    if (game == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ScoreBoardScreen(
+          players: game.players,
+          initialData: game.toJson(),
+          profile: _resumeProfile,
+        ),
+      ),
+    ).then((_) => _loadResume());
+  }
+
+  /// Скрыть подсказку «Продолжить» для этой партии (партия остаётся в истории).
+  Future<void> _dismissResume() async {
+    final game = _resumeGame;
+    if (game == null) return;
+    HapticFeedback.selectionClick();
+    await _repo.dismissResume(game.gameId);
+    await _loadResume();
   }
 
   Future<void> _loadGame() async {
@@ -85,6 +136,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
         ..clear()
         ..addAll(remapped);
     });
+    _loadResume();
   }
 
   Future<void> _saveProfiles() async {
@@ -446,55 +498,157 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
     );
   }
 
-  /// Селектор игры — крупная плашка сверху: какая игра выбрана. Тап — выбор.
+  /// Верхняя плашка. Обычно — выбор игры во всю ширину. Если есть
+  /// незавершённая партия, плашка делится надвое: слева выбор игры (как
+  /// раньше, не блокируется), справа — «Продолжить» с крестиком «скрыть».
   Widget _gameSelector(ColorScheme scheme) {
+    final hasResume = _resumeGame != null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Material(
-        color: scheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(20),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: _changeGame,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                Icon(Icons.style_rounded, color: scheme.onSecondaryContainer),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        tr('games'),
-                        style: TextStyle(
-                          fontFamily: AppTheme.bodyFont,
-                          fontSize: 12,
-                          color: scheme.onSecondaryContainer
-                              .withValues(alpha: 0.8),
-                        ),
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        child: hasResume
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(flex: 3, child: _gamePickerCard(scheme)),
+                  const SizedBox(width: 10),
+                  Expanded(flex: 2, child: _resumeCard(scheme)),
+                ],
+              )
+            : _gamePickerCard(scheme),
+      ),
+    );
+  }
+
+  /// Левая часть — выбор игры. Тап открывает список игр.
+  Widget _gamePickerCard(ColorScheme scheme) {
+    return Material(
+      color: scheme.secondaryContainer,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: _changeGame,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(Icons.style_rounded, color: scheme.onSecondaryContainer),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tr('games'),
+                      style: TextStyle(
+                        fontFamily: AppTheme.bodyFont,
+                        fontSize: 12,
+                        color:
+                            scheme.onSecondaryContainer.withValues(alpha: 0.8),
                       ),
-                      Text(
-                        _game?.displayName ?? tr('game_g101'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: AppTheme.displayFont,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                          color: scheme.onSecondaryContainer,
-                        ),
+                    ),
+                    Text(
+                      _game?.displayName ?? tr('game_g101'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTheme.displayFont,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: scheme.onSecondaryContainer,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                Icon(Icons.unfold_more_rounded,
-                    color: scheme.onSecondaryContainer),
-              ],
-            ),
+              ),
+              Icon(Icons.unfold_more_rounded,
+                  color: scheme.onSecondaryContainer),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Правая часть — «Продолжить» незавершённую партию (с крестиком «скрыть»).
+  Widget _resumeCard(ColorScheme scheme) {
+    final game = _resumeGame!;
+    final roundCount = game.scores.isEmpty ? 0 : game.scores.first.length;
+    final sub = [
+      if (_resumeProfile != null) _resumeProfile!.displayName,
+      trf('rounds_n', {'n': roundCount}),
+    ].join(' · ');
+
+    return Material(
+      color: scheme.primaryContainer,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          InkWell(
+            onTap: _resume,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+              child: Row(
+                children: [
+                  Icon(Icons.play_circle_rounded,
+                      color: scheme.onPrimaryContainer),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tr('resume'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: AppTheme.displayFont,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                            color: scheme.onPrimaryContainer,
+                          ),
+                        ),
+                        Text(
+                          sub,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: AppTheme.bodyFont,
+                            fontSize: 11.5,
+                            color: scheme.onPrimaryContainer
+                                .withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Крестик «скрыть подсказку для этой партии».
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Material(
+              color: Colors.transparent,
+              shape: const CircleBorder(),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: _dismissResume,
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(Icons.close_rounded,
+                      size: 16,
+                      color: scheme.onPrimaryContainer.withValues(alpha: 0.7)),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
