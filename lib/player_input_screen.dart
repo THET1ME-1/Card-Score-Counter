@@ -470,6 +470,7 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
       body: Column(
         children: [
           _gameSelector(scheme),
+          if (_resumeGame != null) _resumeBanner(scheme),
           Expanded(
             child: GridView.builder(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -499,37 +500,14 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
     );
   }
 
-  /// Верхняя плашка. Обычно — выбор игры во всю ширину. Если есть
-  /// незавершённая партия, плашка делится надвое: слева выбор игры (как
-  /// раньше, не блокируется), справа — «Продолжить» с крестиком «скрыть».
+  /// Верхняя плашка — выбор игры во всю ширину. Тап открывает список игр.
   Widget _gameSelector(ColorScheme scheme) {
-    final hasResume = _resumeGame != null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutCubic,
-        child: hasResume
-            // Фиксированная высота даёт Row ограниченную высоту по вертикали —
-            // тогда stretch не роняет билд (как было с IntrinsicHeight, который
-            // вдобавок несовместим с AutoSizeText/LayoutBuilder).
-            ? SizedBox(
-                height: 66,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(flex: 6, child: _gamePickerCard(scheme)),
-                    const SizedBox(width: 10),
-                    Expanded(flex: 5, child: _resumeCard(scheme)),
-                  ],
-                ),
-              )
-            : _gamePickerCard(scheme),
-      ),
+      child: _gamePickerCard(scheme),
     );
   }
 
-  /// Левая часть — выбор игры. Тап открывает список игр.
   Widget _gamePickerCard(ColorScheme scheme) {
     return Material(
       color: scheme.secondaryContainer,
@@ -582,80 +560,81 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
     );
   }
 
-  /// Правая часть — «Продолжить» незавершённую партию (с крестиком «скрыть»).
-  /// Тесная по ширине: тексты ужимаются (AutoSizeText), крестик — в строке
-  /// заголовка (не налезает на текст).
-  Widget _resumeCard(ColorScheme scheme) {
+  /// Полноширинная кнопка «Продолжить» незавершённую партию — отдельной плашкой
+  /// под выбором игры. Справа крестик «скрыть подсказку для этой партии».
+  Widget _resumeBanner(ColorScheme scheme) {
     final game = _resumeGame!;
     final roundCount = game.scores.isEmpty ? 0 : game.scores.first.length;
-    final sub = _resumeProfile?.displayName ?? trf('rounds_n', {'n': roundCount});
+    final sub = [
+      if (_resumeProfile != null) _resumeProfile!.displayName,
+      trf('rounds_n', {'n': roundCount}),
+    ].join(' · ');
 
-    return Material(
-      color: scheme.primaryContainer,
-      borderRadius: BorderRadius.circular(20),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: _resume,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
-          child: Row(
-            children: [
-              Icon(Icons.play_circle_rounded,
-                  size: 26, color: scheme.onPrimaryContainer),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: AutoSizeText(
-                            tr('resume'),
-                            maxLines: 1,
-                            minFontSize: 11,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: AppTheme.displayFont,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16,
-                              color: scheme.onPrimaryContainer,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Material(
+        color: scheme.primaryContainer,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: _resume,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+                  child: Row(
+                    children: [
+                      Icon(Icons.play_circle_rounded,
+                          size: 28, color: scheme.onPrimaryContainer),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              tr('resume'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: AppTheme.displayFont,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                                color: scheme.onPrimaryContainer,
+                              ),
                             ),
-                          ),
-                        ),
-                        // Крестик «скрыть подсказку для этой партии» — в строке.
-                        InkWell(
-                          onTap: _dismissResume,
-                          customBorder: const CircleBorder(),
-                          child: Padding(
-                            padding: const EdgeInsets.all(3),
-                            child: Icon(Icons.close_rounded,
-                                size: 17,
+                            Text(
+                              sub,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: AppTheme.bodyFont,
+                                fontSize: 12.5,
                                 color: scheme.onPrimaryContainer
-                                    .withValues(alpha: 0.7)),
-                          ),
+                                    .withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    AutoSizeText(
-                      sub,
-                      maxLines: 1,
-                      minFontSize: 9,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: AppTheme.bodyFont,
-                        fontSize: 11.5,
-                        color:
-                            scheme.onPrimaryContainer.withValues(alpha: 0.8),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
+            ),
+            // Крестик «скрыть подсказку для этой партии».
+            InkWell(
+              onTap: _dismissResume,
+              customBorder: const CircleBorder(),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 14, 16, 14),
+                child: Icon(Icons.close_rounded,
+                    size: 20,
+                    color: scheme.onPrimaryContainer.withValues(alpha: 0.7)),
+              ),
+            ),
+          ],
         ),
       ),
     );
