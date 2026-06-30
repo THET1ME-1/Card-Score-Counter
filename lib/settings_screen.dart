@@ -19,6 +19,7 @@ import 'widgets/update_sheet.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 import 'widgets/color_picker_sheet.dart';
+import 'widgets/pressable.dart';
 import 'game_rules_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -175,27 +176,106 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // ----------------------- Опасные действия -----------------------
 
+  /// Подтверждение действия — нижней M3-панелью (в едином стиле приложения),
+  /// а не центральным диалогом. [danger] красит главную кнопку в «опасный» цвет.
   Future<void> _confirm({
     required String title,
     required String content,
     required String actionLabel,
     required VoidCallback onConfirm,
+    IconData icon = Icons.help_rounded,
+    bool danger = false,
   }) async {
-    final confirmed = await showDialog<bool>(
+    final scheme = Theme.of(context).colorScheme;
+    final confirmed = await showModalBottomSheet<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(content),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(tr('cancel')),
+      backgroundColor: scheme.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: scheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: danger
+                          ? scheme.errorContainer
+                          : scheme.primaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      icon,
+                      color: danger
+                          ? scheme.onErrorContainer
+                          : scheme.onPrimaryContainer,
+                      size: 26,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontFamily: AppTheme.displayFont,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 19,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                content,
+                style: TextStyle(
+                  fontFamily: AppTheme.bodyFont,
+                  fontSize: 14,
+                  height: 1.35,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 22),
+              PressableScale(
+                child: FilledButton(
+                  style: danger
+                      ? FilledButton.styleFrom(
+                          backgroundColor: scheme.error,
+                          foregroundColor: scheme.onError,
+                        )
+                      : null,
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: Text(actionLabel),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(tr('cancel')),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(actionLabel),
-          ),
-        ],
+        ),
       ),
     );
     if (confirmed == true) onConfirm();
@@ -443,6 +523,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: tr('restore_q_title'),
                 content: tr('restore_q_body'),
                 actionLabel: tr('choose_file'),
+                icon: Icons.restore_rounded,
                 onConfirm: _importData,
               ),
               trailing: Icon(Icons.chevron_right_rounded, color: scheme.outline),
@@ -464,6 +545,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: tr('reset_wins_q_title'),
                 content: tr('reset_wins_q_body'),
                 actionLabel: tr('reset'),
+                icon: Icons.refresh_rounded,
+                danger: true,
                 onConfirm: () async {
                   await _repo.resetWins();
                   _snack(tr('wins_reset_done'));
@@ -483,6 +566,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: tr('clear_history_q_title'),
                 content: tr('clear_history_q_body'),
                 actionLabel: tr('delete'),
+                icon: Icons.delete_forever_rounded,
+                danger: true,
                 onConfirm: () async {
                   await _repo.clearGames();
                   _snack(tr('history_cleared_done'));
