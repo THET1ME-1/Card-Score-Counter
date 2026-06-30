@@ -92,6 +92,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {});
   }
 
+  void _toggleAmoled(bool value) {
+    _theme.setAmoled(value);
+    setState(() {});
+  }
+
+  void _pickPreset(Color color) {
+    _theme.setSeedColor(color);
+    setState(() {});
+  }
+
+  /// Готовые палитры цвета оформления.
+  static const List<Color> _presets = [
+    AppTheme.defaultSeed, // бирюзовый
+    Color(0xFF1E88E5), // синий
+    Color(0xFF7E57C2), // фиолетовый
+    Color(0xFF43A047), // зелёный
+    Color(0xFFFB8C00), // оранжевый
+    Color(0xFFE53935), // красный
+    Color(0xFFEC407A), // розовый
+    Color(0xFF00897B), // изумрудный
+  ];
+
   void _updateTextSize(double value) {
     setState(() => _textSize = value);
     _repo.setTextSize(value);
@@ -418,6 +440,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: () => _toggleTheme(!_theme.isDark),
               trailing: Switch(value: _theme.isDark, onChanged: _toggleTheme),
             ),
+            // AMOLED — только когда включена тёмная тема.
+            if (_theme.isDark) ...[
+              _rowDivider(scheme),
+              _row(
+                scheme: scheme,
+                icon: Icons.contrast_rounded,
+                iconBg: scheme.primaryContainer,
+                iconFg: scheme.onPrimaryContainer,
+                title: tr('amoled'),
+                subtitle: tr('amoled_sub'),
+                onTap: () => _toggleAmoled(!_theme.amoled),
+                trailing:
+                    Switch(value: _theme.amoled, onChanged: _toggleAmoled),
+              ),
+            ],
             _rowDivider(scheme),
             _row(
               scheme: scheme,
@@ -482,6 +519,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
               ),
+              _presetsRow(scheme),
             ],
             _rowDivider(scheme),
             _textSizeRow(scheme),
@@ -681,6 +719,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  /// Ряд готовых палитр: тапнул кружок — сменился цвет оформления. Выбранный
+  /// обведён и с галочкой.
+  Widget _presetsRow(ColorScheme scheme) {
+    final current = _theme.seedColor.toARGB32();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 16, 14),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 56,
+            child: Text(
+              tr('theme_presets'),
+              style: TextStyle(
+                fontFamily: AppTheme.bodyFont,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 10,
+              children: [
+                for (final c in _presets)
+                  _PresetDot(
+                    color: c,
+                    selected: c.toARGB32() == current,
+                    onTap: () => _pickPreset(c),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _row({
     required ColorScheme scheme,
     required IconData icon,
@@ -783,6 +861,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: _updateTextSize,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Кружок-палитра в ряду пресетов: при выборе обведён кольцом и с галочкой.
+class _PresetDot extends StatelessWidget {
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _PresetDot({
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    // Контрастная галочка для светлых/тёмных цветов.
+    final check = ThemeData.estimateBrightnessForColor(color) == Brightness.dark
+        ? Colors.white
+        : Colors.black;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: AppTheme.emphasized,
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: selected ? scheme.onSurface : scheme.outlineVariant,
+            width: selected ? 3 : 1,
+          ),
+        ),
+        child: selected
+            ? Icon(Icons.check_rounded, size: 18, color: check)
+            : null,
       ),
     );
   }

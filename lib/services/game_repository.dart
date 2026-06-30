@@ -36,6 +36,7 @@ class GameRepository extends ChangeNotifier {
   static const String _kTimerEnabled = 'timerEnabled';
   static const String _kResumeDismissed = 'resumeDismissed';
   static const String _kDynamicColor = 'dynamicColor';
+  static const String _kAmoled = 'amoled';
   static const String _kVolleyballActive = 'volleyballActive';
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
@@ -378,6 +379,15 @@ class GameRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// AMOLED-режим тёмной темы (чистый чёрный фон). По умолчанию выключен.
+  Future<bool> amoledEnabled({bool fallback = false}) async =>
+      (await _prefs).getBool(_kAmoled) ?? fallback;
+
+  Future<void> setAmoledEnabled(bool value) async {
+    await (await _prefs).setBool(_kAmoled, value);
+    notifyListeners();
+  }
+
   /// ARGB-значение seed-цвета темы, или null если пользователь не выбирал.
   Future<int?> seedColorValue() async => (await _prefs).getInt(_kSeedColor);
 
@@ -432,6 +442,7 @@ class GameRepository extends ChangeNotifier {
       _kSoundEnabled: prefs.getBool(_kSoundEnabled),
       _kTimerEnabled: prefs.getBool(_kTimerEnabled),
       _kDynamicColor: prefs.getBool(_kDynamicColor),
+      _kAmoled: prefs.getBool(_kAmoled),
     };
     return const JsonEncoder.withIndent('  ').convert(data);
   }
@@ -478,7 +489,8 @@ class GameRepository extends ChangeNotifier {
         _kIsDescending,
         _kSoundEnabled,
         _kTimerEnabled,
-        _kDynamicColor
+        _kDynamicColor,
+        _kAmoled
       ]) {
         final v = data[key];
         if (v is bool) await prefs.setBool(key, v);

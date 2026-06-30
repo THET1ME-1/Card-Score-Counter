@@ -57,6 +57,20 @@ class _PlayerStat {
   int get losses => (played - wins).clamp(0, 1 << 30);
   double get winRate => played > 0 ? wins / played * 100 : 0;
 
+  /// Максимальная серия побед подряд за всю историю (а не только текущая).
+  int get bestStreak {
+    var best = 0, cur = 0;
+    for (final w in _chrono) {
+      if (w) {
+        cur++;
+        if (cur > best) best = cur;
+      } else {
+        cur = 0;
+      }
+    }
+    return best;
+  }
+
   Map<String, List<int>> mapFor(_Period p) => switch (p) {
         _Period.day => byDay,
         _Period.month => byMonth,
@@ -1276,9 +1290,370 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
         _gamesPerDayCard(scheme),
         const SizedBox(height: 16),
         _distributionCard(scheme),
+        if (_recordRows().isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _recordsCard(scheme),
+        ],
+        if (_kingRows().isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _kingsCard(scheme),
+        ],
+        if (_matrixPlayers().length >= 2) ...[
+          const SizedBox(height: 16),
+          _matrixCard(scheme),
+        ],
       ],
     );
   }
+
+  // --------------------------- РЕКОРДЫ / КОРОЛИ ---------------------------
+
+  String _gameTitleOf(GameSession g) =>
+      _typeName[_typeOfGame[g.gameId]] ?? tr('scoreboard');
+
+  /// Рекорды: длиннейшая/быстрейшая партия, больше всего кругов, лучшая серия.
+  List<_RecordRow> _recordRows() {
+    final rows = <_RecordRow>[];
+    final timed = _finishedGames.where((g) => g.durationMs > 0).toList();
+    if (timed.isNotEmpty) {
+      final longest =
+          timed.reduce((a, b) => a.durationMs >= b.durationMs ? a : b);
+      rows.add(_RecordRow(Icons.hourglass_bottom_rounded, tr('rec_longest'),
+          humanDuration(longest.duration), _gameTitleOf(longest)));
+      final fastest =
+          timed.reduce((a, b) => a.durationMs <= b.durationMs ? a : b);
+      rows.add(_RecordRow(Icons.bolt_rounded, tr('rec_fastest'),
+          humanDuration(fastest.duration), _gameTitleOf(fastest)));
+    }
+    if (_finishedGames.isNotEmpty) {
+      final most =
+          _finishedGames.reduce((a, b) => a.rounds >= b.rounds ? a : b);
+      if (most.rounds > 0) {
+        rows.add(_RecordRow(Icons.repeat_rounded, tr('rec_most_rounds'),
+            '${most.rounds}', _gameTitleOf(most)));
+      }
+    }
+    _PlayerStat? streaker;
+    for (final s in _stats) {
+      if (s.bestStreak > 1 &&
+          (streaker == null || s.bestStreak > streaker.bestStreak)) {
+        streaker = s;
+      }
+    }
+    if (streaker != null) {
+      rows.add(_RecordRow(Icons.local_fire_department_rounded, tr('rec_streak'),
+          '${streaker.bestStreak}', streaker.name));
+    }
+    return rows;
+  }
+
+  Widget _recordsCard(ColorScheme scheme) {
+    final rows = _recordRows();
+    return _panel(scheme, tr('records'), [
+      for (var i = 0; i < rows.length; i++) ...[
+        if (i > 0) _thinDivider(scheme),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(rows[i].icon,
+                    size: 21, color: scheme.onPrimaryContainer),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(rows[i].label,
+                        style: TextStyle(
+                          fontFamily: AppTheme.bodyFont,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: scheme.onSurface,
+                        )),
+                    Text(rows[i].sub,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: AppTheme.bodyFont,
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        )),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(rows[i].value,
+                  style: TextStyle(
+                    fontFamily: AppTheme.displayFont,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 17,
+                    color: scheme.primary,
+                  )),
+            ],
+          ),
+        ),
+      ],
+    ]);
+  }
+
+  /// Король по каждому типу игры (у кого больше всего побед в этой игре).
+  List<_KingRow> _kingRows() {
+    final winsByType = <String, Map<String, int>>{};
+    for (final g in _finishedGames) {
+      final t = _typeOfGame[g.gameId];
+      final w = g.winner;
+      if (t == null || w == null) continue;
+      (winsByType[t] ??= {})[w] = (winsByType[t]![w] ?? 0) + 1;
+    }
+    final rows = <_KingRow>[];
+    winsByType.forEach((type, wins) {
+      String? best;
+      var bestN = 0;
+      wins.forEach((name, n) {
+        if (n > bestN) {
+          bestN = n;
+          best = name;
+        }
+      });
+      if (best != null) {
+        rows.add(_KingRow(_typeName[type] ?? tr('scoreboard'), best!, bestN));
+      }
+    });
+    rows.sort((a, b) => b.wins.compareTo(a.wins));
+    return rows;
+  }
+
+  Widget _kingsCard(ColorScheme scheme) {
+    final rows = _kingRows();
+    Color colorOf(String name) =>
+        _stats.firstWhere((s) => s.name == name,
+            orElse: () => _PlayerStat(name, scheme.primary, null)).color;
+    return _panel(scheme, tr('game_type_kings'), [
+      for (var i = 0; i < rows.length; i++) ...[
+        if (i > 0) _thinDivider(scheme),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: [
+              Icon(Icons.workspace_premium_rounded, size: 20, color: _gold),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(rows[i].gameName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: AppTheme.bodyFont,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: scheme.onSurfaceVariant,
+                    )),
+              ),
+              Container(
+                width: 22,
+                height: 22,
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                    color: colorOf(rows[i].player), shape: BoxShape.circle),
+              ),
+              Flexible(
+                child: Text(rows[i].player,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: AppTheme.displayFont,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: scheme.onSurface,
+                    )),
+              ),
+              const SizedBox(width: 8),
+              Text('${rows[i].wins}',
+                  style: TextStyle(
+                    fontFamily: AppTheme.displayFont,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    color: scheme.primary,
+                  )),
+            ],
+          ),
+        ),
+      ],
+    ]);
+  }
+
+  /// Игроки для матрицы — самые активные (по числу партий), максимум 6.
+  List<_PlayerStat> _matrixPlayers() {
+    final active = _stats.where((s) => s.played > 0).toList()
+      ..sort((a, b) => b.played.compareTo(a.played));
+    return active.take(6).toList();
+  }
+
+  int _beats(String a, String b) => _finishedGames
+      .where((g) =>
+          g.players.contains(a) && g.players.contains(b) && g.winner == a)
+      .length;
+
+  Widget _matrixCard(ColorScheme scheme) {
+    final players = _matrixPlayers();
+    const cell = 38.0;
+    const head = 78.0;
+    Widget headCell(String name) => SizedBox(
+          width: cell,
+          height: cell,
+          child: Center(
+            child: Text(
+              name.length <= 3 ? name : name.substring(0, 3),
+              style: TextStyle(
+                fontFamily: AppTheme.bodyFont,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        );
+    return _panel(scheme, tr('h2h_matrix'), [
+      Text(tr('h2h_matrix_hint'),
+          style: TextStyle(
+            fontFamily: AppTheme.bodyFont,
+            fontSize: 11.5,
+            color: scheme.onSurfaceVariant,
+          )),
+      const SizedBox(height: 10),
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Шапка столбцов.
+            Row(
+              children: [
+                const SizedBox(width: head),
+                for (final p in players) headCell(p.name),
+              ],
+            ),
+            for (final r in players)
+              Row(
+                children: [
+                  SizedBox(
+                    width: head,
+                    height: cell,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 16,
+                          height: 16,
+                          margin: const EdgeInsets.only(right: 6),
+                          decoration: BoxDecoration(
+                              color: r.color, shape: BoxShape.circle),
+                        ),
+                        Expanded(
+                          child: Text(r.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: AppTheme.bodyFont,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: scheme.onSurface,
+                              )),
+                        ),
+                      ],
+                    ),
+                  ),
+                  for (final c in players)
+                    _matrixCell(r, c, scheme, cell),
+                ],
+              ),
+          ],
+        ),
+      ),
+    ]);
+  }
+
+  Widget _matrixCell(
+      _PlayerStat row, _PlayerStat col, ColorScheme scheme, double cell) {
+    if (row.name == col.name) {
+      return Container(
+        width: cell,
+        height: cell,
+        alignment: Alignment.center,
+        child: Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(
+              color: scheme.outlineVariant, shape: BoxShape.circle),
+        ),
+      );
+    }
+    final n = _beats(row.name, col.name);
+    return Container(
+      width: cell,
+      height: cell,
+      alignment: Alignment.center,
+      child: Container(
+        width: cell - 6,
+        height: cell - 6,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: n > 0
+              ? scheme.primary.withValues(alpha: (0.18 + n * 0.12).clamp(0.18, 0.85))
+              : scheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          n == 0 ? '·' : '$n',
+          style: TextStyle(
+            fontFamily: AppTheme.displayFont,
+            fontWeight: FontWeight.w800,
+            fontSize: 13,
+            color: n > 0 ? scheme.onPrimaryContainer : scheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Карточка-обёртка аналитики: заголовок + содержимое в едином стиле.
+  Widget _panel(ColorScheme scheme, String title, List<Widget> children) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: TextStyle(
+                fontFamily: AppTheme.displayFont,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+                color: scheme.onSurface,
+              )),
+          const SizedBox(height: 8),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _thinDivider(ColorScheme scheme) => Divider(
+        height: 1,
+        thickness: 1,
+        color: scheme.outlineVariant.withValues(alpha: 0.4),
+      );
 
   // ------------------------------- КАЛЕНДАРЬ -------------------------------
 
@@ -1986,6 +2361,23 @@ class _TileData {
   final IconData icon;
   final Color accent;
   const _TileData(this.label, this.value, this.icon, this.accent);
+}
+
+/// Строка раздела «Рекорды»: иконка, заголовок, значение и пояснение.
+class _RecordRow {
+  final IconData icon;
+  final String label;
+  final String value;
+  final String sub;
+  const _RecordRow(this.icon, this.label, this.value, this.sub);
+}
+
+/// Король игрового типа: имя игры, лучший игрок и число его побед в ней.
+class _KingRow {
+  final String gameName;
+  final String player;
+  final int wins;
+  const _KingRow(this.gameName, this.player, this.wins);
 }
 
 /// Очная статистика против соперника: его профиль + счёт «мои : его» побед

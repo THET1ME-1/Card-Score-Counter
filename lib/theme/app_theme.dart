@@ -24,8 +24,24 @@ class AppTheme {
 
   static ThemeData light(Color seed) =>
       fromScheme(ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.light));
-  static ThemeData dark(Color seed) =>
-      fromScheme(ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark));
+
+  /// Тёмная тема. При [amoled] фон становится чисто чёрным, а контейнеры —
+  /// очень тёмными (но различимыми), чтобы блоки оставались видны.
+  static ThemeData dark(Color seed, {bool amoled = false}) {
+    var scheme =
+        ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark);
+    if (amoled) {
+      scheme = scheme.copyWith(
+        surface: const Color(0xFF000000),
+        surfaceContainerLowest: const Color(0xFF000000),
+        surfaceContainerLow: const Color(0xFF0A0A0A),
+        surfaceContainer: const Color(0xFF111111),
+        surfaceContainerHigh: const Color(0xFF181818),
+        surfaceContainerHighest: const Color(0xFF222222),
+      );
+    }
+    return fromScheme(scheme);
+  }
 
   /// Строит тему приложения (шрифты, кнопки, переходы) из готовой [colorScheme].
   /// Это позволяет использовать и seed-цвет, и динамический цвет Material You.

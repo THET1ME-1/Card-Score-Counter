@@ -18,6 +18,7 @@ class ThemeController extends ChangeNotifier {
   Color _seedColor = AppTheme.defaultSeed;
   bool _isDark = true;
   bool _useDynamic = false;
+  bool _amoled = false;
   bool _loaded = false;
 
   Color get seedColor => _seedColor;
@@ -25,6 +26,9 @@ class ThemeController extends ChangeNotifier {
 
   /// Режим Material You — брать цвет из системных обоев (Android 12+).
   bool get useDynamicColor => _useDynamic;
+
+  /// AMOLED — чистый чёрный фон в тёмной теме.
+  bool get amoled => _amoled;
   bool get isLoaded => _loaded;
   ThemeMode get themeMode => _isDark ? ThemeMode.dark : ThemeMode.light;
 
@@ -38,6 +42,7 @@ class ThemeController extends ChangeNotifier {
     _seedColor = stored == null ? AppTheme.defaultSeed : Color(stored);
     _isDark = await _repo.isDarkTheme();
     _useDynamic = await _repo.dynamicColorEnabled();
+    _amoled = await _repo.amoledEnabled();
     _loaded = true;
     notifyListeners();
   }
@@ -47,6 +52,13 @@ class ThemeController extends ChangeNotifier {
     _useDynamic = value;
     notifyListeners();
     await _repo.setDynamicColorEnabled(value);
+  }
+
+  Future<void> setAmoled(bool value) async {
+    if (value == _amoled) return;
+    _amoled = value;
+    notifyListeners();
+    await _repo.setAmoledEnabled(value);
   }
 
   Future<void> setSeedColor(Color color) async {

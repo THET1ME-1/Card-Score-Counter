@@ -334,6 +334,18 @@ const Map<String, String> _de = {
   "check_updates": "Nach Updates suchen",
   "check_updates_sub": "Neueste Version von GitHub laden",
   "up_to_date": "Du bist auf dem neuesten Stand",
+  "amoled": "AMOLED-Schwarz",
+  "amoled_sub": "Reines Schwarz im dunklen Design",
+  "theme_presets": "Paletten",
+  "game_deleted": "Spiel gelöscht",
+  "records": "Rekorde",
+  "rec_longest": "Längstes Spiel",
+  "rec_fastest": "Schnellstes Spiel",
+  "rec_most_rounds": "Meiste Runden",
+  "rec_streak": "Beste Serie",
+  "game_type_kings": "Könige nach Spiel",
+  "h2h_matrix": "Duell-Matrix",
+  "h2h_matrix_hint": "Wie oft der Spieler in der Zeile den Spieler in der Spalte schlug",
 };
 
 // ------------------------------- Français -------------------------------
@@ -659,6 +671,18 @@ const Map<String, String> _fr = {
   "check_updates": "Vérifier les mises à jour",
   "check_updates_sub": "Télécharger la dernière version depuis GitHub",
   "up_to_date": "Vous êtes à jour",
+  "amoled": "Noir AMOLED",
+  "amoled_sub": "Noir pur en thème sombre",
+  "theme_presets": "Palettes",
+  "game_deleted": "Partie supprimée",
+  "records": "Records",
+  "rec_longest": "Partie la plus longue",
+  "rec_fastest": "Partie la plus rapide",
+  "rec_most_rounds": "Plus de manches",
+  "rec_streak": "Meilleure série",
+  "game_type_kings": "Rois par jeu",
+  "h2h_matrix": "Matrice des duels",
+  "h2h_matrix_hint": "Combien de fois le joueur de la ligne a battu celui de la colonne",
 };
 
 // ------------------------------- Español -------------------------------
@@ -982,6 +1006,18 @@ const Map<String, String> _es = {
   "check_updates": "Buscar actualizaciones",
   "check_updates_sub": "Descargar la última versión desde GitHub",
   "up_to_date": "Estás al día",
+  "amoled": "Negro AMOLED",
+  "amoled_sub": "Negro puro en tema oscuro",
+  "theme_presets": "Paletas",
+  "game_deleted": "Partida eliminada",
+  "records": "Récords",
+  "rec_longest": "Partida más larga",
+  "rec_fastest": "Partida más rápida",
+  "rec_most_rounds": "Más rondas",
+  "rec_streak": "Mejor racha",
+  "game_type_kings": "Reyes por juego",
+  "h2h_matrix": "Matriz de duelos",
+  "h2h_matrix_hint": "Cuántas veces el jugador de la fila venció al de la columna",
 };
 
 // ------------------------------- Italiano -------------------------------
@@ -1306,6 +1342,18 @@ const Map<String, String> _it = {
   "check_updates": "Cerca aggiornamenti",
   "check_updates_sub": "Scarica l'ultima versione da GitHub",
   "up_to_date": "Sei aggiornato",
+  "amoled": "Nero AMOLED",
+  "amoled_sub": "Nero puro nel tema scuro",
+  "theme_presets": "Palette",
+  "game_deleted": "Partita eliminata",
+  "records": "Record",
+  "rec_longest": "Partita più lunga",
+  "rec_fastest": "Partita più veloce",
+  "rec_most_rounds": "Più round",
+  "rec_streak": "Miglior serie",
+  "game_type_kings": "Re per gioco",
+  "h2h_matrix": "Matrice scontri",
+  "h2h_matrix_hint": "Quante volte il giocatore della riga ha battuto quello della colonna",
 };
 
 // ------------------------------- Português -------------------------------
@@ -1627,4 +1675,16 @@ const Map<String, String> _pt = {
   "check_updates": "Procurar atualizações",
   "check_updates_sub": "Baixar a versão mais recente do GitHub",
   "up_to_date": "Você está atualizado",
+  "amoled": "Preto AMOLED",
+  "amoled_sub": "Preto puro no tema escuro",
+  "theme_presets": "Paletas",
+  "game_deleted": "Partida excluída",
+  "records": "Recordes",
+  "rec_longest": "Partida mais longa",
+  "rec_fastest": "Partida mais rápida",
+  "rec_most_rounds": "Mais rodadas",
+  "rec_streak": "Melhor sequência",
+  "game_type_kings": "Reis por jogo",
+  "h2h_matrix": "Matriz de confrontos",
+  "h2h_matrix_hint": "Quantas vezes o jogador da linha venceu o da coluna",
 };

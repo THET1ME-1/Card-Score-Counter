@@ -49,6 +49,12 @@ const Map<String, Map<String, String>> _strings = {
     'ru': 'Цвет из обоев системы (Android 12+)',
     'en': 'Color from system wallpaper (Android 12+)'
   },
+  'amoled': {'ru': 'AMOLED-чёрный', 'en': 'AMOLED black'},
+  'amoled_sub': {
+    'ru': 'Чистый чёрный фон в тёмной теме',
+    'en': 'Pure black background in dark theme'
+  },
+  'theme_presets': {'ru': 'Палитры', 'en': 'Palettes'},
   'theme_color': {'ru': 'Цвет оформления', 'en': 'Theme color'},
   'theme_color_default': {'ru': 'Бирюзовый (стандартный)', 'en': 'Teal (default)'},
   'scoreboard_text_size': {
@@ -287,6 +293,7 @@ const Map<String, Map<String, String>> _strings = {
   'game_n': {'ru': 'Игра {n}', 'en': 'Game {n}'},
   'game_name_title': {'ru': 'Название партии', 'en': 'Game name'},
   'name_label': {'ru': 'Имя', 'en': 'Name'},
+  'game_deleted': {'ru': 'Партия удалена', 'en': 'Game deleted'},
   'delete_game_q': {'ru': 'Удалить партию?', 'en': 'Delete game?'},
   'delete_game_body': {
     'ru': 'Запись будет удалена из истории безвозвратно.',
@@ -526,6 +533,17 @@ const Map<String, Map<String, String>> _strings = {
   'vb_tap_hint': {'ru': 'Тап по половине — очко команде', 'en': 'Tap a side to add a point'},
 
   // ----------------------- Очные встречи -----------------------
+  'records': {'ru': 'Рекорды', 'en': 'Records'},
+  'rec_longest': {'ru': 'Самая длинная', 'en': 'Longest game'},
+  'rec_fastest': {'ru': 'Самая быстрая', 'en': 'Fastest game'},
+  'rec_most_rounds': {'ru': 'Больше всего кругов', 'en': 'Most rounds'},
+  'rec_streak': {'ru': 'Лучшая серия', 'en': 'Best streak'},
+  'game_type_kings': {'ru': 'Короли по играм', 'en': 'Kings by game'},
+  'h2h_matrix': {'ru': 'Матрица встреч', 'en': 'Head-to-head grid'},
+  'h2h_matrix_hint': {
+    'ru': 'Сколько раз игрок в строке обыграл игрока в столбце',
+    'en': 'How many times the row player beat the column player'
+  },
   'head_to_head': {'ru': 'Очные встречи', 'en': 'Head-to-head'},
   'h2h_shared': {'ru': '{n} совместных', 'en': '{n} together'},
   'h2h_no_rivals': {

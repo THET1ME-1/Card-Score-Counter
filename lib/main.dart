@@ -50,12 +50,9 @@ class CardGameScoreTracker extends StatelessWidget {
               lightDynamic != null &&
               darkDynamic != null;
           final dynSeed = lightDynamic?.primary ?? theme.seedColor;
-          final lightTheme = useDyn
-              ? AppTheme.light(dynSeed)
-              : AppTheme.light(theme.seedColor);
-          final darkTheme = useDyn
-              ? AppTheme.dark(dynSeed)
-              : AppTheme.dark(theme.seedColor);
+          final seed = useDyn ? dynSeed : theme.seedColor;
+          final lightTheme = AppTheme.light(seed);
+          final darkTheme = AppTheme.dark(seed, amoled: theme.amoled);
           return MaterialApp(
             title: 'ScoreMaster',
             debugShowCheckedModeBanner: false,

@@ -320,9 +320,7 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     final typeId = _types[game.gameId];
 
     // Container transform (M3): карточка «морфится» в экран аналитики.
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: OpenContainer(
+    final card = OpenContainer(
         closedColor: scheme.surfaceContainerHigh,
         openColor: scheme.surface,
         closedElevation: 0,
@@ -435,8 +433,90 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
             ),
           ),
         ),
+    );
+    // Свайп: вправо — переименовать, влево — удалить (с «Отменить»).
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Dismissible(
+        key: ValueKey('hist_${game.gameId}'),
+        background: _swipeBg(
+          start: true,
+          bg: scheme.primaryContainer,
+          fg: scheme.onPrimaryContainer,
+          icon: Icons.drive_file_rename_outline_rounded,
+          label: tr('rename'),
+        ),
+        secondaryBackground: _swipeBg(
+          start: false,
+          bg: scheme.errorContainer,
+          fg: scheme.onErrorContainer,
+          icon: Icons.delete_rounded,
+          label: tr('delete'),
+        ),
+        confirmDismiss: (dir) async {
+          if (dir == DismissDirection.startToEnd) {
+            await _rename(game, title);
+            return false; // переименование на месте — карточку не убираем
+          }
+          return true; // свайп влево — удалить
+        },
+        onDismissed: (_) => _swipeDelete(game),
+        child: card,
       ),
     );
+  }
+
+  /// Фон под карточкой при свайпе (иконка + подпись с нужной стороны).
+  Widget _swipeBg({
+    required bool start,
+    required Color bg,
+    required Color fg,
+    required IconData icon,
+    required String label,
+  }) {
+    return Container(
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(28)),
+      padding: const EdgeInsets.symmetric(horizontal: 26),
+      alignment: start ? Alignment.centerLeft : Alignment.centerRight,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: fg),
+          const SizedBox(width: 10),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: AppTheme.bodyFont,
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Удаление свайпом с возможностью отмены: карточку убираем сразу, а из
+  /// репозитория удаляем только если «Отменить» не нажали (по закрытию снэкбара).
+  void _swipeDelete(GameSession game) {
+    setState(() => _games.removeWhere((g) => g.gameId == game.gameId));
+    final messenger = ScaffoldMessenger.of(context)..clearSnackBars();
+    final controller = messenger.showSnackBar(
+      SnackBar(
+        content: Text(tr('game_deleted')),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(label: tr('undo'), onPressed: () {}),
+      ),
+    );
+    controller.closed.then((reason) {
+      if (reason == SnackBarClosedReason.action) {
+        _load(); // отменили — партия ещё на диске, возвращаем
+      } else {
+        _repo.deleteGame(game.gameId); // подтверждаем удаление
+      }
+    });
   }
 
   Widget _menu(GameSession game, String title) {
