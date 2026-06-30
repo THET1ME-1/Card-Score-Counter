@@ -12,6 +12,7 @@ import 'models/game_session.dart';
 import 'player_profile.dart';
 import 'score_board_screen.dart';
 import 'volleyball_screen.dart';
+import 'widgets/table_tools_sheet.dart';
 import 'services/game_repository.dart';
 import 'theme/app_theme.dart';
 import 'widgets/player_shapes.dart';
@@ -224,6 +225,22 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
         ),
       ),
     );
+  }
+
+  /// Рулетка «кто первый?» + монетка. Берём отмеченных игроков, а если их
+  /// меньше двух — всех созданных.
+  void _openTableTools() {
+    final source = selectedProfiles.length >= 2
+        ? [for (final i in selectedProfiles) profiles[i]]
+        : profiles;
+    final list = [for (final p in source) WheelPlayer(p.name, p.color)];
+    if (list.length < 2) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(content: Text(tr('select_min_two'))));
+      return;
+    }
+    TableToolsSheet.show(context, list);
   }
 
   void _deleteProfile(int index) {
@@ -479,7 +496,16 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: Text(tr('who_plays'))),
+      appBar: AppBar(
+        title: Text(tr('who_plays')),
+        actions: [
+          IconButton(
+            tooltip: tr('who_first'),
+            icon: const Icon(Icons.casino_rounded),
+            onPressed: _openTableTools,
+          ),
+        ],
+      ),
       body: Column(
         children: [
           _gameSelector(scheme),

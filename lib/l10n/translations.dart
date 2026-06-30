@@ -350,6 +350,14 @@ const Map<String, String> _de = {
   "dice_hint": "Wirf für Glück — ändert den Punktestand nicht",
   "favorite_game": "Lieblingsspiel",
   "recent_form": "Aktuelle Form",
+  "sc_new_game": "Neues Spiel",
+  "who_first": "Wer zuerst?",
+  "tool_wheel": "Rad",
+  "tool_coin": "Münze",
+  "spin": "Drehen",
+  "flip": "Werfen",
+  "heads": "Kopf",
+  "tails": "Zahl",
 };
 
 // ------------------------------- Français -------------------------------
@@ -691,6 +699,14 @@ const Map<String, String> _fr = {
   "dice_hint": "Lance pour la chance — ne change pas le score",
   "favorite_game": "Jeu favori",
   "recent_form": "Forme récente",
+  "sc_new_game": "Nouvelle partie",
+  "who_first": "Qui commence ?",
+  "tool_wheel": "Roue",
+  "tool_coin": "Pièce",
+  "spin": "Tourner",
+  "flip": "Lancer",
+  "heads": "Face",
+  "tails": "Pile",
 };
 
 // ------------------------------- Español -------------------------------
@@ -1030,6 +1046,14 @@ const Map<String, String> _es = {
   "dice_hint": "Tira por suerte — no cambia el marcador",
   "favorite_game": "Juego favorito",
   "recent_form": "Forma reciente",
+  "sc_new_game": "Nueva partida",
+  "who_first": "¿Quién empieza?",
+  "tool_wheel": "Ruleta",
+  "tool_coin": "Moneda",
+  "spin": "Girar",
+  "flip": "Lanzar",
+  "heads": "Cara",
+  "tails": "Cruz",
 };
 
 // ------------------------------- Italiano -------------------------------
@@ -1370,6 +1394,14 @@ const Map<String, String> _it = {
   "dice_hint": "Tira per fortuna — non cambia il punteggio",
   "favorite_game": "Gioco preferito",
   "recent_form": "Forma recente",
+  "sc_new_game": "Nuova partita",
+  "who_first": "Chi inizia?",
+  "tool_wheel": "Ruota",
+  "tool_coin": "Moneta",
+  "spin": "Gira",
+  "flip": "Lancia",
+  "heads": "Testa",
+  "tails": "Croce",
 };
 
 // ------------------------------- Português -------------------------------
@@ -1707,4 +1739,12 @@ const Map<String, String> _pt = {
   "dice_hint": "Role pela sorte — não muda o placar",
   "favorite_game": "Jogo favorito",
   "recent_form": "Forma recente",
+  "sc_new_game": "Novo jogo",
+  "who_first": "Quem começa?",
+  "tool_wheel": "Roda",
+  "tool_coin": "Moeda",
+  "spin": "Girar",
+  "flip": "Lançar",
+  "heads": "Cara",
+  "tails": "Coroa",
 };

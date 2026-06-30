@@ -533,6 +533,14 @@ const Map<String, Map<String, String>> _strings = {
   'vb_tap_hint': {'ru': 'Тап по половине — очко команде', 'en': 'Tap a side to add a point'},
 
   // ----------------------- Очные встречи -----------------------
+  'sc_new_game': {'ru': 'Новая игра', 'en': 'New game'},
+  'who_first': {'ru': 'Кто первый?', 'en': 'Who’s first?'},
+  'tool_wheel': {'ru': 'Колесо', 'en': 'Wheel'},
+  'tool_coin': {'ru': 'Монетка', 'en': 'Coin'},
+  'spin': {'ru': 'Крутить', 'en': 'Spin'},
+  'flip': {'ru': 'Бросить', 'en': 'Flip'},
+  'heads': {'ru': 'Орёл', 'en': 'Heads'},
+  'tails': {'ru': 'Решка', 'en': 'Tails'},
   'dice_title': {'ru': 'Кубик удачи', 'en': 'Luck die'},
   'dice_hint': {
     'ru': 'Брось на удачу — на счёт не влияет',

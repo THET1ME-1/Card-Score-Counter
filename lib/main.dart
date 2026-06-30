@@ -2,11 +2,15 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:quick_actions/quick_actions.dart';
 
 import 'game_history_screen.dart';
 import 'enhanced_statistics_screen.dart';
 import 'l10n/locale_controller.dart';
+import 'l10n/strings.dart';
 import 'player_input_screen.dart';
+import 'score_board_screen.dart';
+import 'services/game_repository.dart';
 import 'services/sound_service.dart';
 import 'services/update_service.dart';
 import 'settings_screen.dart';
@@ -86,10 +90,60 @@ class _MainScreenState extends State<MainScreen> {
   static const int _tabCount = 4;
   int _selectedIndex = 0;
 
+  static const QuickActions _quickActions = QuickActions();
+
   @override
   void initState() {
     super.initState();
     _checkForUpdate();
+    _setupQuickActions();
+  }
+
+  /// Ярлыки при удержании иконки приложения (Android/iOS): «Новая игра»,
+  /// «Продолжить», «Статистика». Срабатывают через колбэк initialize.
+  void _setupQuickActions() {
+    _quickActions.initialize(_handleShortcut);
+    _quickActions.setShortcutItems(<ShortcutItem>[
+      ShortcutItem(type: 'new_game', localizedTitle: tr('sc_new_game')),
+      ShortcutItem(type: 'continue', localizedTitle: tr('resume')),
+      ShortcutItem(type: 'stats', localizedTitle: tr('nav_stats')),
+    ]);
+  }
+
+  Future<void> _handleShortcut(String type) async {
+    switch (type) {
+      case 'stats':
+        if (mounted) setState(() => _selectedIndex = 2);
+      case 'continue':
+        if (mounted) setState(() => _selectedIndex = 0);
+        await _resumeLatest();
+      case 'new_game':
+      default:
+        if (mounted) setState(() => _selectedIndex = 0);
+    }
+  }
+
+  /// Открывает табло последней незавершённой партии (для ярлыка «Продолжить»).
+  Future<void> _resumeLatest() async {
+    final repo = GameRepository.instance;
+    final games = await repo.loadGames();
+    final types = await repo.gameTypes();
+    final candidates = games.where((g) => !g.isFinished && !g.isEmpty).toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    if (candidates.isEmpty || !mounted) return;
+    final game = candidates.first;
+    final profile = await repo.gameById(types[game.gameId]);
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ScoreBoardScreen(
+          players: game.players,
+          initialData: game.toJson(),
+          profile: profile,
+        ),
+      ),
+    );
   }
 
   /// Тихая проверка обновления на GitHub при запуске. Если есть версия новее —
