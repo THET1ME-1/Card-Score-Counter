@@ -3,8 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:network_info_plus/network_info_plus.dart';
-
 import '../game_repository.dart';
 import 'sync_merge.dart';
 
@@ -43,10 +41,56 @@ class P2pService {
 
   static const String scheme = 'smsync';
 
+  /// Локальный LAN-адрес устройства. Определяем через список сетевых
+  /// интерфейсов (dart:io), а не через WifiManager — тот на MIUI/Android 12+ и
+  /// при нескольких интерфейсах часто отдаёт null или чужой IP. Предпочитаем
+  /// Wi-Fi (`wlan`), исключаем USB-tether/VPN/loopback.
+  Future<String?> localIp() async {
+    try {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLoopback: false,
+      );
+      String? fallback;
+      for (final iface in interfaces) {
+        final name = iface.name.toLowerCase();
+        if (name.contains('rndis') ||
+            name.contains('usb') ||
+            name.contains('tun') ||
+            name.contains('ppp') ||
+            name.contains('dummy') ||
+            name.contains('p2p')) {
+          continue; // не-LAN интерфейсы
+        }
+        for (final addr in iface.addresses) {
+          if (!_isPrivateV4(addr.address)) continue;
+          if (name.contains('wlan') || name.contains('wifi')) {
+            return addr.address; // Wi-Fi — самый предпочтительный
+          }
+          fallback ??= addr.address;
+        }
+      }
+      return fallback;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static bool _isPrivateV4(String ip) {
+    if (ip.startsWith('192.168.')) return true;
+    if (ip.startsWith('10.')) return true;
+    final m = RegExp(r'^172\.(\d{1,3})\.').firstMatch(ip);
+    if (m != null) {
+      final o = int.tryParse(m.group(1)!) ?? 0;
+      return o >= 16 && o <= 31;
+    }
+    return false;
+  }
+
   /// Запускает хост: поднимает сервер на случайном порту, генерит токен, узнаёт
-  /// Wi-Fi-адрес. Бросает, если нет Wi-Fi.
+  /// LAN-адрес. Бросает, если устройство не в локальной сети.
   Future<P2pHost> startHost() async {
-    final ip = await NetworkInfo().getWifiIP();
+    final ip = await localIp();
     if (ip == null || ip.isEmpty) {
       throw const P2pException(
           'Нет Wi-Fi. Подключите оба телефона к одной сети.');
@@ -54,7 +98,14 @@ class P2pService {
     final rnd = Random.secure();
     final token =
         List.generate(10, (_) => rnd.nextInt(16).toRadixString(16)).join();
-    final server = await HttpServer.bind(InternetAddress.anyIPv4, 0);
+    // Биндим на конкретный адрес интерфейса — так сервер слушает ровно там, где
+    // мы показываем QR. Фолбэк на 0.0.0.0, если конкретный адрес не удался.
+    HttpServer server;
+    try {
+      server = await HttpServer.bind(ip, 0, shared: true);
+    } catch (_) {
+      server = await HttpServer.bind(InternetAddress.anyIPv4, 0, shared: true);
+    }
     final controller = StreamController<SyncStats>.broadcast();
 
     server.listen((HttpRequest req) async {
