@@ -33,6 +33,8 @@ xcuserdata
 
 *.pyc
 *sync/
+# Наш исходный код синхронизации — НЕ игнорировать (иначе *sync/ его съедает).
+!lib/services/sync/
 Icon?
 .tags*
 
