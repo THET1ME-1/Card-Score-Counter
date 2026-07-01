@@ -156,7 +156,7 @@ const Map<String, Map<String, String>> _strings = {
   // ----------------------- Меню/табло -----------------------
   'who_plays': {'ru': 'Кто играет?', 'en': "Who's playing?"},
   'history_title': {'ru': 'История игр', 'en': 'Game history'},
-  'finished_short': {'ru': 'завершена', 'en': 'finished'},
+  'finished_short': {'ru': 'Завершена', 'en': 'finished'},
   'rounds_n': {'ru': '{n} раунд(ов)', 'en': '{n} round(s)'},
   'scoreboard': {'ru': 'Табло', 'en': 'Scoreboard'},
   'share': {'ru': 'Поделиться', 'en': 'Share'},
@@ -489,9 +489,13 @@ const Map<String, Map<String, String>> _strings = {
   },
   'longer_by': {'ru': 'дольше среднего на {p}%', 'en': '{p}% longer than average'},
   'shorter_by': {'ru': 'короче среднего на {p}%', 'en': '{p}% shorter than average'},
-  'about_average': {'ru': 'примерно как в среднем', 'en': 'about average'},
+  'about_average': {'ru': 'Примерно как в среднем', 'en': 'about average'},
   'avg_duration': {'ru': 'Средняя', 'en': 'Average'},
   'this_game': {'ru': 'Эта партия', 'en': 'This game'},
+  'compare_need_more': {
+    'ru': 'Пока не с чем сравнивать — сыграйте ещё пару партий этой игры',
+    'en': 'Nothing to compare yet — play a couple more games of this type'
+  },
   'analytics_open': {'ru': 'Открыть', 'en': 'Open'},
   'analytics_resume': {'ru': 'Продолжить партию', 'en': 'Resume game'},
   'fastest_player': {'ru': 'Быстрее всех', 'en': 'Fastest'},

@@ -82,6 +82,9 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
       final types = await _repo.gameTypes();
       final durations = <int>[];
       for (final g in games) {
+        // Текущую партию из среднего исключаем — иначе при единственной
+        // игре «среднее» совпадает с ней самой (сравнение с самим собой).
+        if (g.gameId == widget.game.gameId) continue;
         if (types[g.gameId] == typeId && g.durationMs > 0) {
           durations.add(g.durationMs);
           count++;
@@ -352,7 +355,13 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
       _headerCard(scheme),
       if (hasTiming) ...[
         _durationHero(scheme),
-        if (_avgDurationMs != null) _comparisonCard(scheme),
+        // Сравнение показываем только когда есть ≥2 ДРУГИХ партий того же
+        // типа — иначе сравнивать не с чем (плашка-подсказка).
+        if (_sameTypeCount >= 2)
+          _comparisonCard(scheme)
+        else
+          _infoCard(scheme, tr('vs_average'), tr('compare_need_more'),
+              Icons.insights_rounded),
         _timeByPlayerCard(scheme),
       ] else
         _noTimingCard(scheme),
@@ -363,32 +372,50 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
     ];
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(tr('game_analytics')),
-        actions: [
-          IconButton(
-            tooltip: tr('share'),
-            icon: const Icon(Icons.ios_share_rounded),
-            onPressed: () => ShareResultSheet.show(
-              context,
-              game: widget.game,
-              gameTypeName: widget.profile?.displayName ?? widget.title,
-            ),
+      // Крупный сворачивающийся заголовок (M3 large): в развёрнутом состоянии
+      // занимает всю ширину и не обрезается («Аналитика партии» целиком).
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar.large(
+            centerTitle: false,
+            title: Text(tr('game_analytics')),
+            actions: [
+              IconButton(
+                tooltip: tr('share'),
+                icon: const Icon(Icons.ios_share_rounded),
+                onPressed: () => ShareResultSheet.show(
+                  context,
+                  game: widget.game,
+                  gameTypeName: widget.profile?.displayName ?? widget.title,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              itemCount: cards.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              // Каскадное появление карточек (M3 emphasized): лёгкий подъём+fade.
-              itemBuilder: (_, i) => Reveal(
-                delay: Duration(milliseconds: 60 * i),
-                child: cards[i],
+          if (_loading)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  // Каскадное появление карточек (M3 emphasized): подъём+fade.
+                  (_, i) => Padding(
+                    padding:
+                        EdgeInsets.only(bottom: i == cards.length - 1 ? 0 : 12),
+                    child: Reveal(
+                      delay: Duration(milliseconds: 60 * i),
+                      child: cards[i],
+                    ),
+                  ),
+                  childCount: cards.length,
+                ),
               ),
             ),
+        ],
+      ),
       // У волейбола нет обычного табло — кнопку «продолжить/открыть» прячем.
       bottomNavigationBar: widget.profile?.winRule == WinRule.volleyball
           ? null
