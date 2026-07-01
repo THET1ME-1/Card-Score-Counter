@@ -34,7 +34,8 @@ android {
 
     defaultConfig {
         applicationId = "com.score_master"
-        minSdk = flutter.minSdkVersion
+        // saf_util/saf_stream (SAF-бэкап) требуют minSdk 24 (Android 7.0+).
+        minSdk = maxOf(24, flutter.minSdkVersion)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

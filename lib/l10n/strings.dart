@@ -714,4 +714,117 @@ const Map<String, Map<String, String>> _strings = {
     'en': 'Download the latest version from GitHub'
   },
   'up_to_date': {'ru': 'У вас последняя версия', 'en': "You're up to date"},
+
+  // --------------------------- Синхронизация ---------------------------
+  'sync_title': {'ru': 'Синхронизация', 'en': 'Sync'},
+  'sync_settings': {'ru': 'Синхронизация и бэкап', 'en': 'Sync & backup'},
+  'sync_settings_sub': {
+    'ru': 'Папка/облако, WebDAV, обмен по Wi-Fi',
+    'en': 'Folder/cloud, WebDAV, Wi-Fi exchange'
+  },
+  'sync_intro': {
+    'ru':
+        'Данные копятся годами — не потеряйте их при смене телефона. Выберите любой способ (можно несколько).',
+    'en':
+        'Your data grows for years — don\'t lose it when you change phones. Pick any method (or several).'
+  },
+  'sync_never': {'ru': 'ещё не выполнялась', 'en': 'never run'},
+  'sync_status_off': {'ru': 'Выключено', 'en': 'Off'},
+  'sync_last': {'ru': 'Последняя: {t}', 'en': 'Last: {t}'},
+  'sync_now': {'ru': 'Синхронизировать', 'en': 'Sync now'},
+  'sync_running': {'ru': 'Синхронизация…', 'en': 'Syncing…'},
+  'sync_done': {'ru': 'Готово', 'en': 'Done'},
+  'sync_up_to_date': {'ru': 'Всё уже совпадает', 'en': 'Already up to date'},
+  'sync_result': {
+    'ru': '+{a} новых, {u} обновлено, {d} удалено',
+    'en': '+{a} new, {u} updated, {d} removed'
+  },
+  'sync_auto': {'ru': 'Автоматически', 'en': 'Automatic'},
+  'sync_error': {'ru': 'Ошибка: {e}', 'en': 'Error: {e}'},
+
+  // Транспорт A — папка/облако
+  'backup_folder': {'ru': 'Авто-бэкап в папку', 'en': 'Auto-backup to folder'},
+  'backup_folder_sub': {
+    'ru': 'Папка Drive/Dropbox/Nextcloud → облачная копия',
+    'en': 'A Drive/Dropbox/Nextcloud folder → cloud copy'
+  },
+  'backup_folder_how': {
+    'ru':
+        'Приложение само пишет резервную копию в выбранную папку. Укажите папку облачного приложения — и копия окажется в облаке.',
+    'en':
+        'The app writes a backup into the folder you choose. Point it at a cloud app\'s folder and the copy lands in the cloud.'
+  },
+  'choose_folder': {'ru': 'Выбрать папку', 'en': 'Choose folder'},
+  'change_folder': {'ru': 'Сменить папку', 'en': 'Change folder'},
+  'folder_label': {'ru': 'Папка: {name}', 'en': 'Folder: {name}'},
+  'backup_now': {'ru': 'Сделать бэкап сейчас', 'en': 'Back up now'},
+  'backup_done': {'ru': 'Копия сохранена', 'en': 'Backup saved'},
+  'restore_from_folder': {'ru': 'Восстановить из папки', 'en': 'Restore from folder'},
+  'restore_folder_q': {
+    'ru': 'Заменить текущие данные копией из папки?',
+    'en': 'Replace current data with the copy from the folder?'
+  },
+  'no_backup_in_folder': {
+    'ru': 'В папке нет файла копии',
+    'en': 'No backup file in the folder'
+  },
+  'auto_backup_toggle': {
+    'ru': 'Бэкапить при выходе',
+    'en': 'Back up on exit'
+  },
+  'disconnect': {'ru': 'Отключить', 'en': 'Disconnect'},
+
+  // Транспорт B — WebDAV
+  'webdav': {'ru': 'WebDAV / Nextcloud', 'en': 'WebDAV / Nextcloud'},
+  'webdav_sub': {
+    'ru': 'Двусторонний синк через ваш сервер',
+    'en': 'Two-way sync via your own server'
+  },
+  'webdav_how': {
+    'ru':
+        'Свяжите устройства через Nextcloud, Яндекс.Диск или любой WebDAV. Данные лежат на вашем сервере.',
+    'en':
+        'Link devices via Nextcloud, Yandex.Disk or any WebDAV. Data stays on your server.'
+  },
+  'webdav_url': {'ru': 'Адрес сервера', 'en': 'Server URL'},
+  'webdav_user': {'ru': 'Логин', 'en': 'Username'},
+  'webdav_pass': {'ru': 'Пароль (пароль приложения)', 'en': 'Password (app password)'},
+  'connect': {'ru': 'Подключить', 'en': 'Connect'},
+  'webdav_connected': {'ru': 'Подключено', 'en': 'Connected'},
+  'webdav_bad': {'ru': 'Не удалось подключиться', 'en': 'Could not connect'},
+  'auto_sync_toggle': {
+    'ru': 'Синк при запуске и выходе',
+    'en': 'Sync on launch and exit'
+  },
+
+  // Транспорт C — P2P
+  'p2p': {'ru': 'По Wi-Fi (QR)', 'en': 'Over Wi-Fi (QR)'},
+  'p2p_sub': {
+    'ru': 'Обмен между телефонами рядом, без сервера',
+    'en': 'Exchange between nearby phones, no server'
+  },
+  'p2p_how': {
+    'ru':
+        'Два телефона на одном Wi-Fi. Один показывает QR, другой сканирует — данные сольются.',
+    'en':
+        'Two phones on one Wi-Fi. One shows a QR, the other scans it — data merges.'
+  },
+  'p2p_show': {'ru': 'Показать код', 'en': 'Show code'},
+  'p2p_scan': {'ru': 'Сканировать', 'en': 'Scan'},
+  'p2p_show_hint': {
+    'ru': 'Дайте отсканировать этот код второму телефону на этом же Wi-Fi',
+    'en': 'Let the other phone on the same Wi-Fi scan this code'
+  },
+  'p2p_scan_hint': {
+    'ru': 'Наведите на QR-код первого телефона',
+    'en': 'Point at the QR code on the first phone'
+  },
+  'p2p_waiting': {'ru': 'Ожидание второго телефона…', 'en': 'Waiting for the other phone…'},
+  'p2p_synced': {'ru': 'Синхронизировано!', 'en': 'Synced!'},
+  'p2p_bad_code': {'ru': 'Это не код ScoreMaster', 'en': 'Not a ScoreMaster code'},
+  'p2p_no_camera': {
+    'ru': 'Нет доступа к камере',
+    'en': 'No camera access'
+  },
+  'p2p_connecting': {'ru': 'Соединение…', 'en': 'Connecting…'},
 };

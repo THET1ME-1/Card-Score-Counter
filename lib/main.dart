@@ -14,6 +14,8 @@ import 'player_input_screen.dart';
 import 'score_board_screen.dart';
 import 'services/game_repository.dart';
 import 'services/sound_service.dart';
+import 'services/sync/backup_folder_service.dart';
+import 'services/sync/webdav_service.dart';
 import 'services/update_service.dart';
 import 'settings_screen.dart';
 import 'theme/app_theme.dart';
@@ -169,7 +171,7 @@ class MainScreen extends StatefulWidget {
   _MainScreenState createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   static const int _tabCount = 4;
   int _selectedIndex = 0;
 
@@ -178,8 +180,31 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkForUpdate();
     _setupQuickActions();
+    _syncOnStart();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      // При уходе в фон — тихий бэкап в папку и WebDAV-синк (если настроены).
+      BackupFolderService.instance.backupSilently();
+      WebdavService.instance.syncSilently();
+    }
+  }
+
+  /// Тихий WebDAV-синк при запуске: данные с других устройств подтягиваются
+  /// сами. Экраны слушают репозиторий (ChangeNotifier) и обновятся после слияния.
+  Future<void> _syncOnStart() async {
+    await WebdavService.instance.syncSilently();
   }
 
   /// Ярлыки при удержании иконки приложения (Android/iOS): «Новая игра»,

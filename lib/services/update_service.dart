@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ffi' show Abi;
 import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
@@ -55,17 +56,8 @@ class UpdateService {
 
       if (!_isNewer(latest, _normalize(currentVersion))) return null;
 
-      String? apkUrl;
       final assets = json['assets'];
-      if (assets is List) {
-        for (final a in assets) {
-          final name = (a['name'] ?? '').toString().toLowerCase();
-          if (name.endsWith('.apk')) {
-            apkUrl = (a['browser_download_url'] ?? '').toString();
-            break;
-          }
-        }
-      }
+      final apkUrl = assets is List ? _pickApkUrl(assets) : null;
 
       return UpdateInfo(
         version: latest,
@@ -122,6 +114,44 @@ class UpdateService {
     } catch (_) {
       return null;
     }
+  }
+
+  /// ABI-метка текущего устройства для выбора нужного сплит-APK.
+  static String _deviceAbi() {
+    final abi = Abi.current();
+    if (abi == Abi.androidArm64) return 'arm64-v8a';
+    if (abi == Abi.androidArm) return 'armeabi-v7a';
+    if (abi == Abi.androidX64) return 'x86_64';
+    if (abi == Abi.androidIA32) return 'x86';
+    return '';
+  }
+
+  static const List<String> _abiTokens = [
+    'arm64-v8a',
+    'armeabi-v7a',
+    'x86_64',
+    'x86',
+  ];
+
+  /// Выбирает APK-ассет под архитектуру устройства. Порядок предпочтения:
+  /// точное совпадение ABI → универсальный (без ABI-метки) → первый попавшийся.
+  /// Так работает и со сплит-релизом (несколько APK), и со старым единым.
+  static String? _pickApkUrl(List assets) {
+    final abi = _deviceAbi();
+    String? abiMatch, universal, firstApk;
+    for (final a in assets) {
+      final name = (a['name'] ?? '').toString().toLowerCase();
+      if (!name.endsWith('.apk')) continue;
+      final url = (a['browser_download_url'] ?? '').toString();
+      if (url.isEmpty) continue;
+      firstApk ??= url;
+      if (abi.isNotEmpty && name.contains(abi)) {
+        abiMatch ??= url;
+      } else if (!_abiTokens.any(name.contains)) {
+        universal ??= url;
+      }
+    }
+    return abiMatch ?? universal ?? firstApk;
   }
 
   /// «1.0.10» > «1.0.2» (числовое сравнение по компонентам).

@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import 'achievements_screen.dart';
 import 'lock_screen.dart';
 import 'onboarding_screen.dart';
+import 'sync_screen.dart';
 
 import 'l10n/locale_controller.dart';
 import 'l10n/strings.dart';
@@ -916,6 +917,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // ----------------------------- Данные -----------------------------
           _sectionHeader(tr('data'), scheme.primary),
           _groupCard(scheme, [
+            _row(
+              scheme: scheme,
+              icon: Icons.sync_rounded,
+              iconBg: scheme.primaryContainer,
+              iconFg: scheme.onPrimaryContainer,
+              title: tr('sync_settings'),
+              subtitle: tr('sync_settings_sub'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SyncScreen()),
+              ),
+              trailing: Icon(Icons.chevron_right_rounded, color: scheme.outline),
+            ),
+            _rowDivider(scheme),
             _row(
               scheme: scheme,
               icon: Icons.save_alt_rounded,

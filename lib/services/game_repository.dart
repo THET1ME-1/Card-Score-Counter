@@ -9,6 +9,7 @@ import '../models/game_session.dart';
 import '../models/player_company.dart';
 import '../models/volleyball_match.dart';
 import '../player_profile.dart';
+import 'sync/sync_merge.dart';
 
 /// Единый слой доступа к данным приложения поверх [SharedPreferences].
 ///
@@ -54,6 +55,9 @@ class GameRepository extends ChangeNotifier {
   static const String _kOnboardingDone = 'onboardingDone';
   static const String _kGameKassa = 'gameKassa'; // gameId → {игрок: сумма}
   static const String _kGameTeams = 'gameTeams'; // gameId → {count, of:{игрок:idx}}
+  static const String _kGameUpdated = 'gameUpdated'; // gameId → ms (версия для синка)
+  static const String _kGameDeleted = 'gameDeleted'; // gameId → ms («надгробие»)
+  static const String _kDeviceId = 'deviceId'; // стабильный id устройства для синка
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
@@ -112,12 +116,14 @@ class GameRepository extends ChangeNotifier {
           : game;
     }
     await _saveGames(games);
+    await _stampGameUpdated(game.gameId);
   }
 
   Future<void> deleteGame(String gameId) async {
     final games = await loadGames();
     games.removeWhere((g) => g.gameId == gameId);
     await _saveGames(games);
+    await _stampGameDeleted(gameId);
     final prefs = await _prefs;
     // Заодно убираем сохранённое имя и заметку этой партии.
     final names = await gameNames();
@@ -459,6 +465,9 @@ class GameRepository extends ChangeNotifier {
     final prefs = await _prefs;
     await prefs.remove(_kGameHistory);
     await prefs.remove(_kGameNames);
+    // Локальный сброс, а не удаление «для всех»: чистим версии, но НЕ ставим
+    // надгробия — при следующем синке партии вернутся с другого устройства.
+    await prefs.remove(_kGameUpdated);
     notifyListeners();
   }
 
@@ -601,6 +610,15 @@ class GameRepository extends ChangeNotifier {
   Future<void> renamePlayerInGames(String oldName, String newName) async {
     if (oldName == newName) return;
     final games = await loadGames();
+    // Партии, где игрок реально встречается — их версию поднимем для синка.
+    final touched = games
+        .where((g) =>
+            g.players.contains(oldName) ||
+            g.remainingPlayers.contains(oldName) ||
+            g.eliminatedPlayers.contains(oldName) ||
+            g.winnerName == oldName)
+        .map((g) => g.gameId)
+        .toList();
     List<String> rename(List<String> list) =>
         list.map((p) => p == oldName ? newName : p).toList();
     final updated = games
@@ -621,6 +639,14 @@ class GameRepository extends ChangeNotifier {
             ))
         .toList();
     await _saveGames(updated);
+    if (touched.isNotEmpty) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final map = await _gameUpdatedMap();
+      for (final id in touched) {
+        map[id] = now;
+      }
+      await (await _prefs).setString(_kGameUpdated, jsonEncode(map));
+    }
   }
 
   // --------------------------- Настройки ---------------------------
@@ -711,6 +737,126 @@ class GameRepository extends ChangeNotifier {
   Future<void> setDescending(bool value) async =>
       (await _prefs).setBool(_kIsDescending, value);
 
+  // --------------------------- Синхронизация ---------------------------
+  // Версии (gameUpdated) и «надгробия» (gameDeleted) нужны для корректного
+  // слияния истории между устройствами (см. lib/services/sync/sync_merge.dart).
+
+  Future<Map<String, int>> _intMapPref(String key) async {
+    final raw = (await _prefs).getString(key);
+    if (raw == null) return {};
+    try {
+      final m = jsonDecode(raw);
+      return m is Map
+          ? m.map((k, v) => MapEntry(k.toString(), (v as num).toInt()))
+          : <String, int>{};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<Map<String, int>> _gameUpdatedMap() => _intMapPref(_kGameUpdated);
+  Future<Map<String, int>> _gameDeletedMap() => _intMapPref(_kGameDeleted);
+
+  /// Поднимает версию партии и снимает с неё «надгробие» (партия жива).
+  Future<void> _stampGameUpdated(String gameId) async {
+    final prefs = await _prefs;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final upd = await _gameUpdatedMap();
+    upd[gameId] = now;
+    await prefs.setString(_kGameUpdated, jsonEncode(upd));
+    final del = await _gameDeletedMap();
+    if (del.remove(gameId) != null) {
+      await prefs.setString(_kGameDeleted, jsonEncode(del));
+    }
+  }
+
+  /// Ставит «надгробие» удаления партии (чтобы удаление доехало при синке).
+  Future<void> _stampGameDeleted(String gameId) async {
+    final prefs = await _prefs;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final del = await _gameDeletedMap();
+    del[gameId] = now;
+    await prefs.setString(_kGameDeleted, jsonEncode(del));
+    final upd = await _gameUpdatedMap();
+    if (upd.remove(gameId) != null) {
+      await prefs.setString(_kGameUpdated, jsonEncode(upd));
+    }
+  }
+
+  /// Стабильный идентификатор устройства (генерируется при первом обращении).
+  Future<String> deviceId() async {
+    final prefs = await _prefs;
+    var id = prefs.getString(_kDeviceId);
+    if (id == null || id.isEmpty) {
+      final t = DateTime.now().microsecondsSinceEpoch;
+      id = '${t.toRadixString(36)}${(t % 46656).toRadixString(36)}';
+      await prefs.setString(_kDeviceId, id);
+    }
+    return id;
+  }
+
+  Map<String, dynamic> _decodeGeneric(String? raw) {
+    if (raw == null) return {};
+    try {
+      final m = jsonDecode(raw);
+      return m is Map ? Map<String, dynamic>.from(m) : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Снимок данных для синхронизации (без настроек — они device-local).
+  Future<Map<String, dynamic>> buildSyncSnapshot() async {
+    final prefs = await _prefs;
+    return <String, dynamic>{
+      'kind': kSyncKind,
+      'v': kSyncVersion,
+      'device': await deviceId(),
+      'at': DateTime.now().toIso8601String(),
+      'gameHistory': prefs.getStringList(_kGameHistory) ?? const <String>[],
+      'gameUpdated': await _gameUpdatedMap(),
+      'gameDeleted': await _gameDeletedMap(),
+      'profiles': prefs.getStringList(_kProfiles) ?? const <String>[],
+      'customGames': prefs.getStringList(_kCustomGames) ?? const <String>[],
+      'companies': prefs.getStringList(_kCompanies) ?? const <String>[],
+      'gameNames': _decodeGeneric(prefs.getString(_kGameNames)),
+      'gameNotes': _decodeGeneric(prefs.getString(_kGameNotes)),
+      'gameTypes': _decodeGeneric(prefs.getString(_kGameTypes)),
+      'gameKassa': _decodeGeneric(prefs.getString(_kGameKassa)),
+      'gameTeams': _decodeGeneric(prefs.getString(_kGameTeams)),
+    };
+  }
+
+  Future<void> _applyMergedSnapshot(Map<String, dynamic> m) async {
+    final prefs = await _prefs;
+    await prefs.setStringList(_kGameHistory, snapshotStrList(m['gameHistory']));
+    await prefs.setStringList(_kProfiles, snapshotStrList(m['profiles']));
+    await prefs.setStringList(_kCustomGames, snapshotStrList(m['customGames']));
+    await prefs.setStringList(_kCompanies, snapshotStrList(m['companies']));
+    await prefs.setString(_kGameUpdated, jsonEncode(m['gameUpdated'] ?? {}));
+    await prefs.setString(_kGameDeleted, jsonEncode(m['gameDeleted'] ?? {}));
+    for (final key in [
+      _kGameNames,
+      _kGameNotes,
+      _kGameTypes,
+      _kGameKassa,
+      _kGameTeams,
+    ]) {
+      await prefs.setString(key, jsonEncode(m[key] ?? {}));
+    }
+    notifyListeners();
+  }
+
+  /// Сливает пришедший снимок с локальным и применяет результат. Возвращает
+  /// статистику изменений (что добавилось/обновилось/удалилось).
+  Future<SyncStats> mergeSyncSnapshot(Map<String, dynamic> remote) async {
+    final local = await buildSyncSnapshot();
+    final stats = SyncStats();
+    final merged = mergeSnapshots(local, remote, stats);
+    await _applyMergedSnapshot(merged);
+    return stats;
+  }
+
   // ------------------------ Бэкап / восстановление ------------------------
 
   /// Сериализует ВСЕ важные данные приложения в один JSON-документ.
@@ -734,6 +880,8 @@ class GameRepository extends ChangeNotifier {
       _kGameKassa: prefs.getString(_kGameKassa),
       _kGameTeams: prefs.getString(_kGameTeams),
       _kGameTypes: prefs.getString(_kGameTypes),
+      _kGameUpdated: prefs.getString(_kGameUpdated),
+      _kGameDeleted: prefs.getString(_kGameDeleted),
       _kSelectedGame: prefs.getString(_kSelectedGame),
       // Настройки.
       _kIsDarkTheme: prefs.getBool(_kIsDarkTheme),
@@ -785,6 +933,8 @@ class GameRepository extends ChangeNotifier {
         _kGameKassa,
         _kGameTeams,
         _kGameTypes,
+        _kGameUpdated,
+        _kGameDeleted,
         _kSelectedGame,
         _kLanguage
       ]) {
