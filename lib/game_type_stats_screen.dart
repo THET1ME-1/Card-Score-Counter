@@ -6,6 +6,7 @@ import 'services/game_repository.dart';
 import 'theme/app_theme.dart';
 import 'utils/format.dart';
 import 'widgets/reveal.dart';
+import 'models/game_profile.dart';
 
 /// Детальная статистика по одному типу игры: сколько сыграно, таблица игроков
 /// (победы/процент), длительности, последняя партия. Крупный Material 3.
@@ -68,7 +69,7 @@ class _GameTypeStatsScreenState extends State<GameTypeStatsScreen> {
     }
 
     final mine = games
-        .where((g) => types[g.gameId] == widget.typeId)
+        .where((g) => gameTypeIdFor(g.gameId, types) == widget.typeId)
         .toList()
       ..sort((a, b) => b.date.compareTo(a.date));
 

@@ -60,6 +60,9 @@ const Map<String, Map<String, String>> _strings = {
     'en': 'Pure black background in dark theme'
   },
   'theme_presets': {'ru': 'Палитры', 'en': 'Palettes'},
+  'theme_intensity': {'ru': 'Насыщенность', 'en': 'Intensity'},
+  'theme_vibrant': {'ru': 'Сочно', 'en': 'Vivid'},
+  'theme_faithful': {'ru': 'Точь-в-точь', 'en': 'Exact'},
   'theme_color': {'ru': 'Цвет оформления', 'en': 'Theme color'},
   'theme_color_default': {'ru': 'Бирюзовый (стандартный)', 'en': 'Teal (default)'},
   'scoreboard_text_size': {
@@ -96,6 +99,26 @@ const Map<String, Map<String, String>> _strings = {
   'help': {'ru': 'Справка', 'en': 'Help'},
   'rules': {'ru': 'Правила игр', 'en': 'Game rules'},
   'app_version': {'ru': 'Версия {v}', 'en': 'Version {v}'},
+
+  // О программе и поддержка
+  'about': {'ru': 'О программе', 'en': 'About'},
+  'open_source': {'ru': 'Открытый код', 'en': 'Open source'},
+  'about_sub': {
+    'ru': 'ScoreMaster {v} · GPL-3.0, без рекламы и трекеров',
+    'en': 'ScoreMaster {v} · GPL-3.0, no ads or trackers'
+  },
+  'source_code': {
+    'ru': 'Исходный код на GitHub',
+    'en': 'Source code on GitHub'
+  },
+  'support_section': {'ru': 'Поддержать', 'en': 'Support'},
+  'support_authors': {'ru': 'Поддержать авторов', 'en': 'Support the authors'},
+  'support_intro': {
+    'ru': 'ScoreMaster — бесплатное приложение с открытым кодом. '
+        'Любой донат помогает развивать проект.',
+    'en': 'ScoreMaster is a free, open-source app. '
+        'Any donation helps the project grow.'
+  },
 
   // Диалоги/снэкбары настроек
   'restore_q_title': {'ru': 'Восстановить данные?', 'en': 'Restore data?'},

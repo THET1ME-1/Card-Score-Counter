@@ -19,12 +19,14 @@ import 'services/game_repository.dart';
 import 'services/sound_service.dart';
 import 'services/update_service.dart';
 import 'utils/app_version.dart';
+import 'utils/links.dart';
 import 'widgets/update_sheet.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
-import 'widgets/color_picker_sheet.dart';
+import 'widgets/appearance_card.dart';
 import 'widgets/pressable.dart';
 import 'game_rules_screen.dart';
+import 'models/game_profile.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -202,61 +204,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _appVersion = version);
   }
 
-  String _themeModeLabel(AppThemeMode m) => switch (m) {
-        AppThemeMode.light => tr('theme_light'),
-        AppThemeMode.dark => tr('theme_dark'),
-        AppThemeMode.system => tr('theme_system'),
-        AppThemeMode.autoTime => tr('theme_auto'),
-      };
-
-  Future<void> _pickThemeMode() async {
-    final scheme = Theme.of(context).colorScheme;
-    final picked = await showModalBottomSheet<AppThemeMode>(
-      context: context,
-      backgroundColor: scheme.surfaceContainer,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 14),
-            Text(
-              tr('theme_mode'),
-              style: TextStyle(
-                fontFamily: AppTheme.displayFont,
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-                color: scheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 8),
-            for (final m in AppThemeMode.values)
-              ListTile(
-                leading: Icon(switch (m) {
-                  AppThemeMode.light => Icons.light_mode_rounded,
-                  AppThemeMode.dark => Icons.dark_mode_rounded,
-                  AppThemeMode.system => Icons.brightness_auto_rounded,
-                  AppThemeMode.autoTime => Icons.schedule_rounded,
-                }),
-                title: Text(_themeModeLabel(m)),
-                trailing: _theme.mode == m
-                    ? Icon(Icons.check_rounded, color: scheme.primary)
-                    : null,
-                onTap: () => Navigator.pop(ctx, m),
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-    if (picked != null) {
-      await _theme.setMode(picked);
-      if (mounted) setState(() {});
-    }
-  }
-
   void _toggleSound(bool value) {
     SoundService.instance.setEnabled(value);
     setState(() => _soundEnabled = value);
@@ -298,40 +245,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {});
   }
 
-  void _pickPreset(Color color) {
-    _theme.setSeedColor(color);
-    setState(() {});
-  }
-
-  /// Готовые палитры цвета оформления.
-  static const List<Color> _presets = [
-    AppTheme.defaultSeed, // бирюзовый
-    Color(0xFF1E88E5), // синий
-    Color(0xFF7E57C2), // фиолетовый
-    Color(0xFF43A047), // зелёный
-    Color(0xFFFB8C00), // оранжевый
-    Color(0xFFE53935), // красный
-    Color(0xFFEC407A), // розовый
-    Color(0xFF00897B), // изумрудный
-  ];
-
   void _updateTextSize(double value) {
     setState(() => _textSize = value);
     _repo.setTextSize(value);
-  }
-
-  /// Живой колор-пикер темы — настоящая панель с колесом, HEX и RGB,
-  /// выезжает снизу. Единый центр цветов приложения.
-  Future<void> _pickSeedColor() async {
-    final result = await showColorPickerSheet(
-      context,
-      initial: _theme.seedColor,
-      title: tr('theme_color'),
-      resetTo: AppTheme.defaultSeed,
-    );
-    if (result == null) return;
-    await _theme.setSeedColor(result);
-    if (mounted) setState(() {});
   }
 
   /// Выбор языка интерфейса — нижняя панель с двумя вариантами.
@@ -585,7 +501,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       for (final g in games) {
         rows.add([
           fmtDate(g.date),
-          nameOf[types[g.gameId]] ?? '',
+          nameOf[gameTypeIdFor(g.gameId, types)] ?? '',
           g.players.join(' / '),
           g.winner ?? '',
           '${g.rounds}',
@@ -648,6 +564,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Режим темы меняется внутри карточки «Внешний вид» — экран слушает
+    // контроллер, чтобы зависимые строки (AMOLED только для тёмной) обновлялись.
+    return ListenableBuilder(
+      listenable: _theme,
+      builder: (context, _) => _content(context),
+    );
+  }
+
+  Widget _content(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -675,6 +600,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // --------------------------- Внешний вид ---------------------------
           _sectionHeader(tr('appearance'), scheme.primary),
+          // Карточка темы: режим, палитра акцентов, свой цвет, насыщенность.
+          const AppearanceCard(),
+          const SizedBox(height: 10),
           _groupCard(scheme, [
             _row(
               scheme: scheme,
@@ -687,22 +615,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       orElse: () => LocaleController.languages.first)
                   .nativeName,
               onTap: _pickLanguage,
-              trailing: Icon(Icons.chevron_right_rounded, color: scheme.outline),
-            ),
-            _rowDivider(scheme),
-            _row(
-              scheme: scheme,
-              icon: switch (_theme.mode) {
-                AppThemeMode.light => Icons.light_mode_rounded,
-                AppThemeMode.dark => Icons.dark_mode_rounded,
-                AppThemeMode.system => Icons.brightness_auto_rounded,
-                AppThemeMode.autoTime => Icons.schedule_rounded,
-              },
-              iconBg: scheme.primaryContainer,
-              iconFg: scheme.onPrimaryContainer,
-              title: tr('theme_mode'),
-              subtitle: _themeModeLabel(_theme.mode),
-              onTap: _pickThemeMode,
               trailing: Icon(Icons.chevron_right_rounded, color: scheme.outline),
             ),
             // AMOLED — когда тема не светлая.
@@ -760,32 +672,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onChanged: _toggleDynamic,
               ),
             ),
-            // Свой цвет оформления — только когда Material You выключен.
-            if (!_theme.useDynamicColor) ...[
-              _rowDivider(scheme),
-              _row(
-                scheme: scheme,
-                icon: Icons.palette_rounded,
-                iconBg: scheme.primaryContainer,
-                iconFg: scheme.onPrimaryContainer,
-                title: tr('theme_color'),
-                subtitle: _theme.isDefaultSeed
-                    ? tr('theme_color_default')
-                    : colorToHex(_theme.seedColor),
-                onTap: _pickSeedColor,
-                trailing: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: _theme.seedColor,
-                    shape: BoxShape.circle,
-                    border:
-                        Border.all(color: scheme.outlineVariant, width: 2),
-                  ),
-                ),
-              ),
-              _presetsRow(scheme),
-            ],
             _rowDivider(scheme),
             _textSizeRow(scheme),
           ]),
@@ -1032,17 +918,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _groupCard(scheme, [
             _row(
               scheme: scheme,
-              icon: Icons.system_update_rounded,
-              iconBg: scheme.tertiaryContainer,
-              iconFg: scheme.onTertiaryContainer,
-              title: tr('check_updates'),
-              subtitle: tr('check_updates_sub'),
-              onTap: _checkUpdates,
-              trailing: Icon(Icons.chevron_right_rounded, color: scheme.outline),
-            ),
-            _rowDivider(scheme),
-            _row(
-              scheme: scheme,
               icon: Icons.menu_book_rounded,
               iconBg: scheme.tertiaryContainer,
               iconFg: scheme.onTertiaryContainer,
@@ -1068,6 +943,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ]),
 
+          // --------------------------- О программе ---------------------------
+          _sectionHeader(tr('about'), scheme.primary),
+          _groupCard(scheme, [
+            _row(
+              scheme: scheme,
+              icon: Icons.code_rounded,
+              iconBg: scheme.tertiaryContainer,
+              iconFg: scheme.onTertiaryContainer,
+              title: tr('open_source'),
+              subtitle: trf('about_sub', {'v': _appVersion}),
+            ),
+            _rowDivider(scheme),
+            _row(
+              scheme: scheme,
+              icon: Icons.system_update_rounded,
+              iconBg: scheme.tertiaryContainer,
+              iconFg: scheme.onTertiaryContainer,
+              title: tr('check_updates'),
+              subtitle: 'ScoreMaster $_appVersion',
+              onTap: _checkUpdates,
+              trailing: Icon(Icons.chevron_right_rounded, color: scheme.outline),
+            ),
+            _rowDivider(scheme),
+            _row(
+              scheme: scheme,
+              icon: Icons.link_rounded,
+              iconBg: scheme.tertiaryContainer,
+              iconFg: scheme.onTertiaryContainer,
+              title: tr('source_code'),
+              subtitle: 'github.com/THET1ME-1/Card-Score-Counter',
+              onTap: openRepo,
+              trailing:
+                  Icon(Icons.open_in_new_rounded, color: scheme.outline),
+            ),
+          ]),
+
+          // ---------------------------- Поддержать ---------------------------
+          _sectionHeader(tr('support_section'), scheme.primary),
+          _supportCard(scheme),
+
           const SizedBox(height: 24),
           Center(
             child: Column(
@@ -1091,6 +1006,98 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Карточка «Поддержать авторов»: Boosty и два разовых способа.
+  Widget _supportCard(ColorScheme scheme) {
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.volunteer_activism_rounded,
+                  color: scheme.primary, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  tr('support_authors'),
+                  style: TextStyle(
+                    fontFamily: AppTheme.displayFont,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    color: scheme.onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            tr('support_intro'),
+            style: TextStyle(
+              fontFamily: AppTheme.bodyFont,
+              fontSize: 13,
+              height: 1.35,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: openSupportAuthors,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            icon: const Icon(Icons.favorite_rounded, size: 19),
+            label: const Text(
+              'Boosty',
+              style: TextStyle(
+                fontFamily: AppTheme.displayFont,
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          FilledButton.tonalIcon(
+            onPressed: openDonationAlerts,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 13),
+            ),
+            icon: const Icon(Icons.card_giftcard_rounded, size: 19),
+            label: const Text(
+              'DonationAlerts',
+              style: TextStyle(
+                fontFamily: AppTheme.displayFont,
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          FilledButton.tonalIcon(
+            onPressed: openLavaDonate,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 13),
+            ),
+            icon: const Icon(Icons.bolt_rounded, size: 19),
+            label: const Text(
+              'Lava.top',
+              style: TextStyle(
+                fontFamily: AppTheme.displayFont,
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
             ),
           ),
         ],
@@ -1139,46 +1146,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       alignment: Alignment.center,
       decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
       child: Icon(icon, size: 22, color: fg),
-    );
-  }
-
-  /// Ряд готовых палитр: тапнул кружок — сменился цвет оформления. Выбранный
-  /// обведён и с галочкой.
-  Widget _presetsRow(ColorScheme scheme) {
-    final current = _theme.seedColor.toARGB32();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 16, 14),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 56,
-            child: Text(
-              tr('theme_presets'),
-              style: TextStyle(
-                fontFamily: AppTheme.bodyFont,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 10,
-              children: [
-                for (final c in _presets)
-                  _PresetDot(
-                    color: c,
-                    selected: c.toARGB32() == current,
-                    onTap: () => _pickPreset(c),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -1284,48 +1251,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: _updateTextSize,
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Кружок-палитра в ряду пресетов: при выборе обведён кольцом и с галочкой.
-class _PresetDot extends StatelessWidget {
-  final Color color;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _PresetDot({
-    required this.color,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    // Контрастная галочка для светлых/тёмных цветов.
-    final check = ThemeData.estimateBrightnessForColor(color) == Brightness.dark
-        ? Colors.white
-        : Colors.black;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: AppTheme.emphasized,
-        width: 34,
-        height: 34,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: selected ? scheme.onSurface : scheme.outlineVariant,
-            width: selected ? 3 : 1,
-          ),
-        ),
-        child: selected
-            ? Icon(Icons.check_rounded, size: 18, color: check)
-            : null,
       ),
     );
   }

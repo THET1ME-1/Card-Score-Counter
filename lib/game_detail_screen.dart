@@ -85,7 +85,7 @@ class _GameDetailScreenState extends State<GameDetailScreen> {
         // Текущую партию из среднего исключаем — иначе при единственной
         // игре «среднее» совпадает с ней самой (сравнение с самим собой).
         if (g.gameId == widget.game.gameId) continue;
-        if (types[g.gameId] == typeId && g.durationMs > 0) {
+        if (gameTypeIdFor(g.gameId, types) == typeId && g.durationMs > 0) {
           durations.add(g.durationMs);
           count++;
         }

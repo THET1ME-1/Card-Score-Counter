@@ -11,6 +11,7 @@ import 'theme/app_theme.dart';
 import 'utils/format.dart';
 import 'widgets/player_shapes.dart';
 import 'widgets/reveal.dart';
+import 'models/game_profile.dart';
 
 /// Период для графика динамики.
 enum _Period { day, month, year }
@@ -238,7 +239,7 @@ class _EnhancedStatisticsScreenState extends State<EnhancedStatisticsScreen> {
     for (final g in sorted) {
       // Волейбол — командный счёт, в статистику игроков не идёт (иначе
       // «Хозяева»/«Гости» попадут в лидеров).
-      if (types[g.gameId] == 'volleyball') continue;
+      if (gameTypeIdFor(g.gameId, types) == 'volleyball') continue;
       rounds += g.rounds;
       if (!g.isFinished) continue;
       finished++;

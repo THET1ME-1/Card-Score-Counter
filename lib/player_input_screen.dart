@@ -102,8 +102,9 @@ class _PlayerInputScreenState extends State<PlayerInputScreen> {
         .toList()
       ..sort((a, b) => b.date.compareTo(a.date));
     final latest = candidates.isEmpty ? null : candidates.first;
-    final profile =
-        latest == null ? null : await _repo.gameById(types[latest.gameId]);
+    final profile = latest == null
+        ? null
+        : await _repo.gameById(gameTypeIdFor(latest.gameId, types));
     if (!mounted) return;
     setState(() {
       _resumeGame = latest;

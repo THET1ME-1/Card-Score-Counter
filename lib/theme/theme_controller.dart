@@ -23,6 +23,7 @@ class ThemeController extends ChangeNotifier {
   AppThemeMode _mode = AppThemeMode.dark;
   bool _useDynamic = false;
   bool _amoled = false;
+  bool _vibrant = true;
   bool _loaded = false;
 
   Color get seedColor => _seedColor;
@@ -47,6 +48,9 @@ class ThemeController extends ChangeNotifier {
 
   /// AMOLED — чистый чёрный фон в тёмной теме.
   bool get amoled => _amoled;
+
+  /// Насыщенность схемы: «Сочно» против «Точь-в-точь» (см. [AppTheme.variantFor]).
+  bool get vibrantScheme => _vibrant;
   bool get isLoaded => _loaded;
   ThemeMode get themeMode => switch (_mode) {
         AppThemeMode.light => ThemeMode.light,
@@ -73,6 +77,7 @@ class ThemeController extends ChangeNotifier {
     }
     _useDynamic = await _repo.dynamicColorEnabled();
     _amoled = await _repo.amoledEnabled();
+    _vibrant = await _repo.vibrantSchemeEnabled();
     _loaded = true;
     notifyListeners();
   }
@@ -89,6 +94,13 @@ class ThemeController extends ChangeNotifier {
     _amoled = value;
     notifyListeners();
     await _repo.setAmoledEnabled(value);
+  }
+
+  Future<void> setVibrantScheme(bool value) async {
+    if (value == _vibrant) return;
+    _vibrant = value;
+    notifyListeners();
+    await _repo.setVibrantSchemeEnabled(value);
   }
 
   Future<void> setSeedColor(Color color) async {

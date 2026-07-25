@@ -41,6 +41,7 @@ class GameRepository extends ChangeNotifier {
   static const String _kResumeDismissed = 'resumeDismissed';
   static const String _kDynamicColor = 'dynamicColor';
   static const String _kAmoled = 'amoled';
+  static const String _kVibrantScheme = 'vibrantScheme';
   static const String _kVolleyballActive = 'volleyballActive';
   static const String _kGameNotes = 'gameNotes';
   static const String _kFeatureNotes = 'featureNotes';
@@ -712,6 +713,16 @@ class GameRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Насыщенность схемы: «Сочно» (vibrant) против «Точь-в-точь» (fidelity).
+  /// По умолчанию сочная — так пресеты заметно отличаются друг от друга.
+  Future<bool> vibrantSchemeEnabled({bool fallback = true}) async =>
+      (await _prefs).getBool(_kVibrantScheme) ?? fallback;
+
+  Future<void> setVibrantSchemeEnabled(bool value) async {
+    await (await _prefs).setBool(_kVibrantScheme, value);
+    notifyListeners();
+  }
+
   /// ARGB-значение seed-цвета темы, или null если пользователь не выбирал.
   Future<int?> seedColorValue() async => (await _prefs).getInt(_kSeedColor);
 
@@ -894,6 +905,7 @@ class GameRepository extends ChangeNotifier {
       _kTimerEnabled: prefs.getBool(_kTimerEnabled),
       _kDynamicColor: prefs.getBool(_kDynamicColor),
       _kAmoled: prefs.getBool(_kAmoled),
+      _kVibrantScheme: prefs.getBool(_kVibrantScheme),
       _kFeatureNotes: prefs.getBool(_kFeatureNotes),
       _kPlayerFolders: prefs.getBool(_kPlayerFolders),
       _kFeatureKassa: prefs.getBool(_kFeatureKassa),
@@ -960,6 +972,7 @@ class GameRepository extends ChangeNotifier {
         _kTimerEnabled,
         _kDynamicColor,
         _kAmoled,
+        _kVibrantScheme,
         _kFeatureNotes,
         _kPlayerFolders,
         _kFeatureKassa,

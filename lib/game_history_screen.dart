@@ -81,12 +81,11 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
   List<GameSession> get _visible {
     final q = _query.trim().toLowerCase();
     return _games.where((g) {
-      if (_filter != null && _types[g.gameId] != _filter) return false;
+      if (_filter != null && _typeOf(g) != _filter) return false;
       if (q.isEmpty) return true;
       // Ищем по названию партии, названию игры и именам игроков.
       final name = (_names[g.gameId] ?? '').toLowerCase();
-      final typeName =
-          (_gamesById[_types[g.gameId]]?.displayName ?? '').toLowerCase();
+      final typeName = (_gamesById[_typeOf(g)]?.displayName ?? '').toLowerCase();
       final players = g.players.join(' ').toLowerCase();
       return name.contains(q) ||
           typeName.contains(q) ||
@@ -94,7 +93,10 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     }).toList();
   }
 
-  GameProfile? _gameOf(GameSession g) => _gamesById[_types[g.gameId]];
+  /// Тип партии: тег истории, а без тега — игра по умолчанию (101).
+  String _typeOf(GameSession g) => gameTypeIdFor(g.gameId, _types);
+
+  GameProfile? _gameOf(GameSession g) => _gamesById[_typeOf(g)];
 
   Future<void> _toggleSort() async {
     HapticFeedback.selectionClick();
@@ -209,7 +211,7 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     // Игры, реально встречающиеся в истории — для фильтра.
     final usedGameIds = <String>{
       for (final g in _games)
-        if (_types[g.gameId] != null) _types[g.gameId]!,
+        _typeOf(g),
     };
 
     return Scaffold(
@@ -323,7 +325,7 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
     final title = _titleFor(game, index);
     final roundCount = game.scores.isEmpty ? 0 : game.scores.first.length;
     final profile = _gameOf(game);
-    final typeId = _types[game.gameId];
+    final typeId = _typeOf(game);
 
     // Container transform (M3): карточка «морфится» в экран аналитики.
     final card = OpenContainer(
@@ -389,7 +391,7 @@ class _GameHistoryScreenState extends State<GameHistoryScreen> {
                           const SizedBox(height: 5),
                           Row(
                             children: [
-                              if (profile != null && typeId != null) ...[
+                              if (profile != null) ...[
                                 _gameTypePill(profile.displayName, typeId, scheme),
                                 const SizedBox(width: 8),
                               ],

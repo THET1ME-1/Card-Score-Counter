@@ -22,6 +22,7 @@ import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 import 'utils/app_version.dart';
 import 'widgets/update_sheet.dart';
+import 'models/game_profile.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,8 +60,12 @@ class CardGameScoreTracker extends StatelessWidget {
               darkDynamic != null;
           final dynSeed = lightDynamic?.primary ?? theme.seedColor;
           final seed = useDyn ? dynSeed : theme.seedColor;
-          final lightTheme = AppTheme.light(seed);
-          final darkTheme = AppTheme.dark(seed, amoled: theme.amoled);
+          final lightTheme = AppTheme.light(seed, vibrant: theme.vibrantScheme);
+          final darkTheme = AppTheme.dark(
+            seed,
+            amoled: theme.amoled,
+            vibrant: theme.vibrantScheme,
+          );
           return MaterialApp(
             title: 'ScoreMaster',
             debugShowCheckedModeBanner: false,
@@ -240,7 +245,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       ..sort((a, b) => b.date.compareTo(a.date));
     if (candidates.isEmpty || !mounted) return;
     final game = candidates.first;
-    final profile = await repo.gameById(types[game.gameId]);
+    final profile = await repo.gameById(gameTypeIdFor(game.gameId, types));
     if (!mounted) return;
     Navigator.push(
       context,

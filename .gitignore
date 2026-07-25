@@ -52,3 +52,7 @@ app.*.map.json
 
 # Логи
 *.log
+
+# Личные заметки для Claude Code (не уезжают в репозиторий)
+CLAUDE.md
+CLAUDE.local.md

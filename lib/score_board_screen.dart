@@ -16,6 +16,7 @@ import 'models/game_session.dart';
 import 'services/game_repository.dart';
 import 'services/sound_service.dart';
 import 'theme/app_theme.dart';
+import 'utils/game_clock.dart';
 import 'widgets/count_up_number.dart';
 import 'widgets/dice_roll.dart';
 import 'widgets/flash_highlight.dart';
@@ -92,20 +93,12 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
 
   // -------------------------- Учёт времени партии --------------------------
   // Время считается ВСЕГДА, пока открыто табло, независимо от того, показана
-  // ли панель таймера. Накопленное время сохраняется в сессию (durationMs и
-  // playerTimesMs), поэтому видно в истории и аналитике.
+  // ли панель таймера и свёрнуто ли приложение. Накопленное время сохраняется
+  // в сессию (durationMs и playerTimesMs), поэтому видно в истории и аналитике.
 
-  /// Накопленное время партии (мс) из прошлых сессий открытия табло.
-  int _durationMs = 0;
-
-  /// Накопленное время по игрокам (мс), параллельно [widget.players].
-  List<int> _playerMs = [];
-
-  /// Идёт сейчас («активный отрезок» времени текущего владельца хода).
-  final Stopwatch _clock = Stopwatch();
-
-  /// Кому идёт время текущего отрезка (индекс в [widget.players]).
-  int _clockOwner = 0;
+  /// Часы партии, хода и игроков. Создаются в [initState], когда известно
+  /// накопленное время из сохранённой партии.
+  late final GameClock _clock;
 
   /// Пользователь поставил таймер на паузу кнопкой.
   bool _timerPaused = false;
@@ -153,6 +146,9 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
     _loadTimerPref();
     _rule = widget.profile?.winRule ?? WinRule.elimination;
     _target = widget.profile?.target ?? 101;
+    // Накопленное время из сохранённой партии (заполняется ниже из initialData).
+    int savedDurationMs = 0;
+    List<int> savedPlayerMs = const [];
     if (widget.initialData != null) {
       final data = widget.initialData!;
       scores = List<List<dynamic>>.from(data['scores'] ?? []);
@@ -164,26 +160,31 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
       gameId = data['gameId']?.toString();
       winCredited = data['winCredited'] as bool? ?? false;
       _manualWinner = data['winnerName']?.toString();
-      _durationMs = (data['durationMs'] as num?)?.toInt() ?? 0;
-      _playerMs = (data['playerTimesMs'] as List?)
+      savedDurationMs = (data['durationMs'] as num?)?.toInt() ?? 0;
+      savedPlayerMs = (data['playerTimesMs'] as List?)
               ?.map((e) => (e as num?)?.toInt() ?? 0)
               .toList() ??
-          <int>[];
+          const <int>[];
     } else {
       scores = List.generate(widget.players.length, (_) => []);
       remainingPlayers = List.from(widget.players);
       gameId = DateTime.now().millisecondsSinceEpoch.toString();
-      // Помечаем партию выбранной игрой (для истории).
-      if (widget.profile != null) {
-        _repo.setGameType(gameId!, widget.profile!.id);
-      }
     }
-    // Время по игрокам приводим к длине списка игроков (на случай старых данных).
-    _playerMs = List<int>.generate(
-        widget.players.length, (i) => i < _playerMs.length ? _playerMs[i] : 0);
+    // Помечаем партию игрой — и новую, и продолженную. Без тега партия
+    // выпадала из статистики, фильтра истории и сравнения в аналитике, а
+    // «Играть заново» плодило такие же безымянные партии. Профиль неизвестен —
+    // значит табло идёт по правилу игры по умолчанию, его и записываем.
+    _repo.setGameType(gameId!, widget.profile?.id ?? kDefaultGameId);
     _flashCounts = List<int>.filled(widget.players.length, 0);
-    _clockOwner =
-        currentPlayerIndex.clamp(0, widget.players.length - 1).toInt();
+    // Часы продолжают накопленное время партии; время по игрокам подгоняется
+    // под текущий список игроков (на случай старых данных).
+    _clock = GameClock(
+      playerCount: widget.players.length,
+      matchMs: savedDurationMs,
+      playerMs: savedPlayerMs,
+    )
+      ..creditsPlayers = _creditsTurns
+      ..owner = currentPlayerIndex.clamp(0, widget.players.length - 1).toInt();
     // Кто уже получил победу за эту партию (для сверки начислений).
     _creditedTo = winCredited ? _winnerByRule() : null;
     // Пересчитываем статусы под актуальное правило игры. Это само-исцеляет
@@ -492,29 +493,10 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
   }
 
   /// Текущее время партии с учётом идущего отрезка.
-  int get _liveDurationMs => _durationMs + _clock.elapsedMilliseconds;
+  int get _liveDurationMs => _clock.liveMatchMs;
 
   /// Время по игрокам с учётом идущего отрезка (текущий владелец хода).
-  List<int> _livePlayerMs() {
-    final out = List<int>.from(_playerMs);
-    if (_creditsTurns && _clockOwner >= 0 && _clockOwner < out.length) {
-      out[_clockOwner] += _clock.elapsedMilliseconds;
-    }
-    return out;
-  }
-
-  /// Снимает накопленный отрезок в счётчики и обнуляет секундомер. Вызывается
-  /// перед сменой владельца хода, на паузе и при сворачивании приложения.
-  void _flushClock() {
-    final ms = _clock.elapsedMilliseconds;
-    if (ms > 0) {
-      _durationMs += ms;
-      if (_creditsTurns && _clockOwner >= 0 && _clockOwner < _playerMs.length) {
-        _playerMs[_clockOwner] += ms;
-      }
-    }
-    _clock.reset();
-  }
+  List<int> _livePlayerMs() => _clock.livePlayerMs();
 
   /// Пауза/возобновление часов кнопкой на панели таймера.
   void _toggleTimer() {
@@ -523,7 +505,6 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
         _timerPaused = false;
         if (!_finished) _clock.start();
       } else {
-        _flushClock();
         _clock.stop();
         _timerPaused = true;
       }
@@ -534,10 +515,8 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
   /// Сброс часов партии (и времени по игрокам) к нулю.
   void _resetTimer() {
     setState(() {
-      _clock.reset();
-      _durationMs = 0;
-      _playerMs = List<int>.filled(widget.players.length, 0);
-      if (!_timerPaused && !_finished && !_clock.isRunning) _clock.start();
+      _clock.resetTotals();
+      if (!_timerPaused && !_finished) _clock.start();
     });
     _persist();
   }
@@ -546,12 +525,14 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      // Возвращаемся в приложение — продолжаем часы, если уместно.
-      if (!_timerPaused && !_finished && !_clock.isRunning) _clock.start();
+      // Вернулись на экран: время шло и в фоне, освежаем показания панели.
+      _clock.onForeground();
+      if (!_timerPaused && !_finished) _clock.start();
+      if (mounted) setState(() {});
     } else {
-      // Уходим в фон — фиксируем время и останавливаем счёт (фон не считаем).
-      _flushClock();
-      _clock.stop();
+      // Свернули: фиксируем накопленное и сохраняем, но счёт НЕ останавливаем —
+      // партия за столом идёт и с погашенным экраном.
+      _clock.onBackground();
       _persist();
     }
   }
@@ -641,12 +622,11 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
 
   void _advanceToNextPlayer() {
     setState(() {
-      // Фиксируем время уходящего игрока, затем передаём ход и часы новому.
-      _flushClock();
       do {
         currentPlayerIndex = (currentPlayerIndex + 1) % widget.players.length;
       } while (eliminatedPlayers.contains(widget.players[currentPlayerIndex]));
-      _clockOwner = currentPlayerIndex;
+      // Время уходящего игрока фиксируется, счётчик хода начинается заново.
+      _clock.switchTurn(currentPlayerIndex);
     });
     _persist();
   }
@@ -710,7 +690,6 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
 
     // Часы партии: останавливаем на финише, возобновляем при откате победы.
     if (_finished && !wasFinished) {
-      _flushClock();
       _clock.stop();
     } else if (!_finished && wasFinished && !_timerPaused) {
       _clock.start();
@@ -1644,12 +1623,11 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
 
   void _advanceToPreviousPlayer() {
     setState(() {
-      _flushClock();
       do {
         currentPlayerIndex = (currentPlayerIndex - 1 + widget.players.length) %
             widget.players.length;
       } while (eliminatedPlayers.contains(widget.players[currentPlayerIndex]));
-      _clockOwner = currentPlayerIndex;
+      _clock.switchTurn(currentPlayerIndex);
     });
     _persist();
   }
@@ -1750,8 +1728,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
   @override
   void dispose() {
     _ticker?.cancel();
-    _flushClock(); // фиксируем последний отрезок времени
-    _clock.stop();
+    _clock.stop(); // фиксируем последний отрезок времени
     WidgetsBinding.instance.removeObserver(this);
     _persist(); // Сохраняем игру при выходе с экрана
     super.dispose();
@@ -1898,8 +1875,7 @@ class _ScoreBoardScreenState extends State<ScoreBoardScreen>
                   if (_showTimer)
                     GameTimer(
                       matchElapsed: Duration(milliseconds: _liveDurationMs),
-                      turnElapsed:
-                          Duration(milliseconds: _clock.elapsedMilliseconds),
+                      turnElapsed: Duration(milliseconds: _clock.liveTurnMs),
                       running: !_timerPaused && !_finished,
                       onToggle: _toggleTimer,
                       onReset: _resetTimer,
