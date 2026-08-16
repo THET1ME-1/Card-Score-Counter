@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'l10n/strings.dart';
 import 'models/game_profile.dart';
 import 'theme/app_theme.dart';
+import 'models/hand_sum.dart';
 import 'widgets/numeric_keypad.dart';
 import 'widgets/pressable.dart';
 
@@ -42,7 +43,7 @@ class AddScoresScreen extends StatefulWidget {
 }
 
 class _AddScoresScreenState extends State<AddScoresScreen> {
-  late List<String> _values;
+  late List<HandSum> _values;
   late int _active;
 
   @override
@@ -52,8 +53,8 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
     _values = List.generate(
       widget.players.length,
       (i) => widget.initialScores.isNotEmpty && i < widget.initialScores.length
-          ? widget.initialScores[i].toString()
-          : '',
+          ? HandSum.of(widget.initialScores[i])
+          : const HandSum(),
     );
   }
 
@@ -65,11 +66,10 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
     if (!_isElimination) return true;
     int zeros = 0;
     for (final v in _values) {
-      if (v.isEmpty || v == '0') {
+      if (v.total == 0) {
         zeros++;
-      } else {
-        final n = int.tryParse(v);
-        if (n == null || n <= 0) return false;
+      } else if (v.total < 0) {
+        return false;
       }
     }
     return zeros == 1;
@@ -77,25 +77,17 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
 
   bool get _isElimination => widget.rule == WinRule.elimination;
 
-  void _digit(String d) {
-    setState(() {
-      final cur = _values[_active];
-      if (cur.isEmpty || cur == '0') {
-        _values[_active] = d;
-      } else if (cur.length < 4) {
-        _values[_active] = cur + d;
-      }
-    });
-  }
+  void _digit(String d) =>
+      setState(() => _values[_active] = _values[_active].digit(d));
 
-  void _backspace() {
-    setState(() {
-      final cur = _values[_active];
-      if (cur.isNotEmpty) _values[_active] = cur.substring(0, cur.length - 1);
-    });
-  }
+  /// Отложить набранное и начать следующее слагаемое: рука из разных карт
+  /// складывается по частям, а не в уме над столом.
+  void _plus() => setState(() => _values[_active] = _values[_active].plus());
 
-  void _clear() => setState(() => _values[_active] = '');
+  void _backspace() =>
+      setState(() => _values[_active] = _values[_active].backspace());
+
+  void _clear() => setState(() => _values[_active] = const HandSum());
 
   void _next() {
     setState(() => _active = (_active + 1) % widget.players.length);
@@ -103,16 +95,13 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
 
   void _eliminate(int index) {
     setState(() {
-      _values[index] = widget.target.toString();
+      _values[index] = HandSum.of(widget.target);
       _active = index;
     });
   }
 
   void _submit() {
-    final scores = _values.map((v) {
-      if (v.isEmpty || v == '0' || v == '-') return 0;
-      return int.tryParse(v) ?? 0;
-    }).toList();
+    final scores = _values.map((v) => v.total).toList();
     widget.onAddScores(scores);
     Navigator.pop(context);
   }
@@ -161,6 +150,7 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
               itemBuilder: (context, index) => _playerRow(index, scheme),
             ),
           ),
+          if (_values[_active].showTape) _tape(scheme),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: PressableScale(
@@ -184,12 +174,60 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
                 onDigit: _digit,
                 onBackspace: _backspace,
                 onClear: _clear,
+                onPlus: _plus,
                 actionIcon: Icons.keyboard_arrow_down,
                 onAction: widget.players.length > 1 ? _next : null,
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Из чего сложился итог активного игрока.
+  ///
+  /// Без неё калькулятор был бы чёрным ящиком: нажал не ту карту — увидишь это
+  /// через три раунда, когда счёт перестанет сходиться. Появляется, только
+  /// когда слагаемых больше одного.
+  Widget _tape(ColorScheme scheme) {
+    final sum = _values[_active];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                sum.tape,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: AppTheme.bodyFont,
+                  fontSize: 15,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              sum.total.toString(),
+              style: TextStyle(
+                fontFamily: AppTheme.displayFont,
+                fontWeight: FontWeight.w700,
+                fontSize: 22,
+                fontFeatures: const [FontFeature.tabularFigures()],
+                color: scheme.primary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -234,7 +272,7 @@ class _AddScoresScreenState extends State<AddScoresScreen> {
                         ),
                       ),
                       Text(
-                        value.isEmpty ? '0' : value,
+                        value.total.toString(),
                         style: TextStyle(
                           fontFamily: AppTheme.displayFont,
                           fontWeight: FontWeight.w800,

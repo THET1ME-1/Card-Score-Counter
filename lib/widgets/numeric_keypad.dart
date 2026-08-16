@@ -21,6 +21,13 @@ class NumericKeypad extends StatelessWidget {
   /// Правая нижняя кнопка действия (готово/далее).
   final VoidCallback? onAction;
 
+  /// Отложить набранное слагаемое и начать следующее.
+  ///
+  /// Задан — клавиатура становится четырёхколоночной: правый столбец занимают
+  /// стирание, плюс и действие во всю высоту двух рядов, а ноль забирает весь
+  /// нижний ряд. Не задан — раскладка прежняя, три колонки.
+  final VoidCallback? onPlus;
+
   final IconData actionIcon;
 
   const NumericKeypad({
@@ -29,6 +36,7 @@ class NumericKeypad extends StatelessWidget {
     required this.onBackspace,
     this.onClear,
     this.onAction,
+    this.onPlus,
     this.actionIcon = Icons.check,
   });
 
@@ -50,6 +58,79 @@ class NumericKeypad extends StatelessWidget {
             ),
           ),
         );
+
+    Widget backspaceKey() => _KeypadButton(
+          onTap: onBackspace,
+          onLongPress: onClear,
+          semanticLabel: MaterialLocalizations.of(context).keyboardKeyBackspace,
+          background: scheme.surfaceContainerHigh,
+          foreground: scheme.onSurfaceVariant,
+          child: const Icon(Icons.backspace_outlined, size: 28),
+        );
+
+    Widget actionKey({double? height}) => _KeypadButton(
+          onTap: onAction,
+          height: height,
+          semanticLabel: MaterialLocalizations.of(context).okButtonLabel,
+          background: scheme.primary,
+          foreground: scheme.onPrimary,
+          child: Icon(actionIcon, size: 30),
+        );
+
+    if (onPlus != null) {
+      // Четыре колонки: цифры слева, справа — стирание, плюс и действие.
+      // Действие вытянуто на два ряда: это самая частая кнопка после цифр,
+      // и мимо неё труднее промахнуться, чем по обычной.
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(children: [
+            for (final d in const ['1', '2', '3']) Expanded(child: digit(d)),
+            Expanded(child: backspaceKey()),
+          ]),
+          Row(children: [
+            for (final d in const ['4', '5', '6']) Expanded(child: digit(d)),
+            Expanded(
+              child: _KeypadButton(
+                onTap: onPlus,
+                semanticLabel: '+',
+                background: scheme.surfaceContainerHigh,
+                foreground: scheme.primary,
+                child: const Text(
+                  '+',
+                  style: TextStyle(
+                    fontFamily: AppTheme.displayFont,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 32,
+                  ),
+                ),
+              ),
+            ),
+          ]),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(children: [
+                        for (final d in const ['7', '8', '9'])
+                          Expanded(child: digit(d)),
+                      ]),
+                      Row(children: [Expanded(child: digit('0'))]),
+                    ],
+                  ),
+                ),
+                // Одна кнопка ростом в два ряда: 62 + 62 плюс зазор между ними.
+                Expanded(child: actionKey(height: 134)),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -93,6 +174,9 @@ class NumericKeypad extends StatelessWidget {
 class _KeypadButton extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+
+  /// Высота кнопки. По умолчанию 62 — общий размер клавиши.
+  final double? height;
   final Color background;
   final Color foreground;
   final Widget child;
@@ -100,6 +184,7 @@ class _KeypadButton extends StatelessWidget {
 
   const _KeypadButton({
     required this.onTap,
+    this.height,
     this.onLongPress,
     required this.background,
     required this.foreground,
@@ -118,7 +203,7 @@ class _KeypadButton extends StatelessWidget {
       child: Padding(
       padding: const EdgeInsets.all(5),
       child: SizedBox(
-        height: 62,
+        height: height ?? 62,
         child: Material(
           color: enabled ? background : background.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(20),
