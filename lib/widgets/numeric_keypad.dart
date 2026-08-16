@@ -111,7 +111,11 @@ class NumericKeypad extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Три доли против одной: колонки обязаны совпасть с рядами
+                // выше, иначе цифры сжимаются, а кнопка действия раздувается
+                // на половину клавиатуры.
                 Expanded(
+                  flex: 3,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
